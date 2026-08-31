@@ -113,6 +113,7 @@
   --node-stage: oklch(0.28 0.09 250);
   --node-email: oklch(0.68 0.19 42);
   --node-end: oklch(0.5 0.02 245);
+  --flow-edge: oklch(0.42 0.05 245);
 }
 
 .dark {
@@ -159,6 +160,7 @@
   --node-stage: oklch(0.62 0.13 250);
   --node-email: oklch(0.75 0.17 60);
   --node-end: oklch(0.6 0.02 245);
+  --flow-edge: oklch(0.72 0.05 245);
 }
 
 @layer base {
@@ -501,18 +503,30 @@
  */
 .react-flow {
   --xy-background-color: var(--muted);
-  --xy-edge-stroke-default: var(--border);
+  --xy-edge-stroke-default: var(--flow-edge);
   --xy-edge-stroke-selected-default: var(--primary);
   --xy-attribution-background-color-default: transparent;
   --xy-node-border-radius-default: var(--radius);
 }
 
 .react-flow__edge-path {
-  stroke-width: 2;
+  stroke-width: 2.5;
+  stroke: var(--flow-edge);
+}
+
+.react-flow__edge-marker path {
+  fill: var(--flow-edge);
+  stroke: var(--flow-edge);
 }
 
 .react-flow__edge.selected .react-flow__edge-path,
 .react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--primary);
+}
+
+.react-flow__edge.selected .react-flow__edge-marker path,
+.react-flow__edge:hover .react-flow__edge-marker path {
+  fill: var(--primary);
   stroke: var(--primary);
 }
 

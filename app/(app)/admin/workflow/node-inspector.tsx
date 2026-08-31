@@ -311,7 +311,7 @@ export function NodeInspector({
       {hasForm ? (
         <Dialog open={formEditorOpen} onOpenChange={setFormEditorOpen}>
           <DialogContent
-            className="max-h-[92dvh] overflow-y-auto sm:max-w-5xl"
+            className="max-h-[88vh] w-[92vw] sm:max-w-6xl flex-col overflow-y-auto p-6"
             data-testid="form-builder-dialog"
           >
             <DialogHeader>

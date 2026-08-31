@@ -26,12 +26,16 @@ import {
   ChevronUp,
   CircleDot,
   Copy,
+  Eye,
   GripVertical,
   Hash,
   Heading,
+  Layers,
+  LayoutGrid,
   ListChecks,
   Mail,
   Paperclip,
+  PenTool,
   Phone,
   Plus,
   Text,
@@ -40,6 +44,7 @@ import {
 } from "lucide-react";
 import { useState, type ComponentType } from "react";
 
+import { FormWizard } from "@/components/form-runtime/form-wizard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,25 +74,21 @@ const FIELD_PALETTE: {
   label: string;
   icon: ComponentType<{ className?: string }>;
   group: "Input" | "Choice" | "Upload" | "Layout";
+  description: string;
 }[] = [
-  { type: "text", label: "Short text", icon: Type, group: "Input" },
-  { type: "textarea", label: "Long text", icon: AlignLeft, group: "Input" },
-  { type: "number", label: "Number", icon: Hash, group: "Input" },
-  { type: "email", label: "Email", icon: Mail, group: "Input" },
-  { type: "phone", label: "Phone", icon: Phone, group: "Input" },
-  { type: "date", label: "Date", icon: Calendar, group: "Input" },
-  { type: "select", label: "Dropdown", icon: ListChecks, group: "Choice" },
-  { type: "radio", label: "Single choice", icon: CircleDot, group: "Choice" },
-  {
-    type: "multiselect",
-    label: "Multiple choice",
-    icon: ListChecks,
-    group: "Choice",
-  },
-  { type: "checkbox", label: "Checkbox", icon: CheckSquare, group: "Choice" },
-  { type: "file", label: "File upload", icon: Paperclip, group: "Upload" },
-  { type: "heading", label: "Heading", icon: Heading, group: "Layout" },
-  { type: "paragraph", label: "Paragraph", icon: Text, group: "Layout" },
+  { type: "text", label: "Short text", icon: Type, group: "Input", description: "Single line text response" },
+  { type: "textarea", label: "Long text", icon: AlignLeft, group: "Input", description: "Multi-line text area" },
+  { type: "number", label: "Number", icon: Hash, group: "Input", description: "Numeric value input" },
+  { type: "email", label: "Email", icon: Mail, group: "Input", description: "Validated email address" },
+  { type: "phone", label: "Phone", icon: Phone, group: "Input", description: "Contact phone number" },
+  { type: "date", label: "Date", icon: Calendar, group: "Input", description: "Date selector picker" },
+  { type: "select", label: "Dropdown", icon: ListChecks, group: "Choice", description: "Single choice from dropdown menu" },
+  { type: "radio", label: "Single choice", icon: CircleDot, group: "Choice", description: "Radio buttons selection" },
+  { type: "multiselect", label: "Multiple choice", icon: ListChecks, group: "Choice", description: "Select multiple options" },
+  { type: "checkbox", label: "Checkbox", icon: CheckSquare, group: "Choice", description: "Single boolean toggle checkbox" },
+  { type: "file", label: "File upload", icon: Paperclip, group: "Upload", description: "Upload document or media file" },
+  { type: "heading", label: "Heading", icon: Heading, group: "Layout", description: "Section heading separator text" },
+  { type: "paragraph", label: "Paragraph", icon: Text, group: "Layout", description: "Static instructional text block" },
 ];
 
 const PALETTE_GROUPS = ["Input", "Choice", "Upload", "Layout"] as const;
@@ -105,11 +106,17 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
   const [activeSectionId, setActiveSectionId] = useState<string | null>(
     value.sections[0]?.id ?? null,
   );
+  const [viewMode, setViewMode] = useState<"builder" | "preview">("builder");
 
   const activeSection =
     value.sections.find((section) => section.id === activeSectionId) ??
     value.sections[0] ??
     null;
+
+  const totalFields = value.sections.reduce(
+    (acc, section) => acc + section.fields.length,
+    0,
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -224,162 +231,264 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
   }
 
   return (
-    <div className="builder-grid">
-      {/* Sections ---------------------------------------------------- */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Sections
-          </p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={addSection}
-            data-testid="add-section"
-          >
-            <Plus className="size-4" />
-            Add
-          </Button>
+    <div className="flex flex-col gap-4">
+      {/* Top Workspace Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card/70 p-3 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Layers className="size-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-semibold leading-none">Form Canvas</h3>
+              <Badge variant="secondary" className="text-[11px] font-medium">
+                {value.sections.length} Section{value.sections.length === 1 ? "" : "s"} · {totalFields} Field{totalFields === 1 ? "" : "s"}
+              </Badge>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Design multi-step form wizard pages for applicants & reviewers.
+            </p>
+          </div>
         </div>
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          modifiers={[restrictToVerticalAxis]}
-          onDragEnd={handleSectionDragEnd}
-        >
-          <SortableContext
-            items={value.sections.map((section) => section.id)}
-            strategy={verticalListSortingStrategy}
+        {/* View Mode Toggle: Builder vs Live Preview */}
+        <div className="flex items-center rounded-lg border bg-muted/50 p-1">
+          <button
+            type="button"
+            onClick={() => setViewMode("builder")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-all",
+              viewMode === "builder"
+                ? "bg-card text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
+            )}
           >
-            <ul className="flex flex-col gap-1.5">
-              {value.sections.map((section, index) => (
-                <SortableSectionTab
-                  key={section.id}
-                  section={section}
-                  index={index}
-                  active={section.id === activeSection?.id}
-                  onSelect={() => setActiveSectionId(section.id)}
-                  onRemove={() => removeSection(section.id)}
-                />
-              ))}
-            </ul>
-          </SortableContext>
-        </DndContext>
-
-        {value.sections.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            A form needs at least one section. Each section becomes one page of
-            the wizard.
-          </p>
-        ) : null}
+            <PenTool className="size-3.5" />
+            Editor Mode
+          </button>
+          <button
+            type="button"
+            onClick={() => setViewMode("preview")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-all",
+              viewMode === "preview"
+                ? "bg-card text-foreground shadow-xs"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <Eye className="size-3.5" />
+            Live Preview
+          </button>
+        </div>
       </div>
 
-      {/* Selected section -------------------------------------------- */}
-      {activeSection ? (
-        <div className="section-stack">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field>
-              <FieldLabel htmlFor="section-title">Section title</FieldLabel>
-              <Input
-                id="section-title"
-                value={activeSection.title}
-                onChange={(event) =>
-                  updateSection(activeSection.id, { title: event.target.value })
-                }
-                data-testid="section-title"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="section-description">
-                Section description
-              </FieldLabel>
-              <Textarea
-                id="section-description"
-                rows={2}
-                value={activeSection.description}
-                onChange={(event) =>
-                  updateSection(activeSection.id, {
-                    description: event.target.value,
-                  })
-                }
-              />
-            </Field>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-              Fields ({activeSection.fields.length})
-            </p>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button type="button" size="sm" data-testid="add-field">
-                  <Plus className="size-4" />
-                  Add field
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                {PALETTE_GROUPS.map((group, groupIndex) => (
-                  <div key={group}>
-                    {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
-                    <DropdownMenuLabel className="text-xs">
-                      {group}
-                    </DropdownMenuLabel>
-                    {FIELD_PALETTE.filter((entry) => entry.group === group).map(
-                      (entry) => (
-                        <DropdownMenuItem
-                          key={entry.type}
-                          onClick={() => addField(entry.type)}
-                          data-testid={`add-field-${entry.type}`}
-                        >
-                          <entry.icon className="size-4" />
-                          {entry.label}
-                        </DropdownMenuItem>
-                      ),
-                    )}
-                  </div>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          {activeSection.fields.length === 0 ? (
-            <div className="empty-state">
-              This section has no fields yet. Add one from the menu above.
+      {viewMode === "preview" ? (
+        <div className="rounded-xl border bg-card p-6 shadow-xs min-h-[400px]">
+          <FormWizard
+            key={JSON.stringify(value)}
+            form={value}
+            defaultValues={null}
+            onSaveDraft={async () => ({ ok: true })}
+            renderSubmitActions={() => (
+              <Button disabled className="gap-2">
+                Submit Application (Preview Mode)
+              </Button>
+            )}
+          />
+        </div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-[16rem_minmax(0,1fr)]">
+          {/* Left Panel: Sections / Wizard Steps Navigator */}
+          <div className="flex flex-col gap-3 rounded-xl border bg-card/50 p-4 shadow-xs">
+            <div className="flex items-center justify-between border-b pb-3">
+              <span className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                Wizard Steps ({value.sections.length})
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs font-medium gap-1"
+                onClick={addSection}
+                data-testid="add-section"
+              >
+                <Plus className="size-3.5" />
+                Add Step
+              </Button>
             </div>
-          ) : (
+
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
               modifiers={[restrictToVerticalAxis]}
-              onDragEnd={handleFieldDragEnd}
+              onDragEnd={handleSectionDragEnd}
             >
               <SortableContext
-                items={activeSection.fields.map((field) => field.id)}
+                items={value.sections.map((section) => section.id)}
                 strategy={verticalListSortingStrategy}
               >
                 <ul className="flex flex-col gap-2">
-                  {activeSection.fields.map((field) => (
-                    <SortableFieldRow
-                      key={field.id}
-                      field={field}
-                      siblingKeys={activeSection.fields
-                        .filter((other) => other.id !== field.id)
-                        .map((other) => other.key)}
-                      onChange={(next) => updateField(field.id, next)}
-                      onDuplicate={() => duplicateField(field)}
-                      onRemove={() => removeField(field.id)}
+                  {value.sections.map((section, index) => (
+                    <SortableSectionTab
+                      key={section.id}
+                      section={section}
+                      index={index}
+                      active={section.id === activeSection?.id}
+                      onSelect={() => setActiveSectionId(section.id)}
+                      onRemove={() => removeSection(section.id)}
                     />
                   ))}
                 </ul>
               </SortableContext>
             </DndContext>
+
+            {value.sections.length === 0 ? (
+              <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                Click &quot;+ Add Step&quot; above to start building this wizard.
+              </div>
+            ) : null}
+          </div>
+
+          {/* Right Main Canvas: Active Section & Fields */}
+          {activeSection ? (
+            <div className="flex flex-col gap-5 rounded-xl border bg-card p-5 shadow-xs">
+              {/* Section Header Card */}
+              <div className="rounded-lg border bg-muted/20 p-4 flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-mono text-xs">
+                      Step {value.sections.findIndex((s) => s.id === activeSection.id) + 1}
+                    </Badge>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      Section Settings
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field>
+                    <FieldLabel htmlFor="section-title">Section title</FieldLabel>
+                    <Input
+                      id="section-title"
+                      value={activeSection.title}
+                      placeholder="e.g. Personal Information"
+                      onChange={(event) =>
+                        updateSection(activeSection.id, { title: event.target.value })
+                      }
+                      data-testid="section-title"
+                    />
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor="section-description">
+                      Section description
+                    </FieldLabel>
+                    <Textarea
+                      id="section-description"
+                      rows={2}
+                      placeholder="Brief instructions for this wizard step..."
+                      value={activeSection.description}
+                      onChange={(event) =>
+                        updateSection(activeSection.id, {
+                          description: event.target.value,
+                        })
+                      }
+                    />
+                  </Field>
+                </div>
+              </div>
+
+              {/* Fields Area Bar */}
+              <div className="flex items-center justify-between border-b pb-3">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
+                    Fields ({activeSection.fields.length})
+                  </h4>
+                </div>
+
+                {/* Prominent Add Field Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button type="button" size="sm" className="gap-1.5" data-testid="add-field">
+                      <Plus className="size-4" />
+                      Add Field
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    {PALETTE_GROUPS.map((group, groupIndex) => (
+                      <div key={group}>
+                        {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
+                        <DropdownMenuLabel className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                          {group} Elements
+                        </DropdownMenuLabel>
+                        {FIELD_PALETTE.filter((entry) => entry.group === group).map(
+                          (entry) => (
+                            <DropdownMenuItem
+                              key={entry.type}
+                              onClick={() => addField(entry.type)}
+                              data-testid={`add-field-${entry.type}`}
+                              className="flex items-start gap-2.5 py-2"
+                            >
+                              <entry.icon className="size-4 mt-0.5 shrink-0 text-primary" />
+                              <div className="flex flex-col">
+                                <span className="text-xs font-medium leading-none">
+                                  {entry.label}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground mt-0.5">
+                                  {entry.description}
+                                </span>
+                              </div>
+                            </DropdownMenuItem>
+                          ),
+                        )}
+                      </div>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Field Cards List */}
+              {activeSection.fields.length === 0 ? (
+                <div className="empty-state py-12 border-dashed rounded-xl">
+                  <LayoutGrid className="size-8 text-muted-foreground/50 mb-2" />
+                  <p className="font-medium text-sm">No fields added to this step yet.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Click the &quot;+ Add Field&quot; button above to add inputs, options, or layout text.
+                  </p>
+                </div>
+              ) : (
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  modifiers={[restrictToVerticalAxis]}
+                  onDragEnd={handleFieldDragEnd}
+                >
+                  <SortableContext
+                    items={activeSection.fields.map((field) => field.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <ul className="flex flex-col gap-3">
+                      {activeSection.fields.map((field) => (
+                        <SortableFieldRow
+                          key={field.id}
+                          field={field}
+                          siblingKeys={activeSection.fields
+                            .filter((other) => other.id !== field.id)
+                            .map((other) => other.key)}
+                          onChange={(next) => updateField(field.id, next)}
+                          onDuplicate={() => duplicateField(field)}
+                          onRemove={() => removeField(field.id)}
+                        />
+                      ))}
+                    </ul>
+                  </SortableContext>
+                </DndContext>
+              )}
+            </div>
+          ) : (
+            <div className="empty-state">
+              Add a section to start building this form.
+            </div>
           )}
-        </div>
-      ) : (
-        <div className="empty-state">
-          Add a section to start building this form.
         </div>
       )}
     </div>
@@ -413,14 +522,16 @@ function SortableSectionTab({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "flex items-center gap-1.5 rounded-md border bg-card p-2",
-        active && "border-primary bg-accent",
+        "group flex items-center gap-2 rounded-lg border bg-card p-2.5 transition-all shadow-2xs",
+        active
+          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+          : "hover:border-border/80 hover:bg-muted/30",
         isDragging && "builder-field-dragging",
       )}
     >
       <button
         type="button"
-        className="drag-handle"
+        className="drag-handle text-muted-foreground/60 hover:text-foreground"
         aria-label={`Reorder ${section.title}`}
         {...attributes}
         {...listeners}
@@ -430,13 +541,18 @@ function SortableSectionTab({
       <button
         type="button"
         onClick={onSelect}
-        className="min-w-0 flex-1 text-left text-sm"
+        className="min-w-0 flex-1 text-left"
         data-testid={`section-tab-${index}`}
       >
-        <span className="block truncate font-medium">
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-mono font-semibold text-muted-foreground">
+            Step {index + 1}
+          </span>
+        </div>
+        <span className="block truncate text-xs font-semibold">
           {section.title || "Untitled section"}
         </span>
-        <span className="block text-xs text-muted-foreground">
+        <span className="block text-[11px] text-muted-foreground">
           {section.fields.length} field{section.fields.length === 1 ? "" : "s"}
         </span>
       </button>
@@ -446,8 +562,9 @@ function SortableSectionTab({
         size="icon"
         aria-label={`Delete ${section.title}`}
         onClick={onRemove}
+        className="size-7 opacity-60 group-hover:opacity-100 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
       >
-        <Trash2 className="size-4" />
+        <Trash2 className="size-3.5" />
       </Button>
     </li>
   );
@@ -484,15 +601,16 @@ function SortableFieldRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "rounded-md border bg-card",
+        "rounded-xl border bg-card transition-all shadow-2xs hover:shadow-xs",
+        expanded && "ring-1 ring-primary/30 border-primary/40",
         isDragging && "builder-field-dragging",
       )}
       data-testid={`field-row-${field.key}`}
     >
-      <div className="flex items-center gap-2 p-2.5">
+      <div className="flex items-center gap-3 p-3">
         <button
           type="button"
-          className="drag-handle"
+          className="drag-handle text-muted-foreground/60 hover:text-foreground"
           aria-label={`Reorder ${field.label}`}
           {...attributes}
           {...listeners}
@@ -500,61 +618,83 @@ function SortableFieldRow({
           <GripVertical className="size-4" />
         </button>
 
-        <Icon className="size-4 shrink-0 text-muted-foreground" />
+        <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-foreground">
+          <Icon className="size-4" />
+        </div>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium">
-            {field.label || "Untitled field"}
-          </p>
-          {isDisplayField(field.type) ? null : (
-            <p className="truncate font-mono text-xs text-muted-foreground">
-              {field.key}
+          <div className="flex items-center gap-2">
+            <p className="truncate text-xs font-semibold">
+              {field.label || "Untitled field"}
+            </p>
+          </div>
+          {isDisplayField(field.type) ? (
+            <p className="text-[11px] text-muted-foreground italic">Static Display Element</p>
+          ) : (
+            <p className="truncate font-mono text-[11px] text-muted-foreground">
+              key: {field.key}
             </p>
           )}
         </div>
 
-        <Badge variant="outline" className="hidden sm:inline-flex">
-          {fieldTypeLabel(field.type)}
-        </Badge>
-        {field.required ? <Badge variant="secondary">Required</Badge> : null}
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="hidden text-[11px] sm:inline-flex">
+            {fieldTypeLabel(field.type)}
+          </Badge>
+          {!isDisplayField(field.type) && field.width === "half" ? (
+            <Badge variant="outline" className="hidden text-[11px] sm:inline-flex border-dashed">
+              Half Row
+            </Badge>
+          ) : null}
+          {field.required ? (
+            <Badge variant="secondary" className="text-[11px] font-medium bg-primary/10 text-primary border-primary/20">
+              Required
+            </Badge>
+          ) : null}
+        </div>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={`Duplicate ${field.label}`}
-          onClick={onDuplicate}
-        >
-          <Copy className="size-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label={`Delete ${field.label}`}
-          onClick={onRemove}
-        >
-          <Trash2 className="size-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-expanded={expanded}
-          aria-label={`${expanded ? "Collapse" : "Edit"} ${field.label}`}
-          onClick={() => setExpanded((current) => !current)}
-          data-testid={`field-toggle-${field.key}`}
-        >
-          {expanded ? (
-            <ChevronUp className="size-4" />
-          ) : (
-            <ChevronDown className="size-4" />
-          )}
-        </Button>
+        <div className="flex items-center gap-0.5 ml-1 border-l pl-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 text-muted-foreground hover:text-foreground"
+            aria-label={`Duplicate ${field.label}`}
+            onClick={onDuplicate}
+          >
+            <Copy className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+            aria-label={`Delete ${field.label}`}
+            onClick={onRemove}
+          >
+            <Trash2 className="size-3.5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 text-muted-foreground hover:text-foreground"
+            aria-expanded={expanded}
+            aria-label={`${expanded ? "Collapse" : "Edit"} ${field.label}`}
+            onClick={() => setExpanded((current) => !current)}
+            data-testid={`field-toggle-${field.key}`}
+          >
+            {expanded ? (
+              <ChevronUp className="size-4 text-primary font-bold" />
+            ) : (
+              <ChevronDown className="size-4" />
+            )}
+          </Button>
+        </div>
       </div>
 
       {expanded ? (
-        <div className="px-2.5 pb-3">
+        <div className="px-3 pb-3">
           <FieldEditor
             field={field}
             onChange={onChange}
