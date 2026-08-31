@@ -1,4 +1,4 @@
-import { GraduationCap } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 import { ModeToggle } from "@/components/mode-toggle";
@@ -11,9 +11,13 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       </div>
 
       <Link href="/" className="flex flex-col items-center gap-2 text-center">
-        <span className="flex size-11 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <GraduationCap className="size-6" />
-        </span>
+        <Image
+          src="/mu_logo.png"
+          alt="Manipal University Logo"
+          width={48}
+          height={48}
+          className="size-12 object-contain"
+        />
         <span className="text-lg font-semibold">
           Manipal Institute of Technology
         </span>
