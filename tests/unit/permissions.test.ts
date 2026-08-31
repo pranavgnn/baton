@@ -9,6 +9,7 @@ import {
 } from "@/lib/auth/permissions";
 import { displayValue } from "@/lib/workflow/display";
 import { createField } from "@/lib/workflow/defaults";
+import { formatBytes } from "@/lib/format";
 
 describe("grants", () => {
   it("grants a permission that is explicitly held", () => {
@@ -131,5 +132,18 @@ describe("displayValue", () => {
     };
     expect(displayValue(field, file)).toEqual({ kind: "files", files: [file] });
     expect(displayValue(field, null)).toEqual({ kind: "files", files: [] });
+  });
+});
+
+describe("formatBytes", () => {
+  it.each([
+    [0, "0 B"],
+    [512, "512 B"],
+    [1024, "1 KB"],
+    [1536, "2 KB"],
+    [1024 * 1024, "1.0 MB"],
+    [10 * 1024 * 1024, "10.0 MB"],
+  ])("formats %i bytes as %s", (bytes, expected) => {
+    expect(formatBytes(bytes)).toBe(expected);
   });
 });

@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/card";
 import { buildPreview } from "@/lib/workflow/display";
 import type { FormSchema, SectionData } from "@/lib/workflow/types";
-import { formatBytes } from "./file-field";
+import { formatBytes } from "@/lib/format";
 
 export type FormPreviewProps = {
   form: FormSchema;
