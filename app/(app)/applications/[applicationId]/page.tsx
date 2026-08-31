@@ -45,7 +45,11 @@ export default async function ApplicationDetailPage({
           <h1 className="page-title">{app.reference}</h1>
           <p className="page-subtitle">
             {app.applicant.name} · {app.applicant.email}
-            {stage ? ` · Currently at ${stage.data.label}` : ""}
+            {/* A finished application rests on an End node, so "currently at"
+                would read as a stage it is waiting on. */}
+            {stage?.kind === "stage"
+              ? ` · Currently with ${stage.data.label}`
+              : ""}
           </p>
         </div>
         <StatusBadge status={app.status} />
