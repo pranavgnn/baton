@@ -76,9 +76,13 @@ export default async function ReviewPage({
         <Alert>
           <AlertTitle>Read-only</AlertTitle>
           <AlertDescription>
-            {stage
+            {/* A finished application rests on an End node, which is an
+                outcome rather than somewhere it is waiting. */}
+            {stage?.kind === "stage"
               ? `This application is with "${stage.data.label}" and is not waiting on your role.`
-              : "This application has been completed."}
+              : `This application is closed${
+                  stage ? ` as ${stage.data.label.toLowerCase()}` : ""
+                }.`}
           </AlertDescription>
         </Alert>
       ) : null}
