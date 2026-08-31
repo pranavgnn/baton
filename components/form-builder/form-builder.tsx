@@ -76,19 +76,97 @@ const FIELD_PALETTE: {
   group: "Input" | "Choice" | "Upload" | "Layout";
   description: string;
 }[] = [
-  { type: "text", label: "Short text", icon: Type, group: "Input", description: "Single line text response" },
-  { type: "textarea", label: "Long text", icon: AlignLeft, group: "Input", description: "Multi-line text area" },
-  { type: "number", label: "Number", icon: Hash, group: "Input", description: "Numeric value input" },
-  { type: "email", label: "Email", icon: Mail, group: "Input", description: "Validated email address" },
-  { type: "phone", label: "Phone", icon: Phone, group: "Input", description: "Contact phone number" },
-  { type: "date", label: "Date", icon: Calendar, group: "Input", description: "Date selector picker" },
-  { type: "select", label: "Dropdown", icon: ListChecks, group: "Choice", description: "Single choice from dropdown menu" },
-  { type: "radio", label: "Single choice", icon: CircleDot, group: "Choice", description: "Radio buttons selection" },
-  { type: "multiselect", label: "Multiple choice", icon: ListChecks, group: "Choice", description: "Select multiple options" },
-  { type: "checkbox", label: "Checkbox", icon: CheckSquare, group: "Choice", description: "Single boolean toggle checkbox" },
-  { type: "file", label: "File upload", icon: Paperclip, group: "Upload", description: "Upload document or media file" },
-  { type: "heading", label: "Heading", icon: Heading, group: "Layout", description: "Section heading separator text" },
-  { type: "paragraph", label: "Paragraph", icon: Text, group: "Layout", description: "Static instructional text block" },
+  {
+    type: "text",
+    label: "Short text",
+    icon: Type,
+    group: "Input",
+    description: "Single line text response",
+  },
+  {
+    type: "textarea",
+    label: "Long text",
+    icon: AlignLeft,
+    group: "Input",
+    description: "Multi-line text area",
+  },
+  {
+    type: "number",
+    label: "Number",
+    icon: Hash,
+    group: "Input",
+    description: "Numeric value input",
+  },
+  {
+    type: "email",
+    label: "Email",
+    icon: Mail,
+    group: "Input",
+    description: "Validated email address",
+  },
+  {
+    type: "phone",
+    label: "Phone",
+    icon: Phone,
+    group: "Input",
+    description: "Contact phone number",
+  },
+  {
+    type: "date",
+    label: "Date",
+    icon: Calendar,
+    group: "Input",
+    description: "Date selector picker",
+  },
+  {
+    type: "select",
+    label: "Dropdown",
+    icon: ListChecks,
+    group: "Choice",
+    description: "Single choice from dropdown menu",
+  },
+  {
+    type: "radio",
+    label: "Single choice",
+    icon: CircleDot,
+    group: "Choice",
+    description: "Radio buttons selection",
+  },
+  {
+    type: "multiselect",
+    label: "Multiple choice",
+    icon: ListChecks,
+    group: "Choice",
+    description: "Select multiple options",
+  },
+  {
+    type: "checkbox",
+    label: "Checkbox",
+    icon: CheckSquare,
+    group: "Choice",
+    description: "Single boolean toggle checkbox",
+  },
+  {
+    type: "file",
+    label: "File upload",
+    icon: Paperclip,
+    group: "Upload",
+    description: "Upload document or media file",
+  },
+  {
+    type: "heading",
+    label: "Heading",
+    icon: Heading,
+    group: "Layout",
+    description: "Section heading separator text",
+  },
+  {
+    type: "paragraph",
+    label: "Paragraph",
+    icon: Text,
+    group: "Layout",
+    description: "Static instructional text block",
+  },
 ];
 
 const PALETTE_GROUPS = ["Input", "Choice", "Upload", "Layout"] as const;
@@ -240,9 +318,13 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold leading-none">Form Canvas</h3>
+              <h3 className="text-sm leading-none font-semibold">
+                Form Canvas
+              </h3>
               <Badge variant="secondary" className="text-[11px] font-medium">
-                {value.sections.length} Section{value.sections.length === 1 ? "" : "s"} · {totalFields} Field{totalFields === 1 ? "" : "s"}
+                {value.sections.length} Section
+                {value.sections.length === 1 ? "" : "s"} · {totalFields} Field
+                {totalFields === 1 ? "" : "s"}
               </Badge>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -283,7 +365,7 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
       </div>
 
       {viewMode === "preview" ? (
-        <div className="rounded-xl border bg-card p-6 shadow-xs min-h-[400px]">
+        <div className="min-h-[400px] rounded-xl border bg-card p-6 shadow-xs">
           <FormWizard
             key={JSON.stringify(value)}
             form={value}
@@ -308,7 +390,7 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-7 text-xs font-medium gap-1"
+                className="h-7 gap-1 text-xs font-medium"
                 onClick={addSection}
                 data-testid="add-section"
               >
@@ -344,7 +426,8 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
 
             {value.sections.length === 0 ? (
               <div className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                Click &quot;+ Add Step&quot; above to start building this wizard.
+                Click &quot;+ Add Step&quot; above to start building this
+                wizard.
               </div>
             ) : null}
           </div>
@@ -353,11 +436,14 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
           {activeSection ? (
             <div className="flex flex-col gap-5 rounded-xl border bg-card p-5 shadow-xs">
               {/* Section Header Card */}
-              <div className="rounded-lg border bg-muted/20 p-4 flex flex-col gap-4">
+              <div className="flex flex-col gap-4 rounded-lg border bg-muted/20 p-4">
                 <div className="flex items-center justify-between border-b pb-2">
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="font-mono text-xs">
-                      Step {value.sections.findIndex((s) => s.id === activeSection.id) + 1}
+                      Step{" "}
+                      {value.sections.findIndex(
+                        (s) => s.id === activeSection.id,
+                      ) + 1}
                     </Badge>
                     <span className="text-xs font-medium text-muted-foreground">
                       Section Settings
@@ -367,13 +453,17 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <Field>
-                    <FieldLabel htmlFor="section-title">Section title</FieldLabel>
+                    <FieldLabel htmlFor="section-title">
+                      Section title
+                    </FieldLabel>
                     <Input
                       id="section-title"
                       value={activeSection.title}
                       placeholder="e.g. Personal Information"
                       onChange={(event) =>
-                        updateSection(activeSection.id, { title: event.target.value })
+                        updateSection(activeSection.id, {
+                          title: event.target.value,
+                        })
                       }
                       data-testid="section-title"
                     />
@@ -408,7 +498,12 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
                 {/* Prominent Add Field Dropdown */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button type="button" size="sm" className="gap-1.5" data-testid="add-field">
+                    <Button
+                      type="button"
+                      size="sm"
+                      className="gap-1.5"
+                      data-testid="add-field"
+                    >
                       <Plus className="size-4" />
                       Add Field
                     </Button>
@@ -417,29 +512,29 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
                     {PALETTE_GROUPS.map((group, groupIndex) => (
                       <div key={group}>
                         {groupIndex > 0 ? <DropdownMenuSeparator /> : null}
-                        <DropdownMenuLabel className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                        <DropdownMenuLabel className="text-xs font-bold tracking-wider text-muted-foreground uppercase">
                           {group} Elements
                         </DropdownMenuLabel>
-                        {FIELD_PALETTE.filter((entry) => entry.group === group).map(
-                          (entry) => (
-                            <DropdownMenuItem
-                              key={entry.type}
-                              onClick={() => addField(entry.type)}
-                              data-testid={`add-field-${entry.type}`}
-                              className="flex items-start gap-2.5 py-2"
-                            >
-                              <entry.icon className="size-4 mt-0.5 shrink-0 text-primary" />
-                              <div className="flex flex-col">
-                                <span className="text-xs font-medium leading-none">
-                                  {entry.label}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground mt-0.5">
-                                  {entry.description}
-                                </span>
-                              </div>
-                            </DropdownMenuItem>
-                          ),
-                        )}
+                        {FIELD_PALETTE.filter(
+                          (entry) => entry.group === group,
+                        ).map((entry) => (
+                          <DropdownMenuItem
+                            key={entry.type}
+                            onClick={() => addField(entry.type)}
+                            data-testid={`add-field-${entry.type}`}
+                            className="flex items-start gap-2.5 py-2"
+                          >
+                            <entry.icon className="mt-0.5 size-4 shrink-0 text-primary" />
+                            <div className="flex flex-col">
+                              <span className="text-xs leading-none font-medium">
+                                {entry.label}
+                              </span>
+                              <span className="mt-0.5 text-[10px] text-muted-foreground">
+                                {entry.description}
+                              </span>
+                            </div>
+                          </DropdownMenuItem>
+                        ))}
                       </div>
                     ))}
                   </DropdownMenuContent>
@@ -448,11 +543,14 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
 
               {/* Field Cards List */}
               {activeSection.fields.length === 0 ? (
-                <div className="empty-state py-12 border-dashed rounded-xl">
-                  <LayoutGrid className="size-8 text-muted-foreground/50 mb-2" />
-                  <p className="font-medium text-sm">No fields added to this step yet.</p>
+                <div className="empty-state rounded-xl border-dashed py-12">
+                  <LayoutGrid className="mb-2 size-8 text-muted-foreground/50" />
+                  <p className="text-sm font-medium">
+                    No fields added to this step yet.
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    Click the &quot;+ Add Field&quot; button above to add inputs, options, or layout text.
+                    Click the &quot;+ Add Field&quot; button above to add
+                    inputs, options, or layout text.
                   </p>
                 </div>
               ) : (
@@ -522,7 +620,7 @@ function SortableSectionTab({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "group flex items-center gap-2 rounded-lg border bg-card p-2.5 transition-all shadow-2xs",
+        "group flex items-center gap-2 rounded-lg border bg-card p-2.5 shadow-2xs transition-all",
         active
           ? "border-primary bg-primary/5 ring-1 ring-primary/20"
           : "hover:border-border/80 hover:bg-muted/30",
@@ -545,7 +643,7 @@ function SortableSectionTab({
         data-testid={`section-tab-${index}`}
       >
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-mono font-semibold text-muted-foreground">
+          <span className="font-mono text-[10px] font-semibold text-muted-foreground">
             Step {index + 1}
           </span>
         </div>
@@ -562,7 +660,7 @@ function SortableSectionTab({
         size="icon"
         aria-label={`Delete ${section.title}`}
         onClick={onRemove}
-        className="size-7 opacity-60 group-hover:opacity-100 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+        className="size-7 text-destructive/80 opacity-60 group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
       >
         <Trash2 className="size-3.5" />
       </Button>
@@ -601,8 +699,8 @@ function SortableFieldRow({
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn(
-        "rounded-xl border bg-card transition-all shadow-2xs hover:shadow-xs",
-        expanded && "ring-1 ring-primary/30 border-primary/40",
+        "rounded-xl border bg-card shadow-2xs transition-all hover:shadow-xs",
+        expanded && "border-primary/40 ring-1 ring-primary/30",
         isDragging && "builder-field-dragging",
       )}
       data-testid={`field-row-${field.key}`}
@@ -629,7 +727,9 @@ function SortableFieldRow({
             </p>
           </div>
           {isDisplayField(field.type) ? (
-            <p className="text-[11px] text-muted-foreground italic">Static Display Element</p>
+            <p className="text-[11px] text-muted-foreground italic">
+              Static Display Element
+            </p>
           ) : (
             <p className="truncate font-mono text-[11px] text-muted-foreground">
               key: {field.key}
@@ -638,22 +738,31 @@ function SortableFieldRow({
         </div>
 
         <div className="flex items-center gap-1.5">
-          <Badge variant="outline" className="hidden text-[11px] sm:inline-flex">
+          <Badge
+            variant="outline"
+            className="hidden text-[11px] sm:inline-flex"
+          >
             {fieldTypeLabel(field.type)}
           </Badge>
           {!isDisplayField(field.type) && field.width === "half" ? (
-            <Badge variant="outline" className="hidden text-[11px] sm:inline-flex border-dashed">
+            <Badge
+              variant="outline"
+              className="hidden border-dashed text-[11px] sm:inline-flex"
+            >
               Half Row
             </Badge>
           ) : null}
           {field.required ? (
-            <Badge variant="secondary" className="text-[11px] font-medium bg-primary/10 text-primary border-primary/20">
+            <Badge
+              variant="secondary"
+              className="border-primary/20 bg-primary/10 text-[11px] font-medium text-primary"
+            >
               Required
             </Badge>
           ) : null}
         </div>
 
-        <div className="flex items-center gap-0.5 ml-1 border-l pl-1">
+        <div className="ml-1 flex items-center gap-0.5 border-l pl-1">
           <Button
             type="button"
             variant="ghost"
@@ -668,7 +777,7 @@ function SortableFieldRow({
             type="button"
             variant="ghost"
             size="icon"
-            className="size-7 text-destructive/80 hover:text-destructive hover:bg-destructive/10"
+            className="size-7 text-destructive/80 hover:bg-destructive/10 hover:text-destructive"
             aria-label={`Delete ${field.label}`}
             onClick={onRemove}
           >
@@ -685,7 +794,7 @@ function SortableFieldRow({
             data-testid={`field-toggle-${field.key}`}
           >
             {expanded ? (
-              <ChevronUp className="size-4 text-primary font-bold" />
+              <ChevronUp className="size-4 font-bold text-primary" />
             ) : (
               <ChevronDown className="size-4" />
             )}

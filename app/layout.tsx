@@ -36,9 +36,12 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={cn("h-full antialiased", fontHeading.variable,
-              fontSans.variable,
-              fontMono.variable)}
+      className={cn(
+        "h-full antialiased",
+        fontHeading.variable,
+        fontSans.variable,
+        fontMono.variable,
+      )}
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider

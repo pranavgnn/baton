@@ -50,7 +50,9 @@ export function FieldEditor({
   onChange: (next: FormField) => void;
   siblingKeys: string[];
 }) {
-  const [activeTab, setActiveTab] = useState<"general" | "options" | "validation">("general");
+  const [activeTab, setActiveTab] = useState<
+    "general" | "options" | "validation"
+  >("general");
 
   const update = (patch: Partial<FormField>) =>
     onChange({ ...field, ...patch });
@@ -122,7 +124,9 @@ export function FieldEditor({
       ) : null}
 
       {/* General Settings Tab */}
-      {activeTab === "general" || isDisplay || (!supportsChoices && !supportsValidation) ? (
+      {activeTab === "general" ||
+      isDisplay ||
+      (!supportsChoices && !supportsValidation) ? (
         <div className="flex flex-col gap-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <Field>
@@ -132,12 +136,16 @@ export function FieldEditor({
               <Input
                 id={`${field.id}-label`}
                 value={field.label}
-                placeholder={isDisplay ? "Section Heading..." : "e.g. Full Name"}
+                placeholder={
+                  isDisplay ? "Section Heading..." : "e.g. Full Name"
+                }
                 onChange={(event) => {
                   const label = event.target.value;
                   const keyWasDerived = field.key === slugifyKey(field.label);
                   update(
-                    keyWasDerived ? { label, key: slugifyKey(label) } : { label },
+                    keyWasDerived
+                      ? { label, key: slugifyKey(label) }
+                      : { label },
                   );
                 }}
               />
@@ -174,7 +182,9 @@ export function FieldEditor({
                   id={`${field.id}-description`}
                   value={field.description}
                   placeholder="Shown under the input"
-                  onChange={(event) => update({ description: event.target.value })}
+                  onChange={(event) =>
+                    update({ description: event.target.value })
+                  }
                 />
               </Field>
 
@@ -221,7 +231,8 @@ export function FieldEditor({
                   }
                 />
                 <span className="font-medium text-foreground">
-                  Required - the applicant cannot move past this section without it
+                  Required - the applicant cannot move past this section without
+                  it
                 </span>
               </label>
             </>
@@ -229,12 +240,16 @@ export function FieldEditor({
 
           {field.type === "paragraph" ? (
             <Field>
-              <FieldLabel htmlFor={`${field.id}-body`}>Paragraph text</FieldLabel>
+              <FieldLabel htmlFor={`${field.id}-body`}>
+                Paragraph text
+              </FieldLabel>
               <Textarea
                 id={`${field.id}-body`}
                 value={field.description}
                 rows={3}
-                onChange={(event) => update({ description: event.target.value })}
+                onChange={(event) =>
+                  update({ description: event.target.value })
+                }
               />
             </Field>
           ) : null}
@@ -288,7 +303,9 @@ export function FieldEditor({
                   id={`${field.id}-pattern-message`}
                   value={field.validation.patternMessage ?? ""}
                   onChange={(event) =>
-                    updateValidation({ patternMessage: event.target.value || null })
+                    updateValidation({
+                      patternMessage: event.target.value || null,
+                    })
                   }
                 />
               </Field>
@@ -318,7 +335,9 @@ export function FieldEditor({
                 id={`${field.id}-max-size`}
                 label="Maximum size per file (MB)"
                 value={field.validation.maxFileSizeMb}
-                onChange={(maxFileSizeMb) => updateValidation({ maxFileSizeMb })}
+                onChange={(maxFileSizeMb) =>
+                  updateValidation({ maxFileSizeMb })
+                }
               />
               <NumberField
                 id={`${field.id}-max-files`}
@@ -408,8 +427,11 @@ function OptionsEditor({
         ) : null}
 
         {options.map((option) => (
-          <div key={option.id} className="flex items-center gap-2 rounded-md border bg-card p-2 shadow-2xs">
-            <GripVertical className="size-4 shrink-0 text-muted-foreground cursor-grab" />
+          <div
+            key={option.id}
+            className="flex items-center gap-2 rounded-md border bg-card p-2 shadow-2xs"
+          >
+            <GripVertical className="size-4 shrink-0 cursor-grab text-muted-foreground" />
             <Input
               value={option.label}
               placeholder="Label shown to the user"
@@ -451,7 +473,7 @@ function OptionsEditor({
           type="button"
           variant="outline"
           size="sm"
-          className="self-start mt-1"
+          className="mt-1 self-start"
           onClick={() =>
             onChange([...options, { id: newId("opt"), label: "", value: "" }])
           }
