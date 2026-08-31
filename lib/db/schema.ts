@@ -15,6 +15,7 @@ import {
 import type {
   ApplicationData,
   EmailTemplateDoc,
+  SectionData,
   WorkflowGraph,
 } from "@/lib/workflow/types";
 import type { RolePermission } from "@/lib/auth/permissions";
@@ -321,7 +322,7 @@ export const stageDraft = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     data: jsonb("data")
-      .$type<Record<string, unknown>>()
+      .$type<SectionData>()
       .notNull()
       .default(sql`'{}'::jsonb`),
     updatedAt: timestamp("updated_at")

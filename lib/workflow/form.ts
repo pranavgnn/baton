@@ -63,8 +63,10 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
           );
         }
       }
+      // Gate on emptiness first so a blank required field reports "is
+      // required" rather than whichever format rule happens to fail on "".
       return field.required
-        ? schema.min(1, requiredMessage)
+        ? z.string().min(1, requiredMessage).pipe(schema)
         : optionalString(schema);
     }
 
