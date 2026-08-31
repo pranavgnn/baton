@@ -1,0 +1,161 @@
+"use server";
+
+import { and, count, eq, ne } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+
+import {
+  fail,
+  failFrom,
+  ok,
+  parseInput,
+  type ActionResult,
+} from "@/lib/actions";
+import {
+  PERMISSION_KEYS,
+  SUPER_ADMIN_PERMISSION,
+  type PermissionKey,
+} from "@/lib/auth/permissions";
+import { requirePermissionAction } from "@/lib/auth/session";
+import { db } from "@/lib/db";
+import { role, userRole, workflow } from "@/lib/db/schema";
+import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
+import { stageNodes } from "@/lib/workflow/graph";
+
+const roleInput = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(2, "Use at least 2 characters")
+    .max(64, "Use at most 64 characters"),
+  description: z.string().trim().max(280).optional().default(""),
+  permissions: z
+    .array(z.enum(PERMISSION_KEYS as [PermissionKey, ...PermissionKey[]]))
+    .default([]),
+});
+
+export type RoleInput = z.input<typeof roleInput>;
+
+async function assertNameFree(name: string, excludeId?: string) {
+  const existing = await db.query.role.findFirst({
+    where: excludeId
+      ? and(eq(role.name, name), ne(role.id, excludeId))
+      : eq(role.name, name),
+  });
+  return !existing;
+}
+
+export async function createRole(input: RoleInput): Promise<ActionResult> {
+  try {
+    await requirePermissionAction("roles.manage");
+
+    const parsed = parseInput(roleInput, input);
+    if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
+
+    if (!(await assertNameFree(parsed.data.name))) {
+      return fail("A role with that name already exists.", {
+        name: "That name is taken.",
+      });
+    }
+
+    await db.insert(role).values({
+      id: crypto.randomUUID(),
+      name: parsed.data.name,
+      description: parsed.data.description || null,
+      permissions: parsed.data.permissions,
+      isSystem: false,
+    });
+
+    revalidatePath("/admin/roles");
+    return ok();
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+export async function updateRole(
+  id: string,
+  input: RoleInput,
+): Promise<ActionResult> {
+  try {
+    await requirePermissionAction("roles.manage");
+
+    const parsed = parseInput(roleInput, input);
+    if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
+
+    const existing = await db.query.role.findFirst({ where: eq(role.id, id) });
+    if (!existing) return fail("That role no longer exists.");
+
+    if (!(await assertNameFree(parsed.data.name, id))) {
+      return fail("A role with that name already exists.", {
+        name: "That name is taken.",
+      });
+    }
+
+    // The seeded Super Admin keeps its wildcard so the portal can never be
+    // locked out of its own administration.
+    const permissions = existing.permissions.includes(SUPER_ADMIN_PERMISSION)
+      ? existing.permissions
+      : parsed.data.permissions;
+
+    await db
+      .update(role)
+      .set({
+        name: parsed.data.name,
+        description: parsed.data.description || null,
+        permissions,
+      })
+      .where(eq(role.id, id));
+
+    revalidatePath("/admin/roles");
+    revalidatePath("/admin/users");
+    return ok();
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+export async function deleteRole(id: string): Promise<ActionResult> {
+  try {
+    await requirePermissionAction("roles.manage");
+
+    const existing = await db.query.role.findFirst({ where: eq(role.id, id) });
+    if (!existing) return fail("That role no longer exists.");
+    if (existing.isSystem) {
+      return fail("System roles cannot be deleted, only renamed.");
+    }
+
+    const [assigned] = await db
+      .select({ total: count() })
+      .from(userRole)
+      .where(eq(userRole.roleId, id));
+    if ((assigned?.total ?? 0) > 0) {
+      return fail(
+        `${assigned.total} user${assigned.total === 1 ? " is" : "s are"} still assigned this role. Reassign them first.`,
+      );
+    }
+
+    // Deleting a role referenced by a stage would silently break the workflow.
+    const flow = await db.query.workflow.findFirst({
+      where: eq(workflow.id, SINGLETON_WORKFLOW_ID),
+    });
+    const usedBy = [
+      ...(flow?.graph ? stageNodes(flow.graph) : []),
+      ...(flow?.publishedGraph ? stageNodes(flow.publishedGraph) : []),
+    ].filter((node) => node.data.roleId === id);
+
+    if (usedBy.length > 0) {
+      const labels = Array.from(new Set(usedBy.map((n) => n.data.label)));
+      return fail(
+        `This role is assigned to workflow stage${labels.length === 1 ? "" : "s"}: ${labels.join(", ")}.`,
+      );
+    }
+
+    await db.delete(role).where(eq(role.id, id));
+
+    revalidatePath("/admin/roles");
+    return ok();
+  } catch (error) {
+    return failFrom(error);
+  }
+}

@@ -64,14 +64,14 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
         }
       }
       return field.required
-        ? schema.min(1, requiredMessage)
+        ? requiredString(schema, requiredMessage)
         : optionalString(schema);
     }
 
     case "email": {
       const schema = z.email(`${field.label} must be a valid email address`);
       return field.required
-        ? z.string().min(1, requiredMessage).pipe(schema)
+        ? requiredString(schema, requiredMessage)
         : optionalString(schema);
     }
 
@@ -83,7 +83,7 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
           `${field.label} must be a valid phone number`,
         );
       return field.required
-        ? z.string().min(1, requiredMessage).pipe(schema)
+        ? requiredString(schema, requiredMessage)
         : optionalString(schema);
     }
 
@@ -122,7 +122,7 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
         .string()
         .regex(/^\d{4}-\d{2}-\d{2}$/, `${field.label} must be a valid date`);
       return field.required
-        ? z.string().min(1, requiredMessage).pipe(schema)
+        ? requiredString(schema, requiredMessage)
         : optionalString(schema);
     }
 
@@ -136,7 +136,7 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
           `${field.label} must be one of the listed options`,
         );
       return field.required
-        ? z.string().min(1, requiredMessage).pipe(schema)
+        ? requiredString(schema, requiredMessage)
         : optionalString(schema);
     }
 
@@ -149,13 +149,16 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
           `${field.label} contains an option that is not available`,
         );
       return field.required
-        ? schema.min(1, requiredMessage)
+        ? z.preprocess((value) => value ?? [], schema.min(1, requiredMessage))
         : optional(schema.default([]));
     }
 
     case "checkbox": {
       return field.required
-        ? z.literal(true, { error: requiredMessage })
+        ? z.preprocess(
+            (value) => value ?? false,
+            z.literal(true, { error: requiredMessage }),
+          )
         : optional(z.boolean().default(false));
     }
 
@@ -191,11 +194,14 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
           );
         }
         return field.required
-          ? list.min(1, requiredMessage)
+          ? z.preprocess((value) => value ?? [], list.min(1, requiredMessage))
           : optional(list.default([]));
       }
       return field.required
-        ? single.refine(Boolean, requiredMessage)
+        ? z.preprocess(
+            (value) => value ?? null,
+            single.nullable().refine((file) => file !== null, requiredMessage),
+          )
         : optional(single);
     }
 
@@ -209,6 +215,22 @@ function optionalString(schema: z.ZodTypeAny) {
   return z.preprocess(
     (value) => (value === "" || value === null ? undefined : value),
     schema.optional(),
+  );
+}
+
+/**
+ * Required text-like fields: missing, null and "" all mean "not answered", so
+ * they are normalised to "" and gated by a single min(1) before any format
+ * rule runs. Without this a field the user never touched reports Zod's raw
+ * type error instead of "<Label> is required".
+ */
+function requiredString(schema: z.ZodTypeAny, requiredMessage: string) {
+  return z.preprocess(
+    (value) => (value === undefined || value === null ? "" : value),
+    z
+      .string()
+      .min(1, requiredMessage)
+      .pipe(schema as z.ZodType<unknown, string>),
   );
 }
 

@@ -1,6 +1,7 @@
 import nodemailer, { type Transporter } from "nodemailer";
 
 import { env } from "@/lib/env";
+import { htmlToText } from "./template";
 
 const globalForMail = globalThis as unknown as { __mailer?: Transporter };
 
@@ -23,6 +24,8 @@ export function mailer(): Transporter {
   }
   return globalForMail.__mailer;
 }
+
+export { htmlToText } from "./template";
 
 export type SendMailInput = {
   to: string | string[];
@@ -53,22 +56,4 @@ export async function sendMail(input: SendMailInput): Promise<SendMailResult> {
     console.error("[mail] delivery failed:", message);
     return { ok: false, error: message };
   }
-}
-
-/** Crude but adequate plain-text alternative for the multipart body. */
-export function htmlToText(html: string): string {
-  return html
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<\/(p|div|h[1-6]|li|tr)>/gi, "\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
 }

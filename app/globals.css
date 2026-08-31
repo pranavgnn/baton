@@ -105,7 +105,7 @@
   /* Layout tokens - referenced through Tailwind utilities, never inlined. */
   --shell-max-width: 80rem;
   --shell-narrow-width: 42rem;
-  --canvas-height: calc(100dvh - 9rem);
+  --canvas-min-height: 24rem;
   --node-width: 17rem;
 
   /* Workflow node accents. */
@@ -271,12 +271,21 @@
 
   /* Workflow canvas --------------------------------------------------- */
   .flow-layout {
-    @apply grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)];
+    @apply grid min-h-0 flex-1 gap-4 lg:grid-cols-[15rem_minmax(0,1fr)];
+  }
+
+  /* Builder chrome stays compact so the canvas gets the remaining height. */
+  .builder-page {
+    @apply mx-auto flex min-h-0 w-full flex-1 flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8;
+  }
+
+  .builder-sidebar {
+    @apply flex min-h-0 flex-col gap-3 overflow-y-auto;
   }
 
   .flow-canvas {
-    @apply w-full overflow-hidden rounded-lg border bg-muted/40;
-    height: var(--canvas-height);
+    @apply h-full min-h-0 w-full overflow-hidden rounded-lg border bg-muted/40;
+    min-height: var(--canvas-min-height);
   }
 
   .flow-node {
@@ -344,43 +353,6 @@
 
   .palette-item {
     @apply flex w-full items-start gap-2.5 rounded-md border bg-card p-2.5 text-left text-sm transition-colors hover:bg-accent;
-  }
-
-  /* React Flow theming driven entirely by our tokens. */
-  .react-flow {
-    --xy-background-color: var(--muted);
-    --xy-edge-stroke-default: var(--border);
-    --xy-edge-stroke-selected-default: var(--primary);
-    --xy-attribution-background-color-default: transparent;
-    --xy-controls-button-background-color-default: var(--card);
-    --xy-controls-button-background-color-hover-default: var(--accent);
-    --xy-controls-button-color-default: var(--foreground);
-    --xy-controls-button-color-hover-default: var(--accent-foreground);
-    --xy-controls-button-border-color-default: var(--border);
-    --xy-minimap-background-color-default: var(--card);
-    --xy-node-border-radius-default: var(--radius);
-  }
-
-  .react-flow__edge-path {
-    stroke-width: 2;
-  }
-
-  .react-flow__edge-text {
-    @apply fill-foreground font-medium;
-    font-size: 0.625rem;
-  }
-
-  .react-flow__edge-textbg {
-    @apply fill-background;
-  }
-
-  .react-flow__attribution {
-    @apply hidden;
-  }
-
-  .react-flow__handle {
-    @apply border-2 border-background;
-    background-color: var(--node-stage);
   }
 
   /* Form builder ------------------------------------------------------ */
@@ -516,4 +488,83 @@
   .timeline-dot-rejected {
     @apply bg-destructive;
   }
+}
+
+/*
+ * React Flow theming.
+ *
+ * The library's stylesheet is imported unlayered, and unlayered rules always
+ * beat anything inside `@layer`, so these overrides deliberately live outside
+ * the component layer. Every value still comes from a token above.
+ */
+.react-flow {
+  --xy-background-color: var(--muted);
+  --xy-edge-stroke-default: var(--border);
+  --xy-edge-stroke-selected-default: var(--primary);
+  --xy-attribution-background-color-default: transparent;
+  --xy-node-border-radius-default: var(--radius);
+}
+
+.react-flow__edge-path {
+  stroke-width: 2;
+}
+
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--primary);
+}
+
+.react-flow__edge-text {
+  fill: var(--foreground);
+  font-size: 0.625rem;
+  font-weight: 500;
+}
+
+.react-flow__edge-textbg {
+  fill: var(--background);
+}
+
+.react-flow__handle {
+  border: 2px solid var(--background);
+  background-color: var(--node-stage);
+}
+
+.react-flow__minimap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background-color: var(--card);
+}
+
+.react-flow__minimap-mask {
+  fill: color-mix(in oklch, var(--muted-foreground) 30%, transparent);
+  stroke: none;
+}
+
+.react-flow__minimap-node {
+  fill: var(--node-stage);
+  stroke: none;
+}
+
+.react-flow__controls {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: none;
+}
+
+.react-flow__controls-button {
+  border-bottom: 1px solid var(--border);
+  background-color: var(--card);
+  fill: var(--foreground);
+}
+
+.react-flow__controls-button:hover {
+  background-color: var(--accent);
+  fill: var(--accent-foreground);
+}
+
+.react-flow__attribution {
+  background-color: transparent;
+  color: var(--muted-foreground);
+  font-size: 0.5rem;
 }

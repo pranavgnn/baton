@@ -15,9 +15,10 @@ import {
 import type {
   ApplicationData,
   EmailTemplateDoc,
+  SectionData,
   WorkflowGraph,
 } from "@/lib/workflow/types";
-import type { PermissionKey } from "@/lib/auth/permissions";
+import type { RolePermission } from "@/lib/auth/permissions";
 
 /* -------------------------------------------------------------------------- */
 /*  Better Auth core tables                                                    */
@@ -128,7 +129,7 @@ export const role = pgTable(
      * reserved for the seeded Super Admin.
      */
     permissions: jsonb("permissions")
-      .$type<PermissionKey[]>()
+      .$type<RolePermission[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
     /** System roles cannot be deleted, only renamed. */
@@ -321,7 +322,7 @@ export const stageDraft = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     data: jsonb("data")
-      .$type<Record<string, unknown>>()
+      .$type<SectionData>()
       .notNull()
       .default(sql`'{}'::jsonb`),
     updatedAt: timestamp("updated_at")

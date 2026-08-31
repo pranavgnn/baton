@@ -47,7 +47,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           roles: current.roles.map((role) => role.name),
         }}
       />
-      <main className="flex-1">{children}</main>
+      <main className="flex min-h-0 flex-1 flex-col">{children}</main>
     </div>
   );
 }

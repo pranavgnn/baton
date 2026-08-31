@@ -20,7 +20,7 @@ import {
   SUPER_ADMIN_ROLE_NAME,
 } from "@/lib/workflow/defaults";
 import { validateGraph, hasBlockingIssues } from "@/lib/workflow/graph";
-import type { PermissionKey } from "@/lib/auth/permissions";
+import type { RolePermission } from "@/lib/auth/permissions";
 
 function log(step: string, detail = "") {
   console.log(`  ${step}${detail ? ` ${detail}` : ""}`);
@@ -46,7 +46,7 @@ async function seedRoles(): Promise<Record<string, string>> {
       id,
       name: definition.name,
       description: definition.description,
-      permissions: definition.permissions as unknown as PermissionKey[],
+      permissions: definition.permissions as unknown as RolePermission[],
       isSystem: definition.isSystem,
     });
     byName[definition.name] = id;
