@@ -78,6 +78,22 @@ async function fillReview(page: Page, score: string, remarks: string) {
   await page.getByLabel("Remarks").fill(remarks);
 }
 
+/**
+ * Steps through the wizard to the preview. Each click waits for the step to
+ * actually become current first - advancing runs validation and a draft save,
+ * so firing the clicks back to back races on a fast machine.
+ */
+async function advanceToPreview(page: Page, sectionCount: number) {
+  for (let index = 0; index < sectionCount; index += 1) {
+    await expect(page.getByTestId(`wizard-step-${index}`)).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+    await page.getByTestId("wizard-next").click();
+  }
+  await expect(page.getByTestId("submit-application")).toBeVisible();
+}
+
 /** Opens the applicant's form, starting the application if none exists yet. */
 async function openApplication(page: Page) {
   await page.goto("/application");
@@ -197,9 +213,7 @@ test.describe("3. the applicant resubmits", () => {
     ).toBeVisible();
     await expect(page.getByLabel("Full name")).toHaveValue(APPLICANT);
 
-    await page.getByTestId("wizard-next").click();
-    await page.getByTestId("wizard-next").click();
-    await page.getByTestId("wizard-next").click();
+    await advanceToPreview(page, 3);
 
     await page.getByTestId("submit-application").click();
     await expectToast(page, /Application submitted/);
