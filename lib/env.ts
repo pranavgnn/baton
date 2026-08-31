@@ -27,9 +27,7 @@ const serverSchema = z.object({
     .optional()
     .default("false")
     .transform((v) => v === "true"),
-  MAIL_FROM: z
-    .string()
-    .default("MIT Promotion Portal <no-reply@manipal.edu>"),
+  MAIL_FROM: z.string().default("MIT Promotion Portal <no-reply@manipal.edu>"),
 
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   S3_PUBLIC_ENDPOINT: z.string().default("http://localhost:9000"),

@@ -1,5 +1,5 @@
 {
-  "id": "8d00966a-e8b4-47f0-9a87-41d153be5a5a",
+  "id": "e24a478d-1272-4ffc-8ac1-ba5246bf944b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -18,8 +18,7 @@
           "name": "issuer",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'credential'"
+          "notNull": true
         },
         "account_id": {
           "name": "account_id",

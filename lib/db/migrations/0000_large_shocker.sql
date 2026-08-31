@@ -2,7 +2,7 @@ CREATE TYPE "public"."application_event_type" AS ENUM('created', 'submitted', 's
 CREATE TYPE "public"."application_status" AS ENUM('draft', 'in_progress', 'approved', 'rejected', 'withdrawn');--> statement-breakpoint
 CREATE TABLE "account" (
 	"id" text PRIMARY KEY NOT NULL,
-	"issuer" text DEFAULT 'credential' NOT NULL,
+	"issuer" text NOT NULL,
 	"account_id" text NOT NULL,
 	"provider_id" text NOT NULL,
 	"user_id" text NOT NULL,
