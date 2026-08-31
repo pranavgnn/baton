@@ -4,6 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 import {
   clearMailbox,
+  expectToast,
   selectOption,
   storageStatePath,
   waitForEmail,
@@ -17,9 +18,22 @@ const FIXTURE_CV = path.join(__dirname, "fixtures", "curriculum-vitae.pdf");
  * final Dean approval. The blocks run in declaration order and share one
  * application, so each one depends on the state the previous left behind.
  */
-test.describe.configure({ mode: "serial" });
+/**
+ * Retries are off: the blocks mutate one shared application, so re-running a
+ * failed test would start from state the first attempt already changed.
+ */
+test.describe.configure({ mode: "serial", retries: 0 });
 
+/** What the applicant types into the form's own "Full name" field. */
 const APPLICANT = "Dr. Nikhil Prabhu";
+
+/**
+ * Queues and listings identify an application by its account holder, not by
+ * whatever was typed into the form, so rows are found by the account's email.
+ */
+const APPLICANT_EMAIL = "faculty@manipal.edu";
+const applicationRow = (page: Page) =>
+  page.locator("tr").filter({ hasText: APPLICANT_EMAIL }).first();
 
 async function fillPersonalDetails(page: Page) {
   await page.getByLabel("Full name").fill(APPLICANT);
@@ -96,7 +110,7 @@ test.describe("1. the applicant fills in and submits", () => {
     await fillPersonalDetails(page);
 
     await page.getByTestId("wizard-save-draft").click();
-    await expect(page.getByText("Draft saved.")).toBeVisible();
+    await expectToast(page, "Draft saved.");
 
     await page.goto("/dashboard");
     await page.goto("/application");
@@ -133,7 +147,7 @@ test.describe("1. the applicant fills in and submits", () => {
     );
 
     await page.getByTestId("submit-application").click();
-    await expect(page.getByText(/Application submitted/)).toBeVisible();
+    await expectToast(page, /Application submitted/);
     await expect(page.getByText("Currently with:")).toBeVisible();
 
     const mail = await waitForEmail((message) =>
@@ -150,7 +164,7 @@ test.describe("2. the head of department sends it back", () => {
     await clearMailbox();
     await page.goto("/reviews");
 
-    const row = page.locator("tr", { hasText: APPLICANT }).first();
+    const row = applicationRow(page);
     await expect(row).toBeVisible();
     await row.getByRole("link", { name: "Review" }).click();
 
@@ -188,7 +202,7 @@ test.describe("3. the applicant resubmits", () => {
     await page.getByTestId("wizard-next").click();
 
     await page.getByTestId("submit-application").click();
-    await expect(page.getByText(/Application submitted/)).toBeVisible();
+    await expectToast(page, /Application submitted/);
   });
 });
 
@@ -199,11 +213,7 @@ test.describe("4. the head of department recommends", () => {
     await clearMailbox();
     await page.goto("/reviews");
 
-    await page
-      .locator("tr", { hasText: APPLICANT })
-      .first()
-      .getByRole("link", { name: "Review" })
-      .click();
+    await applicationRow(page).getByRole("link", { name: "Review" }).click();
 
     await fillReview(
       page,
@@ -229,11 +239,7 @@ test.describe("5. the dean approves", () => {
     await clearMailbox();
     await page.goto("/reviews");
 
-    await page
-      .locator("tr", { hasText: APPLICANT })
-      .first()
-      .getByRole("link", { name: "Review" })
-      .click();
+    await applicationRow(page).getByRole("link", { name: "Review" }).click();
 
     // The HOD's answers live in their own namespace and are visible here.
     await page.getByRole("tab", { name: "Earlier reviews" }).click();
@@ -281,7 +287,7 @@ test.describe("6. the outcome is visible to everyone entitled to it", () => {
     test("lists it and records the whole history", async ({ page }) => {
       await page.goto("/applications");
 
-      const row = page.locator("tr", { hasText: APPLICANT }).first();
+      const row = applicationRow(page);
       await expect(row).toBeVisible();
       await expect(row.getByTestId("status-approved")).toBeVisible();
 

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { closeOverlays, storageStatePath } from "./helpers";
+import { closeOverlays, expectToast, storageStatePath } from "./helpers";
 
 test.use({ storageState: storageStatePath("superAdmin") });
 
@@ -13,22 +13,15 @@ async function openBuilder(page: Page) {
   await expect(page.locator(".react-flow__node").first()).toBeVisible();
 }
 
-function nodeCount(page: Page) {
-  return page.locator(".react-flow__node").count();
-}
-
-function edgeCount(page: Page) {
-  return page.locator(".react-flow__edge").count();
-}
+const nodes = (page: Page) => page.locator(".react-flow__node");
+const edges = (page: Page) => page.locator(".react-flow__edge");
 
 /** Restores the published graph so each test starts from a known canvas. */
 async function revert(page: Page) {
   // Sheets and dialogs render a modal overlay that would swallow the click.
   await closeOverlays(page);
   await page.getByTestId("revert-workflow").click();
-  await expect(
-    page.getByText("Draft reset to the published version."),
-  ).toBeVisible();
+  await expectToast(page, "Draft reset to the published version.");
 }
 
 test.describe("workflow builder canvas", () => {
@@ -43,8 +36,8 @@ test.describe("workflow builder canvas", () => {
   test("renders the published graph with every node and connection", async ({
     page,
   }) => {
-    expect(await nodeCount(page)).toBe(10);
-    expect(await edgeCount(page)).toBe(11);
+    await expect(nodes(page)).toHaveCount(10);
+    await expect(edges(page)).toHaveCount(11);
 
     await expect(page.getByTestId("node-start")).toBeVisible();
     await expect(
@@ -121,7 +114,7 @@ test.describe("workflow builder canvas", () => {
   test("a new stage starts invalid and blocks publishing", async ({ page }) => {
     await page.getByTestId("add-stage-node").click();
     await expect(page.getByTestId("node-inspector")).toBeVisible();
-    expect(await nodeCount(page)).toBe(11);
+    await expect(nodes(page)).toHaveCount(11);
 
     await closeOverlays(page);
     await expect(page.getByTestId("issue-list")).toContainText(
@@ -132,12 +125,12 @@ test.describe("workflow builder canvas", () => {
 
   test("deleting a node removes it and its connections", async ({ page }) => {
     await page.getByTestId("add-email-node").click();
-    expect(await nodeCount(page)).toBe(11);
+    await expect(nodes(page)).toHaveCount(11);
 
     await page.getByTestId("delete-node").click();
     await closeOverlays(page);
-    expect(await nodeCount(page)).toBe(10);
-    expect(await edgeCount(page)).toBe(11);
+    await expect(nodes(page)).toHaveCount(10);
+    await expect(edges(page)).toHaveCount(11);
     await expect(page.getByTestId("publish-workflow")).toBeEnabled();
   });
 
@@ -162,7 +155,7 @@ test.describe("workflow builder canvas", () => {
     await closeOverlays(page);
 
     await page.getByTestId("save-workflow").click();
-    await expect(page.getByText("Draft saved.")).toBeVisible();
+    await expectToast(page, "Draft saved.");
 
     await page.reload();
     await expect(
@@ -176,12 +169,10 @@ test.describe("workflow builder canvas", () => {
     await page.getByTestId("node-label").fill("Temporary Name");
     await closeOverlays(page);
     await page.getByTestId("save-workflow").click();
-    await expect(page.getByText("Draft saved.")).toBeVisible();
+    await expectToast(page, "Draft saved.");
 
     await page.getByTestId("revert-workflow").click();
-    await expect(
-      page.getByText("Draft reset to the published version."),
-    ).toBeVisible();
+    await expectToast(page, "Draft reset to the published version.");
     await expect(page.getByTestId("node-stage-Dean Review")).toBeVisible();
     await expect(page.getByTestId("node-stage-Temporary Name")).toHaveCount(0);
   });
@@ -192,9 +183,7 @@ test.describe("workflow builder canvas", () => {
     const version = Number((await subtitle.innerText()).match(/\d+/)![0]);
 
     await page.getByTestId("publish-workflow").click();
-    await expect(
-      page.getByText(`Published version ${version + 1}.`),
-    ).toBeVisible();
+    await expectToast(page, `Published version ${version + 1}.`);
     await expect(subtitle).toContainText(`Published version ${version + 1}`);
   });
 });

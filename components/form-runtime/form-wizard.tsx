@@ -152,21 +152,28 @@ export function FormWizard({
 
   const currentSection = sections[step];
 
-  async function goNext() {
-    if (currentSection) {
-      const keys = valueFields(currentSection).map((field) => field.key);
-      const valid = await trigger(keys, { shouldFocus: true });
-      if (!valid) {
-        toast.error("Fix the highlighted fields before continuing.");
-        return;
-      }
+  /** Validates the step being left; false means stay put. */
+  async function leaveCurrentStep(): Promise<boolean> {
+    if (!currentSection) return true;
+    const keys = valueFields(currentSection).map((field) => field.key);
+    const valid = await trigger(keys, { shouldFocus: true });
+    if (!valid) {
+      toast.error("Fix the highlighted fields before continuing.");
+      return false;
     }
-
     await saveDraft({ silent: true });
-    const next = Math.min(step + 1, previewStep);
-    setStep(next);
-    setFurthest((current) => Math.max(current, next));
+    return true;
+  }
+
+  function moveTo(target: number) {
+    setStep(target);
+    setFurthest((current) => Math.max(current, target));
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  async function goNext() {
+    if (!(await leaveCurrentStep())) return;
+    moveTo(Math.min(step + 1, previewStep));
   }
 
   function goBack() {
@@ -176,13 +183,9 @@ export function FormWizard({
 
   async function jumpTo(target: number) {
     if (target === step) return;
-    if (target > step) {
-      // Forward jumps still have to pass the current step's validation.
-      await goNext();
-      return;
-    }
-    setStep(target);
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Going back never loses work; going forward has to pass validation first.
+    if (target > step && !(await leaveCurrentStep())) return;
+    moveTo(target);
   }
 
   async function validateAll() {

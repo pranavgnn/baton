@@ -112,3 +112,14 @@ export async function closeOverlays(page: Page) {
     await page.waitForTimeout(250);
   }
 }
+
+/**
+ * Asserts a Sonner toast. Scoped to the toaster because success copy often
+ * repeats text that also appears in the page behind it (a timeline entry, a
+ * page subtitle), which would otherwise trip strict mode.
+ */
+export async function expectToast(page: Page, text: string | RegExp) {
+  await expect(
+    page.locator("[data-sonner-toast]").filter({ hasText: text }).first(),
+  ).toBeVisible();
+}

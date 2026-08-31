@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 
-import { clearMailbox, storageStatePath, waitForEmail } from "./helpers";
+import {
+  clearMailbox,
+  expectToast,
+  storageStatePath,
+  waitForEmail,
+} from "./helpers";
 
 test.describe.configure({ mode: "serial" });
 test.use({ storageState: storageStatePath("superAdmin") });
@@ -26,7 +31,7 @@ test.describe("role administration", () => {
       .click();
     await page.getByRole("button", { name: "Create role" }).click();
 
-    await expect(page.getByText("Role created.")).toBeVisible();
+    await expectToast(page, "Role created.");
     const card = page.getByTestId(`role-card-${NEW_ROLE}`);
     await expect(card).toBeVisible();
     await expect(card).toContainText("Review applications");
@@ -41,9 +46,7 @@ test.describe("role administration", () => {
       .fill(NEW_ROLE);
     await page.getByRole("button", { name: "Create role" }).click();
 
-    await expect(
-      page.getByText("A role with that name already exists."),
-    ).toBeVisible();
+    await expectToast(page, "A role with that name already exists.");
   });
 
   test("refuses to delete a role that is still in use", async ({ page }) => {
@@ -55,9 +58,10 @@ test.describe("role administration", () => {
     await card.getByRole("button", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Delete role" }).click();
 
-    await expect(
-      page.getByText(/still assigned this role|assigned to workflow stage/),
-    ).toBeVisible();
+    await expectToast(
+      page,
+      /still assigned this role|assigned to workflow stage/,
+    );
     await expect(card).toBeVisible();
   });
 
@@ -82,7 +86,7 @@ test.describe("role administration", () => {
       .click();
     await page.getByRole("button", { name: "Delete role" }).click();
 
-    await expect(page.getByText(`Deleted "${NEW_ROLE}".`)).toBeVisible();
+    await expectToast(page, `Deleted "${NEW_ROLE}".`);
     await expect(page.getByTestId(`role-card-${NEW_ROLE}`)).toHaveCount(0);
   });
 });
@@ -107,7 +111,7 @@ test.describe("user administration", () => {
     await page.getByRole("checkbox", { name: "Faculty" }).click();
     await page.getByRole("button", { name: "Add user" }).click();
 
-    await expect(page.getByText(/whitelisted/)).toBeVisible();
+    await expectToast(page, /whitelisted/);
 
     const row = page.getByTestId(`user-${INVITEE}`);
     await expect(row).toBeVisible();
@@ -128,9 +132,7 @@ test.describe("user administration", () => {
     await page.getByRole("textbox", { name: "Display name" }).fill("Duplicate");
     await page.getByRole("button", { name: "Add user" }).click();
 
-    await expect(
-      page.getByText("That email is already on the whitelist."),
-    ).toBeVisible();
+    await expectToast(page, "That email is already on the whitelist.");
   });
 
   test("disables and re-enables an account", async ({ page }) => {
@@ -139,12 +141,12 @@ test.describe("user administration", () => {
     const row = page.getByTestId(`user-${INVITEE}`);
     await row.getByRole("button", { name: /Actions for/ }).click();
     await page.getByRole("menuitem", { name: "Disable access" }).click();
-    await expect(page.getByText("Account disabled.")).toBeVisible();
+    await expectToast(page, "Account disabled.");
     await expect(row).toContainText("Disabled");
 
     await row.getByRole("button", { name: /Actions for/ }).click();
     await page.getByRole("menuitem", { name: "Re-enable access" }).click();
-    await expect(page.getByText("Account re-enabled.")).toBeVisible();
+    await expectToast(page, "Account re-enabled.");
   });
 
   test("cannot disable your own account", async ({ page }) => {
@@ -167,7 +169,7 @@ test.describe("user administration", () => {
     await page.getByRole("menuitem", { name: "Remove from whitelist" }).click();
     await page.getByRole("button", { name: "Remove user" }).click();
 
-    await expect(page.getByText("User removed.")).toBeVisible();
+    await expectToast(page, "User removed.");
     await expect(page.getByTestId(`user-${INVITEE}`)).toHaveCount(0);
   });
 
@@ -203,7 +205,7 @@ test.describe("email templates", () => {
       .click();
 
     await page.getByTestId("save-template").click();
-    await expect(page.getByText("Template created.")).toBeVisible();
+    await expectToast(page, "Template created.");
     await expect(page.getByTestId(`template-${NEW_TEMPLATE}`)).toBeVisible();
   });
 
@@ -217,9 +219,7 @@ test.describe("email templates", () => {
       .click();
     await page.getByRole("button", { name: "Send test to me" }).click();
 
-    await expect(
-      page.getByText("Test email sent to your inbox."),
-    ).toBeVisible();
+    await expectToast(page, "Test email sent to your inbox.");
     const mail = await waitForEmail((message) =>
       message.Subject.startsWith("[Test]"),
     );
@@ -237,7 +237,7 @@ test.describe("email templates", () => {
       .click();
     await page.getByRole("button", { name: "Delete template" }).click();
 
-    await expect(page.getByText(/used by email step/)).toBeVisible();
+    await expectToast(page, /used by email step/);
   });
 
   test("deletes an unused template", async ({ page }) => {
@@ -246,7 +246,7 @@ test.describe("email templates", () => {
     await page.getByRole("button", { name: `Delete ${NEW_TEMPLATE}` }).click();
     await page.getByRole("button", { name: "Delete template" }).click();
 
-    await expect(page.getByText("Template deleted.")).toBeVisible();
+    await expectToast(page, "Template deleted.");
     await expect(page.getByTestId(`template-${NEW_TEMPLATE}`)).toHaveCount(0);
   });
 });
