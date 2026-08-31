@@ -46,16 +46,19 @@ test.describe("role administration", () => {
     ).toBeVisible();
   });
 
-  test("refuses to delete a role bound to a workflow stage", async ({
-    page,
-  }) => {
+  test("refuses to delete a role that is still in use", async ({ page }) => {
     await page.goto("/admin/roles");
 
+    // Dean both holds members and is bound to a workflow stage; either guard
+    // is a correct refusal, and the role must survive the attempt.
     const card = page.getByTestId("role-card-Dean");
     await card.getByRole("button", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Delete role" }).click();
 
-    await expect(page.getByText(/assigned to workflow stage/)).toBeVisible();
+    await expect(
+      page.getByText(/still assigned this role|assigned to workflow stage/),
+    ).toBeVisible();
+    await expect(card).toBeVisible();
   });
 
   test("cannot narrow the super admin role", async ({ page }) => {

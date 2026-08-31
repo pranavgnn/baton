@@ -86,7 +86,9 @@ test.describe("workflow builder canvas", () => {
     await expect(page.getByTestId("node-label")).toHaveValue(
       "Head of Department Review",
     );
-    await expect(inspector.getByText("Head of Department")).toBeVisible();
+    await expect(page.getByTestId("node-role")).toContainText(
+      "Head of Department",
+    );
     await expect(page.getByTestId("outcome-0")).toBeVisible();
     await expect(page.getByTestId("outcome-2")).toBeVisible();
   });
@@ -185,16 +187,15 @@ test.describe("workflow builder canvas", () => {
   });
 
   test("publishing bumps the version", async ({ page }) => {
-    const before = await page.getByText(/Published version \d+/).innerText();
-    const version = Number(before.match(/\d+/)![0]);
+    // Scoped to the subtitle: the success toast repeats the same text.
+    const subtitle = page.locator(".page-subtitle");
+    const version = Number((await subtitle.innerText()).match(/\d+/)![0]);
 
     await page.getByTestId("publish-workflow").click();
     await expect(
       page.getByText(`Published version ${version + 1}.`),
     ).toBeVisible();
-    await expect(
-      page.getByText(`Published version ${version + 1}`),
-    ).toBeVisible();
+    await expect(subtitle).toContainText(`Published version ${version + 1}`);
   });
 });
 

@@ -124,7 +124,8 @@ export default async function DashboardPage() {
               )}
             </CardContent>
             <CardFooter>
-              <Button asChild disabled={!published}>
+              {/* asChild forwards to a Link, which ignores `disabled`. */}
+              <Button asChild={Boolean(published)} disabled={!published}>
                 <Link href="/application">
                   {openApplication
                     ? openApplication.status === "draft"
