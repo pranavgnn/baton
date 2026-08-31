@@ -18,7 +18,7 @@ import {
 } from "@/lib/auth/permissions";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { role, userRole, workflow } from "@/lib/db/schema";
+import { application, role, userRole, workflow } from "@/lib/db/schema";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
 import { stageNodes } from "@/lib/workflow/graph";
 
@@ -148,6 +148,26 @@ export async function deleteRole(id: string): Promise<ActionResult> {
       const labels = Array.from(new Set(usedBy.map((n) => n.data.label)));
       return fail(
         `This role is assigned to workflow stage${labels.length === 1 ? "" : "s"}: ${labels.join(", ")}.`,
+      );
+    }
+
+    // In-flight applications run on their own graph snapshot, which may still
+    // route through this role even after it has been removed from the live
+    // workflow. Deleting it would strand them with nobody able to act.
+    const inFlight = await db
+      .select({ reference: application.reference, graph: application.graph })
+      .from(application)
+      .where(eq(application.status, "in_progress"));
+
+    const stranded = inFlight.filter((row) =>
+      stageNodes(row.graph).some((node) => node.data.roleId === id),
+    );
+    if (stranded.length > 0) {
+      return fail(
+        `${stranded.length} in-progress application${stranded.length === 1 ? "" : "s"} still route through this role (${stranded
+          .slice(0, 3)
+          .map((row) => row.reference)
+          .join(", ")}${stranded.length > 3 ? ", …" : ""}).`,
       );
     }
 

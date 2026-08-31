@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   hasBlockingIssues,
+  incomingEdges,
   nextNodeId,
+  orderedStageNodes,
   outgoingEdges,
   reachableNodeIds,
   sourceHandles,
@@ -274,5 +276,37 @@ describe("validateGraph", () => {
     expect(errorsOf(graph, context)).toContain(
       '"Applicant Submission" needs at least one form section.',
     );
+  });
+});
+
+describe("orderedStageNodes", () => {
+  it("starts at the submission node and reaches both endings", () => {
+    const { graph } = buildGraph();
+    const ordered = orderedStageNodes(graph).map((node) => node.id);
+
+    expect(ordered[0]).toBe("start");
+    expect(ordered).toContain("stage_hod");
+    expect(ordered).toContain("end_approved");
+    expect(ordered).toContain("end_rejected");
+    // Email nodes are plumbing, not steps a person sees.
+    expect(ordered).not.toContain("email_ack");
+  });
+
+  it("returns nothing when the graph has no entry point", () => {
+    const { graph } = buildGraph();
+    graph.nodes = graph.nodes.filter((node) => node.kind !== "start");
+    expect(orderedStageNodes(graph)).toEqual([]);
+  });
+});
+
+describe("incomingEdges", () => {
+  it("finds every route into a shared node", () => {
+    const { graph } = buildGraph();
+    // Both the reject outcome and nothing else lands on the rejected ending.
+    expect(incomingEdges(graph, "end_rejected").map((e) => e.id)).toEqual([
+      "e4",
+    ]);
+    // The submission node is re-entered by the send-back loop.
+    expect(incomingEdges(graph, "start").map((e) => e.id)).toEqual(["e6"]);
   });
 });
