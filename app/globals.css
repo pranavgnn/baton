@@ -206,7 +206,9 @@
   }
 
   .page-header {
-    @apply mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between;
+    /* items-start keeps trailing content (a status pill, a toolbar) from
+       stretching to full width once the header stacks on small screens. */
+    @apply mb-6 flex flex-col items-start gap-3 sm:flex-row sm:items-end sm:justify-between;
   }
 
   .page-title {
