@@ -10,6 +10,7 @@ import {
   Settings,
 } from "lucide-react";
 import Link from "next/link";
+import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ComponentType } from "react";
 
@@ -36,7 +37,7 @@ import { signOut } from "@/lib/auth/client";
 import { cn } from "@/lib/utils";
 
 export type NavLink = {
-  href: string;
+  href: Route;
   label: string;
   icon: "dashboard" | "application" | "reviews" | "all" | "admin";
 };

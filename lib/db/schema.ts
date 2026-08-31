@@ -17,7 +17,7 @@ import type {
   EmailTemplateDoc,
   WorkflowGraph,
 } from "@/lib/workflow/types";
-import type { PermissionKey } from "@/lib/auth/permissions";
+import type { RolePermission } from "@/lib/auth/permissions";
 
 /* -------------------------------------------------------------------------- */
 /*  Better Auth core tables                                                    */
@@ -128,7 +128,7 @@ export const role = pgTable(
      * reserved for the seeded Super Admin.
      */
     permissions: jsonb("permissions")
-      .$type<PermissionKey[]>()
+      .$type<RolePermission[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
     /** System roles cannot be deleted, only renamed. */

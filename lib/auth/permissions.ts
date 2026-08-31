@@ -87,3 +87,6 @@ export function grantsAny(
   if (held.includes(SUPER_ADMIN_PERMISSION)) return true;
   return required.some((key) => held.includes(key));
 }
+
+/** What a role row may store: a permission key or the Super Admin wildcard. */
+export type RolePermission = PermissionKey | typeof SUPER_ADMIN_PERMISSION;
