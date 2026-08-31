@@ -44,7 +44,11 @@ export function buildObjectKey(params: {
   fileName: string;
 }): string {
   const extension = params.fileName.includes(".")
-    ? `.${params.fileName.split(".").pop()!.toLowerCase().replace(/[^a-z0-9]/g, "")}`
+    ? `.${params.fileName
+        .split(".")
+        .pop()!
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "")}`
     : "";
   const now = new Date();
   const datePart = `${now.getUTCFullYear()}/${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
@@ -109,7 +113,9 @@ export async function objectSize(objectKey: string): Promise<number | null> {
 
 export async function deleteObject(objectKey: string): Promise<void> {
   try {
-    await s3().send(new DeleteObjectCommand({ Bucket: BUCKET, Key: objectKey }));
+    await s3().send(
+      new DeleteObjectCommand({ Bucket: BUCKET, Key: objectKey }),
+    );
   } catch (error) {
     console.error("[s3] delete failed", objectKey, error);
   }

@@ -94,7 +94,11 @@ export function resolveSubmission(
 export type ApplicationOutcome =
   | { kind: "awaiting_stage"; nodeId: string }
   | { kind: "returned_to_applicant"; nodeId: string }
-  | { kind: "finished"; nodeId: string; result: "approved" | "rejected" | "withdrawn" };
+  | {
+      kind: "finished";
+      nodeId: string;
+      result: "approved" | "rejected" | "withdrawn";
+    };
 
 export function classifyDestination(node: WorkflowNode): ApplicationOutcome {
   switch (node.kind) {

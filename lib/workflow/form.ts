@@ -129,10 +129,12 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
     case "select":
     case "radio": {
       const allowed = field.options.map((option) => option.value);
-      const schema = z.string().refine(
-        (value) => allowed.includes(value),
-        `${field.label} must be one of the listed options`,
-      );
+      const schema = z
+        .string()
+        .refine(
+          (value) => allowed.includes(value),
+          `${field.label} must be one of the listed options`,
+        );
       return field.required
         ? z.string().min(1, requiredMessage).pipe(schema)
         : optionalString(schema);
@@ -159,13 +161,19 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
 
     case "file": {
       const single = fileValueSchema.superRefine((file, ctx) => {
-        if (v.maxFileSizeMb != null && file.size > v.maxFileSizeMb * 1024 * 1024) {
+        if (
+          v.maxFileSizeMb != null &&
+          file.size > v.maxFileSizeMb * 1024 * 1024
+        ) {
           ctx.addIssue({
             code: "custom",
             message: `${file.name} exceeds the ${v.maxFileSizeMb} MB limit`,
           });
         }
-        if (v.acceptedFileTypes?.length && !matchesAccept(file, v.acceptedFileTypes)) {
+        if (
+          v.acceptedFileTypes?.length &&
+          !matchesAccept(file, v.acceptedFileTypes)
+        ) {
           ctx.addIssue({
             code: "custom",
             message: `${file.name} is not an accepted file type`,

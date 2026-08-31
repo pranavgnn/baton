@@ -235,13 +235,7 @@ export type WorkflowGraph = z.infer<typeof workflowGraphSchema>;
 export const APPLICANT_NAMESPACE = "applicant";
 
 export type FormValue =
-  | string
-  | number
-  | boolean
-  | string[]
-  | FileValue
-  | FileValue[]
-  | null;
+  string | number | boolean | string[] | FileValue | FileValue[] | null;
 
 export type FileValue = {
   id: string;

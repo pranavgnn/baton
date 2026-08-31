@@ -9,13 +9,7 @@ import { eq } from "drizzle-orm";
 
 import { provisionUser } from "@/lib/auth/provision";
 import { db } from "@/lib/db";
-import {
-  emailTemplate,
-  role,
-  user,
-  userRole,
-  workflow,
-} from "@/lib/db/schema";
+import { emailTemplate, role, user, userRole, workflow } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { ensureBucket } from "@/lib/storage/s3";
 import {

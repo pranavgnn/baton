@@ -199,7 +199,10 @@ export function defaultApplicantForm(): FormSchema {
             label: "Employee ID",
             required: true,
             width: "half",
-            validation: { pattern: "^[A-Za-z0-9-]{3,20}$", patternMessage: "Use 3-20 letters, digits or hyphens" },
+            validation: {
+              pattern: "^[A-Za-z0-9-]{3,20}$",
+              patternMessage: "Use 3-20 letters, digits or hyphens",
+            },
           }),
           createField({
             type: "email",
@@ -222,11 +225,27 @@ export function defaultApplicantForm(): FormSchema {
             required: true,
             width: "half",
             options: [
-              { id: newId("opt"), label: "Computer Science & Engineering", value: "cse" },
-              { id: newId("opt"), label: "Electronics & Communication", value: "ece" },
-              { id: newId("opt"), label: "Mechanical Engineering", value: "mech" },
+              {
+                id: newId("opt"),
+                label: "Computer Science & Engineering",
+                value: "cse",
+              },
+              {
+                id: newId("opt"),
+                label: "Electronics & Communication",
+                value: "ece",
+              },
+              {
+                id: newId("opt"),
+                label: "Mechanical Engineering",
+                value: "mech",
+              },
               { id: newId("opt"), label: "Civil Engineering", value: "civil" },
-              { id: newId("opt"), label: "Information Technology", value: "it" },
+              {
+                id: newId("opt"),
+                label: "Information Technology",
+                value: "it",
+              },
             ],
           }),
           createField({
@@ -236,9 +255,21 @@ export function defaultApplicantForm(): FormSchema {
             required: true,
             width: "half",
             options: [
-              { id: newId("opt"), label: "Assistant Professor", value: "assistant_professor" },
-              { id: newId("opt"), label: "Senior Assistant Professor", value: "senior_assistant_professor" },
-              { id: newId("opt"), label: "Associate Professor", value: "associate_professor" },
+              {
+                id: newId("opt"),
+                label: "Assistant Professor",
+                value: "assistant_professor",
+              },
+              {
+                id: newId("opt"),
+                label: "Senior Assistant Professor",
+                value: "senior_assistant_professor",
+              },
+              {
+                id: newId("opt"),
+                label: "Associate Professor",
+                value: "associate_professor",
+              },
             ],
           }),
           createField({
@@ -255,8 +286,16 @@ export function defaultApplicantForm(): FormSchema {
             required: true,
             width: "half",
             options: [
-              { id: newId("opt"), label: "Senior Assistant Professor", value: "senior_assistant_professor" },
-              { id: newId("opt"), label: "Associate Professor", value: "associate_professor" },
+              {
+                id: newId("opt"),
+                label: "Senior Assistant Professor",
+                value: "senior_assistant_professor",
+              },
+              {
+                id: newId("opt"),
+                label: "Associate Professor",
+                value: "associate_professor",
+              },
               { id: newId("opt"), label: "Professor", value: "professor" },
             ],
           }),
@@ -307,11 +346,31 @@ export function defaultApplicantForm(): FormSchema {
             label: "Institutional contributions",
             description: "Select every area you have contributed to.",
             options: [
-              { id: newId("opt"), label: "Curriculum development", value: "curriculum" },
-              { id: newId("opt"), label: "Accreditation work", value: "accreditation" },
-              { id: newId("opt"), label: "Student mentoring", value: "mentoring" },
-              { id: newId("opt"), label: "Sponsored research", value: "research" },
-              { id: newId("opt"), label: "Industry consultancy", value: "consultancy" },
+              {
+                id: newId("opt"),
+                label: "Curriculum development",
+                value: "curriculum",
+              },
+              {
+                id: newId("opt"),
+                label: "Accreditation work",
+                value: "accreditation",
+              },
+              {
+                id: newId("opt"),
+                label: "Student mentoring",
+                value: "mentoring",
+              },
+              {
+                id: newId("opt"),
+                label: "Sponsored research",
+                value: "research",
+              },
+              {
+                id: newId("opt"),
+                label: "Industry consultancy",
+                value: "consultancy",
+              },
             ],
           }),
           createField({
@@ -353,7 +412,8 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "checkbox",
             key: "declaration",
-            label: "I declare that the information provided is true and complete.",
+            label:
+              "I declare that the information provided is true and complete.",
             required: true,
           }),
         ],
@@ -448,7 +508,8 @@ export function defaultWorkflowGraph({
         position: { x: 0, y: 200 },
         data: {
           label: "Applicant Submission",
-          description: "The promotion application form filled by the faculty member.",
+          description:
+            "The promotion application form filled by the faculty member.",
           form: defaultApplicantForm(),
         },
       },

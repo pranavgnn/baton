@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  experimental: {
+    // Enables forbidden() / unauthorized() alongside app/forbidden.tsx.
+    authInterrupts: true,
+  },
+  typedRoutes: true,
+  serverExternalPackages: ["pg"],
 };
 
 export default nextConfig;

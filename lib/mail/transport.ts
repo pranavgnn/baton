@@ -32,8 +32,7 @@ export type SendMailInput = {
 };
 
 export type SendMailResult =
-  | { ok: true; messageId: string }
-  | { ok: false; error: string };
+  { ok: true; messageId: string } | { ok: false; error: string };
 
 /**
  * Never throws: a failing mail server must not roll back a workflow

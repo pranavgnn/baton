@@ -1,3 +1,4 @@
+import { createLocalAccountIssuer } from "@better-auth/core/db";
 import { eq } from "drizzle-orm";
 
 import { auth } from "@/lib/auth";
@@ -36,16 +37,19 @@ export async function provisionUser(
     return { id: existing.id, email: existing.email, created: false };
   }
 
-  const created = await context.internalAdapter.createUser({
-    email,
-    name: input.name.trim(),
-    emailVerified: false,
-    employeeId: input.employeeId ?? null,
-    department: input.department ?? null,
-    designation: input.designation ?? null,
-    activated: input.activated ?? false,
-    disabled: false,
-  });
+  const created = await context.internalAdapter.createUser(
+    {
+      email,
+      name: input.name.trim(),
+      emailVerified: false,
+      employeeId: input.employeeId ?? null,
+      department: input.department ?? null,
+      designation: input.designation ?? null,
+      activated: input.activated ?? false,
+      disabled: false,
+    },
+    { method: "admin" },
+  );
 
   // A credential account must exist for password sign-in and password reset to
   // work. Invitees get an unguessable placeholder they can never use; the
@@ -54,6 +58,7 @@ export async function provisionUser(
   await context.internalAdapter.linkAccount({
     userId: created.id,
     providerId: "credential",
+    issuer: createLocalAccountIssuer("credential"),
     accountId: created.id,
     password: await context.password.hash(password),
   });
