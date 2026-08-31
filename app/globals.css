@@ -1,0 +1,519 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@xyflow/react/dist/style.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --spacing-shell: var(--shell-max-width);
+  --spacing-narrow: var(--shell-narrow-width);
+  --spacing-node: var(--node-width);
+}
+
+:root {
+  /* Institutional palette: deep academic navy with a warm ochre accent. */
+  --background: oklch(0.98 0.005 240);
+  --foreground: oklch(0.2 0.03 245);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.2 0.03 245);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.03 245);
+  --primary: oklch(0.28 0.09 250);
+  --primary-foreground: oklch(0.99 0.005 240);
+  --secondary: oklch(0.93 0.01 245);
+  --secondary-foreground: oklch(0.28 0.09 250);
+  --muted: oklch(0.94 0.008 245);
+  --muted-foreground: oklch(0.48 0.02 245);
+  --accent: oklch(0.93 0.02 245);
+  --accent-foreground: oklch(0.28 0.09 250);
+  --destructive: oklch(0.55 0.22 27);
+  --destructive-foreground: oklch(0.99 0.005 240);
+  --success: oklch(0.55 0.14 152);
+  --success-foreground: oklch(0.99 0.005 240);
+  --warning: oklch(0.68 0.19 42);
+  --warning-foreground: oklch(0.18 0.03 245);
+  --info: oklch(0.55 0.12 240);
+  --info-foreground: oklch(0.99 0.005 240);
+  --border: oklch(0.88 0.01 245);
+  --input: oklch(0.88 0.01 245);
+  --ring: oklch(0.28 0.09 250 / 40%);
+  --chart-1: oklch(0.28 0.09 250);
+  --chart-2: oklch(0.68 0.19 42);
+  --chart-3: oklch(0.45 0.12 240);
+  --chart-4: oklch(0.78 0.14 70);
+  --chart-5: oklch(0.35 0.05 245);
+  --radius: 0.5rem;
+  --sidebar: oklch(0.96 0.01 245);
+  --sidebar-foreground: oklch(0.25 0.02 245);
+  --sidebar-primary: oklch(0.28 0.09 250);
+  --sidebar-primary-foreground: oklch(0.99 0.005 240);
+  --sidebar-accent: oklch(0.9 0.02 245);
+  --sidebar-accent-foreground: oklch(0.28 0.09 250);
+  --sidebar-border: oklch(0.88 0.01 245);
+  --sidebar-ring: oklch(0.28 0.09 250 / 30%);
+
+  /* Layout tokens - referenced through Tailwind utilities, never inlined. */
+  --shell-max-width: 80rem;
+  --shell-narrow-width: 42rem;
+  --canvas-height: calc(100dvh - 9rem);
+  --node-width: 17rem;
+
+  /* Workflow node accents. */
+  --node-start: oklch(0.55 0.14 152);
+  --node-stage: oklch(0.28 0.09 250);
+  --node-email: oklch(0.68 0.19 42);
+  --node-end: oklch(0.5 0.02 245);
+}
+
+.dark {
+  --background: oklch(0.14 0.02 250);
+  --foreground: oklch(0.95 0.01 240);
+  --card: oklch(0.18 0.02 250);
+  --card-foreground: oklch(0.95 0.01 240);
+  --popover: oklch(0.18 0.02 250);
+  --popover-foreground: oklch(0.95 0.01 240);
+  --primary: oklch(0.62 0.13 250);
+  --primary-foreground: oklch(0.12 0.02 250);
+  --secondary: oklch(0.26 0.02 250);
+  --secondary-foreground: oklch(0.95 0.01 240);
+  --muted: oklch(0.24 0.02 250);
+  --muted-foreground: oklch(0.68 0.02 245);
+  --accent: oklch(0.26 0.02 250);
+  --accent-foreground: oklch(0.95 0.01 240);
+  --destructive: oklch(0.62 0.2 25);
+  --destructive-foreground: oklch(0.99 0.005 240);
+  --success: oklch(0.65 0.15 152);
+  --success-foreground: oklch(0.12 0.02 250);
+  --warning: oklch(0.75 0.17 60);
+  --warning-foreground: oklch(0.12 0.02 250);
+  --info: oklch(0.65 0.13 240);
+  --info-foreground: oklch(0.12 0.02 250);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.62 0.13 250 / 50%);
+  --chart-1: oklch(0.62 0.13 250);
+  --chart-2: oklch(0.72 0.18 55);
+  --chart-3: oklch(0.58 0.12 230);
+  --chart-4: oklch(0.75 0.15 65);
+  --chart-5: oklch(0.45 0.06 245);
+  --sidebar: oklch(0.16 0.02 250);
+  --sidebar-foreground: oklch(0.85 0.01 245);
+  --sidebar-primary: oklch(0.62 0.13 250);
+  --sidebar-primary-foreground: oklch(0.12 0.02 250);
+  --sidebar-accent: oklch(0.24 0.02 250);
+  --sidebar-accent-foreground: oklch(0.95 0.01 240);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.62 0.13 250 / 40%);
+
+  --node-start: oklch(0.65 0.15 152);
+  --node-stage: oklch(0.62 0.13 250);
+  --node-email: oklch(0.75 0.17 60);
+  --node-end: oklch(0.6 0.02 245);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  html {
+    @apply font-sans;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-heading tracking-tight;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  /* Page scaffolding ------------------------------------------------- */
+  .app-shell {
+    @apply mx-auto w-full px-4 py-8 sm:px-6 lg:px-8;
+    max-width: var(--shell-max-width);
+  }
+
+  .app-shell-narrow {
+    @apply mx-auto w-full px-4 py-8 sm:px-6;
+    max-width: var(--shell-narrow-width);
+  }
+
+  .app-shell-wide {
+    @apply mx-auto w-full px-4 py-6 sm:px-6 lg:px-8;
+  }
+
+  .page-header {
+    @apply mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between;
+  }
+
+  .page-title {
+    @apply text-2xl font-semibold;
+  }
+
+  .page-subtitle {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .section-stack {
+    @apply flex flex-col gap-6;
+  }
+
+  .form-stack {
+    @apply flex flex-col gap-5;
+  }
+
+  .toolbar {
+    @apply flex flex-wrap items-center gap-2;
+  }
+
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground;
+  }
+
+  .centered-viewport {
+    @apply flex min-h-dvh flex-col items-center justify-center gap-6 p-4;
+  }
+
+  .auth-card {
+    @apply w-full max-w-sm;
+  }
+
+  .stat-grid {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .stat-value {
+    @apply text-3xl font-semibold tabular-nums;
+  }
+
+  /* Status pills ------------------------------------------------------ */
+  .status-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap;
+  }
+  .status-draft {
+    @apply bg-muted text-muted-foreground;
+  }
+  .status-in_progress {
+    @apply bg-info/15 text-info;
+  }
+  .status-approved {
+    @apply bg-success/15 text-success;
+  }
+  .status-rejected {
+    @apply bg-destructive/15 text-destructive;
+  }
+  .status-withdrawn {
+    @apply bg-warning/20 text-warning-foreground;
+  }
+
+  /* Workflow canvas --------------------------------------------------- */
+  .flow-layout {
+    @apply grid gap-4 lg:grid-cols-[15rem_minmax(0,1fr)];
+  }
+
+  .flow-canvas {
+    @apply w-full overflow-hidden rounded-lg border bg-muted/40;
+    height: var(--canvas-height);
+  }
+
+  .flow-node {
+    @apply rounded-lg border-2 bg-card text-card-foreground shadow-sm transition-shadow;
+    width: var(--node-width);
+  }
+
+  .flow-node:hover {
+    @apply shadow-md;
+  }
+
+  .flow-node-selected {
+    @apply ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  .flow-node-header {
+    @apply flex items-center gap-2 rounded-t-sm px-3 py-2 text-sm font-semibold;
+  }
+
+  .flow-node-body {
+    @apply flex flex-col gap-1.5 px-3 py-2.5 text-xs;
+  }
+
+  .flow-node-meta {
+    @apply flex items-center gap-1.5 text-xs text-muted-foreground;
+  }
+
+  .node-accent-start {
+    border-color: var(--node-start);
+  }
+  .node-accent-start .flow-node-header {
+    background-color: color-mix(in oklch, var(--node-start) 16%, transparent);
+    color: var(--node-start);
+  }
+  .node-accent-stage {
+    border-color: var(--node-stage);
+  }
+  .node-accent-stage .flow-node-header {
+    background-color: color-mix(in oklch, var(--node-stage) 16%, transparent);
+    color: var(--node-stage);
+  }
+  .node-accent-email {
+    border-color: var(--node-email);
+  }
+  .node-accent-email .flow-node-header {
+    background-color: color-mix(in oklch, var(--node-email) 20%, transparent);
+    color: var(--node-email);
+  }
+  .node-accent-end {
+    border-color: var(--node-end);
+  }
+  .node-accent-end .flow-node-header {
+    background-color: color-mix(in oklch, var(--node-end) 16%, transparent);
+    color: var(--node-end);
+  }
+
+  .flow-handle {
+    @apply size-3 border-2 border-background;
+    background-color: var(--node-stage);
+  }
+
+  .flow-outcome-row {
+    @apply relative flex items-center justify-between gap-2 rounded-sm bg-muted/70 py-1 pr-4 pl-2;
+  }
+
+  .palette-item {
+    @apply flex w-full items-start gap-2.5 rounded-md border bg-card p-2.5 text-left text-sm transition-colors hover:bg-accent;
+  }
+
+  /* React Flow theming driven entirely by our tokens. */
+  .react-flow {
+    --xy-background-color: var(--muted);
+    --xy-edge-stroke-default: var(--border);
+    --xy-edge-stroke-selected-default: var(--primary);
+    --xy-attribution-background-color-default: transparent;
+    --xy-controls-button-background-color-default: var(--card);
+    --xy-controls-button-background-color-hover-default: var(--accent);
+    --xy-controls-button-color-default: var(--foreground);
+    --xy-controls-button-color-hover-default: var(--accent-foreground);
+    --xy-controls-button-border-color-default: var(--border);
+    --xy-minimap-background-color-default: var(--card);
+    --xy-node-border-radius-default: var(--radius);
+  }
+
+  .react-flow__edge-path {
+    stroke-width: 2;
+  }
+
+  .react-flow__edge-text {
+    @apply fill-foreground font-medium;
+    font-size: 0.625rem;
+  }
+
+  .react-flow__edge-textbg {
+    @apply fill-background;
+  }
+
+  .react-flow__attribution {
+    @apply hidden;
+  }
+
+  .react-flow__handle {
+    @apply border-2 border-background;
+    background-color: var(--node-stage);
+  }
+
+  /* Form builder ------------------------------------------------------ */
+  .builder-grid {
+    @apply grid gap-4 lg:grid-cols-[16rem_minmax(0,1fr)];
+  }
+
+  .builder-field-row {
+    @apply flex items-start gap-2 rounded-md border bg-card p-2.5;
+  }
+
+  .builder-field-dragging {
+    @apply opacity-70 shadow-lg;
+  }
+
+  .drag-handle {
+    @apply cursor-grab touch-none text-muted-foreground active:cursor-grabbing;
+  }
+
+  .builder-section {
+    @apply rounded-lg border bg-card;
+  }
+
+  .builder-section-header {
+    @apply flex items-center gap-2 border-b px-3 py-2;
+  }
+
+  /* Wizard ------------------------------------------------------------ */
+  .wizard-steps {
+    @apply flex flex-wrap items-center gap-1.5;
+  }
+
+  .wizard-step {
+    @apply inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium text-muted-foreground transition-colors;
+  }
+
+  .wizard-step-active {
+    @apply border-primary bg-primary text-primary-foreground;
+  }
+
+  .wizard-step-done {
+    @apply border-success/40 bg-success/10 text-success;
+  }
+
+  .preview-row {
+    @apply grid gap-1 border-b py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-4;
+  }
+
+  .preview-label {
+    @apply text-sm font-medium text-muted-foreground;
+  }
+
+  .preview-value {
+    @apply text-sm break-words whitespace-pre-wrap;
+  }
+
+  /* Rich text (TipTap) ------------------------------------------------ */
+  .rich-text-editor {
+    @apply w-full rounded-b-md border-x border-b bg-card px-3 py-2 text-sm;
+  }
+
+  .rich-text-editor .ProseMirror {
+    @apply min-h-60 outline-none;
+  }
+
+  .rich-text-toolbar {
+    @apply flex flex-wrap items-center gap-1 rounded-t-md border bg-muted/50 p-1;
+  }
+
+  .prose-email {
+    @apply text-sm leading-relaxed;
+  }
+  .prose-email h1 {
+    @apply mt-4 mb-2 text-xl font-semibold first:mt-0;
+  }
+  .prose-email h2 {
+    @apply mt-4 mb-2 text-lg font-semibold first:mt-0;
+  }
+  .prose-email h3 {
+    @apply mt-3 mb-1.5 text-base font-semibold first:mt-0;
+  }
+  .prose-email p {
+    @apply my-2;
+  }
+  .prose-email ul {
+    @apply my-2 list-disc pl-5;
+  }
+  .prose-email ol {
+    @apply my-2 list-decimal pl-5;
+  }
+  .prose-email a {
+    @apply text-primary underline underline-offset-2;
+  }
+  .prose-email blockquote {
+    @apply my-2 border-l-2 pl-3 text-muted-foreground italic;
+  }
+  .prose-email code {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-xs;
+  }
+  .prose-email strong {
+    @apply font-semibold;
+  }
+
+  .template-var {
+    @apply rounded bg-primary/10 px-1.5 py-0.5 font-mono text-xs text-primary;
+  }
+
+  /* Timeline ---------------------------------------------------------- */
+  .timeline {
+    @apply relative flex flex-col gap-5 pl-6;
+  }
+
+  .timeline::before {
+    @apply absolute top-1 bottom-1 w-px bg-border;
+    left: 0.4375rem;
+    content: "";
+  }
+
+  .timeline-item {
+    @apply relative;
+  }
+
+  .timeline-dot {
+    @apply absolute top-1 -left-6 size-3.5 rounded-full border-2 border-background bg-muted-foreground;
+  }
+
+  .timeline-dot-current {
+    @apply bg-info;
+  }
+  .timeline-dot-done {
+    @apply bg-success;
+  }
+  .timeline-dot-rejected {
+    @apply bg-destructive;
+  }
+}
