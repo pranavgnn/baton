@@ -13,6 +13,7 @@ import {
   type Edge,
   type EdgeChange,
   type NodeChange,
+  type XYPosition,
 } from "@xyflow/react";
 import {
   AlertTriangle,
@@ -49,6 +50,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { hasMoves, summariseNodeChanges } from "@/lib/workflow/canvas";
 import { createOutcome, emptyFormSchema, newId } from "@/lib/workflow/defaults";
 import { validateGraph, type GraphIssue } from "@/lib/workflow/graph";
 import {
@@ -175,6 +177,17 @@ function WorkflowCanvas({
   const [accepting, setAccepting] = useState(acceptingApplications);
   const [publishedVersion, setPublishedVersion] = useState(version);
   const [savedGraph, setSavedGraph] = useState<WorkflowGraph>(initialGraph);
+  /**
+   * Positions of nodes the user is dragging right now.
+   *
+   * React Flow emits a position change on every animation frame. Writing those
+   * into `graph` re-ran validation and rebuilt every node object mid-drag,
+   * which made the whole canvas flicker and blink out. Live positions are held
+   * here instead and folded into the graph once the pointer is released.
+   */
+  const [dragPositions, setDragPositions] = useState<
+    Record<string, XYPosition>
+  >({});
   const [savedPublished, setSavedPublished] = useState<WorkflowGraph | null>(
     publishedGraph,
   );
@@ -192,8 +205,14 @@ function WorkflowCanvas({
     [graph, roles, templates],
   );
 
-  const errors = issues.filter((issue) => issue.severity === "error");
-  const warnings = issues.filter((issue) => issue.severity === "warning");
+  const { errors, warnings } = useMemo(
+    () => ({
+      errors: issues.filter((issue) => issue.severity === "error"),
+      warnings: issues.filter((issue) => issue.severity === "warning"),
+    }),
+    [issues],
+  );
+
   const errorNodeIds = useMemo(
     () =>
       new Set(
@@ -226,6 +245,23 @@ function WorkflowCanvas({
     [graph.edges, graph.nodes],
   );
 
+  /**
+   * Nodes as the canvas should draw them right now: the memoised nodes above
+   * with any in-flight drag position laid over the top. Overlaying keeps each
+   * node's `data` object identical while it moves, so the memoised node
+   * components never re-render during a drag.
+   */
+  const canvasNodes = useMemo(
+    () =>
+      Object.keys(dragPositions).length === 0
+        ? flowNodes
+        : flowNodes.map((node) => {
+            const position = dragPositions[node.id];
+            return position ? { ...node, position } : node;
+          }),
+    [flowNodes, dragPositions],
+  );
+
   const selectedNode =
     graph.nodes.find((node) => node.id === selectedId) ?? null;
 
@@ -237,34 +273,36 @@ function WorkflowCanvas({
    * hand back a fresh object on every frame and re-render forever.
    */
   const onNodesChange = useCallback((changes: NodeChange<BuilderNode>[]) => {
-    const moves = new Map<string, { x: number; y: number }>();
-    const removals = new Set<string>();
+    const { moves, removals, settled } = summariseNodeChanges(changes);
+    const moved = hasMoves({ moves, removals, settled });
+    const removed = new Set(removals);
 
-    for (const change of changes) {
-      if (change.type === "position" && change.position) {
-        moves.set(change.id, change.position);
-      } else if (change.type === "remove") {
-        removals.add(change.id);
-      }
+    if (!moved && removed.size === 0) return;
+
+    if (moved && !settled) {
+      // Still dragging: keep the movement out of the domain graph.
+      setDragPositions((current) => ({ ...current, ...moves }));
     }
 
-    if (moves.size === 0 && removals.size === 0) return;
+    if (!settled && removed.size === 0) return;
+
+    if (settled) setDragPositions({});
 
     setGraph((current) => {
       const nodes = current.nodes
-        .filter((node) => !removals.has(node.id))
+        .filter((node) => !removed.has(node.id))
         .map((node) => {
-          const position = moves.get(node.id);
+          const position = moves[node.id];
           return position ? { ...node, position } : node;
         });
 
-      if (removals.size === 0) return { ...current, nodes };
+      if (removed.size === 0) return { ...current, nodes };
 
       // Dropping a node must drop the connections that referenced it.
       return {
         nodes,
         edges: current.edges.filter(
-          (edge) => !removals.has(edge.source) && !removals.has(edge.target),
+          (edge) => !removed.has(edge.source) && !removed.has(edge.target),
         ),
       };
     });
@@ -662,7 +700,7 @@ function WorkflowCanvas({
 
         <div className="flow-canvas" ref={canvasRef}>
           <ReactFlow
-            nodes={flowNodes}
+            nodes={canvasNodes}
             edges={flowEdges}
             nodeTypes={NODE_TYPES}
             onNodesChange={onNodesChange}
