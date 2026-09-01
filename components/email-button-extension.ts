@@ -37,6 +37,11 @@ declare module "@tiptap/core" {
 
 export const EmailButton = Node.create({
   name: "emailButton",
+
+  // The Link mark also claims <a href>, and on a tie ProseMirror picks by
+  // registration order - which turned a saved button back into a plain link
+  // the next time the template was opened. Loading earlier wins the element.
+  priority: 1000,
   group: "block",
   atom: true,
   selectable: true,
