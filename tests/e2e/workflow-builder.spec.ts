@@ -255,6 +255,42 @@ test.describe("workflow builder canvas", () => {
 
     await closeOverlays(page);
   });
+
+  test("refuses to delete the version that is live", async ({ page }) => {
+    await page.getByTestId("open-version-history").click();
+
+    // The live revision offers neither restoring nor deleting: it is what the
+    // portal is running.
+    const live = page
+      .getByTestId("version-history")
+      .locator("li")
+      .filter({ hasText: "Live" })
+      .first();
+    await expect(live).toBeVisible();
+    await expect(live.getByRole("button", { name: "Delete" })).toHaveCount(0);
+
+    await closeOverlays(page);
+  });
+
+  test("deletes an older revision", async ({ page }) => {
+    await page.getByTestId("open-version-history").click();
+    await expect(page.getByTestId("version-1")).toBeVisible();
+
+    await page.getByTestId("delete-version-1").click();
+    await expect(page.getByTestId("delete-version-dialog")).toBeVisible();
+    await page.getByTestId("confirm-delete-version").click();
+
+    await expectToast(page, "Version 1 deleted.");
+    await expect(page.getByTestId("version-1")).toHaveCount(0);
+
+    // And it is gone for good, not just hidden until the sheet reopens.
+    await closeOverlays(page);
+    await page.reload();
+    await page.getByTestId("open-version-history").click();
+    await expect(page.getByTestId("version-1")).toHaveCount(0);
+
+    await closeOverlays(page);
+  });
 });
 
 test.describe("form builder", () => {

@@ -236,6 +236,55 @@ export async function restoreWorkflowVersion(
   }
 }
 
+/**
+ * Removes a published revision from the history.
+ *
+ * Safe by construction: every application carries its own copy of the graph it
+ * was started against, so no running application depends on this row. The live
+ * revision is refused because it is what the portal is currently running, and
+ * the history would then disagree with the workflow itself.
+ */
+export async function deleteWorkflowVersion(
+  version: number,
+): Promise<ActionResult> {
+  try {
+    await requirePermissionAction("workflow.manage");
+
+    const [current, revision] = await Promise.all([
+      currentWorkflow(),
+      db.query.workflowVersion.findFirst({
+        where: and(
+          eq(workflowVersion.workflowId, SINGLETON_WORKFLOW_ID),
+          eq(workflowVersion.version, version),
+        ),
+      }),
+    ]);
+
+    if (!revision) return fail("That revision no longer exists.");
+    if (current?.version === version) {
+      return fail(
+        "Version " +
+          version +
+          " is live. Publish a different version before deleting it.",
+      );
+    }
+
+    await db
+      .delete(workflowVersion)
+      .where(
+        and(
+          eq(workflowVersion.workflowId, SINGLETON_WORKFLOW_ID),
+          eq(workflowVersion.version, version),
+        ),
+      );
+
+    revalidatePath("/admin/workflow");
+    return ok();
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
 export type WorkflowRevision = {
   version: number;
   memo: string;
