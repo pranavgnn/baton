@@ -17,13 +17,14 @@ export default async function RolesPage() {
       name: role.name,
       description: role.description,
       permissions: role.permissions,
+      priority: role.priority,
       isSystem: role.isSystem,
       memberCount: count(userRole.userId),
     })
     .from(role)
     .leftJoin(userRole, eq(userRole.roleId, role.id))
     .groupBy(role.id)
-    .orderBy(role.name);
+    .orderBy(role.priority, role.name);
 
   return (
     <div className="app-shell section-stack">

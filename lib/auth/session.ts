@@ -136,6 +136,16 @@ export async function requirePermissionAction(
   return current;
 }
 
+export async function requireAnyPermissionAction(
+  permissions: readonly PermissionKey[],
+): Promise<CurrentUser> {
+  const current = await requireUserAction();
+  if (!grantsAny(current.permissions, permissions)) {
+    throw new Error("You do not have permission to perform this action.");
+  }
+  return current;
+}
+
 export function can(
   current: CurrentUser | null,
   permission: PermissionKey,

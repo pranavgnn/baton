@@ -30,7 +30,7 @@ export default async function UsersPage() {
       .leftJoin(userRole, eq(userRole.userId, user.id))
       .leftJoin(role, eq(role.id, userRole.roleId))
       .orderBy(user.name),
-    db.select().from(role).orderBy(role.name),
+    db.select().from(role).orderBy(role.priority, role.name),
   ]);
 
   const byId = new Map<string, UserRow>();

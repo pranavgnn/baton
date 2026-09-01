@@ -7,6 +7,7 @@ import {
   Pencil,
   Search,
   Trash2,
+  Upload,
   UserPlus,
 } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
@@ -48,6 +49,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import {
   Table,
   TableBody,
@@ -63,6 +65,7 @@ import {
   setUserDisabled,
   updateUser,
 } from "./actions";
+import { BulkImportDialog } from "./bulk-import";
 
 export type UserRow = {
   id: string;
@@ -85,10 +88,12 @@ export function UsersManager({
   currentUserId,
 }: {
   users: UserRow[];
+  /** In priority order, so the first is the default for unnamed users. */
   roles: RoleOption[];
   currentUserId: string;
 }) {
   const [query, setQuery] = useState("");
+  const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [inviting, setInviting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<UserRow | null>(null);
@@ -104,6 +109,8 @@ export function UsersManager({
         .includes(needle),
     );
   }, [users, query]);
+
+  const pagination = usePagination(filtered, 25);
 
   function runAction(
     label: string,
@@ -129,10 +136,20 @@ export function UsersManager({
             aria-label="Search users"
           />
         </div>
-        <Button onClick={() => setInviting(true)} data-testid="invite-user">
-          <UserPlus className="size-4" />
-          Add to whitelist
-        </Button>
+        <div className="toolbar">
+          <Button
+            variant="outline"
+            onClick={() => setImporting(true)}
+            data-testid="bulk-import"
+          >
+            <Upload className="size-4" />
+            Import
+          </Button>
+          <Button onClick={() => setInviting(true)} data-testid="invite-user">
+            <UserPlus className="size-4" />
+            Add to whitelist
+          </Button>
+        </div>
       </div>
 
       <Card>
@@ -158,7 +175,7 @@ export function UsersManager({
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((item) => (
+                  pagination.items.map((item) => (
                     <TableRow key={item.id} data-testid={`user-${item.email}`}>
                       <TableCell>
                         <div className="flex flex-col">
@@ -259,6 +276,14 @@ export function UsersManager({
           </div>
         </CardContent>
       </Card>
+
+      <ListPagination pagination={pagination} label="users" />
+
+      <BulkImportDialog
+        open={importing}
+        onOpenChange={setImporting}
+        defaultRoleName={roles[0]?.name ?? null}
+      />
 
       <UserEditor
         key={editing?.id ?? "invite"}
@@ -434,7 +459,8 @@ function UserEditor({
           <Field>
             <FieldLabel>Roles</FieldLabel>
             <FieldDescription>
-              Roles decide which stages this account can act on.
+              Roles decide which stages this account can act on. Leave them all
+              unticked to use the default role.
             </FieldDescription>
             <div className="flex flex-col gap-2">
               {roles.map((role) => (

@@ -439,3 +439,36 @@ export function orderedStageNodes(graph: WorkflowGraph): WorkflowNode[] {
 
   return ordered;
 }
+
+/**
+ * Everything about a graph except the forms and cosmetic labels: the nodes
+ * that exist, what kind they are, how they are wired, and who acts on them.
+ *
+ * Someone with `forms.manage` but not `workflow.manage` may change the
+ * questions on a step but not the shape of the process, so their save is
+ * compared against the stored graph on this signature.
+ */
+export function structureSignature(graph: WorkflowGraph): string {
+  return JSON.stringify({
+    nodes: [...graph.nodes]
+      .map((node) => ({
+        id: node.id,
+        kind: node.kind,
+        roleId: node.kind === "stage" ? node.data.roleId : null,
+        outcomes:
+          node.kind === "stage"
+            ? node.data.outcomes.map((outcome) => outcome.id)
+            : [],
+        templateId: node.kind === "email" ? node.data.templateId : null,
+        recipientMode: node.kind === "email" ? node.data.recipientMode : null,
+        recipientRoleId:
+          node.kind === "email" ? node.data.recipientRoleId : null,
+        recipientEmail: node.kind === "email" ? node.data.recipientEmail : null,
+        result: node.kind === "end" ? node.data.result : null,
+      }))
+      .sort((a, b) => a.id.localeCompare(b.id)),
+    edges: [...graph.edges]
+      .map((edge) => [edge.source, edge.sourceHandle, edge.target].join(">"))
+      .sort(),
+  });
+}

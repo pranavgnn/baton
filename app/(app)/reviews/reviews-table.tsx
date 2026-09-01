@@ -1,21 +1,13 @@
 "use client";
 
-import { Search } from "lucide-react";
+import { ClipboardList, Search } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
-import { StatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ListPagination, usePagination } from "@/components/ui/list-pagination";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -24,48 +16,43 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { ApplicationStatus } from "@/lib/db/schema";
 
-export type ApplicationRow = {
+export type ReviewRow = {
   id: string;
   reference: string;
-  status: ApplicationStatus;
   applicantName: string;
   applicantEmail: string;
   department: string;
   stage: string;
   submittedAt: string | null;
-  updatedAt: string;
 };
 
 const formatter = new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" });
 
-export function ApplicationsTable({
-  applications,
-}: {
-  applications: ApplicationRow[];
-}) {
+export function ReviewsTable({ queue }: { queue: ReviewRow[] }) {
   const [query, setQuery] = useState("");
-  const [status, setStatus] = useState<ApplicationStatus | "all">("all");
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    return applications.filter((app) => {
-      if (status !== "all" && app.status !== status) return false;
-      if (!needle) return true;
-      return [
-        app.reference,
-        app.applicantName,
-        app.applicantEmail,
-        app.department,
-      ]
+    if (!needle) return queue;
+    return queue.filter((row) =>
+      [row.reference, row.applicantName, row.applicantEmail, row.department]
         .join(" ")
         .toLowerCase()
-        .includes(needle);
-    });
-  }, [applications, query, status]);
+        .includes(needle),
+    );
+  }, [queue, query]);
 
   const pagination = usePagination(filtered, 25);
+
+  if (queue.length === 0) {
+    return (
+      <div className="empty-state">
+        <ClipboardList className="size-6" />
+        Nothing is waiting on you right now.
+      </div>
+    );
+  }
 
   return (
     <>
@@ -77,27 +64,9 @@ export function ApplicationsTable({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search by reference, applicant or department"
             className="pl-8"
-            aria-label="Search applications"
+            aria-label="Search the queue"
           />
         </div>
-        <Select
-          value={status}
-          onValueChange={(value) =>
-            setStatus(value as ApplicationStatus | "all")
-          }
-        >
-          <SelectTrigger className="w-48" aria-label="Filter by status">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="in_progress">In progress</SelectItem>
-            <SelectItem value="approved">Approved</SelectItem>
-            <SelectItem value="rejected">Rejected</SelectItem>
-            <SelectItem value="withdrawn">Withdrawn</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
       <Card>
@@ -110,51 +79,50 @@ export function ApplicationsTable({
                   <TableHead>Applicant</TableHead>
                   <TableHead>Department</TableHead>
                   <TableHead>Stage</TableHead>
-                  <TableHead>Status</TableHead>
                   <TableHead>Submitted</TableHead>
-                  <TableHead className="w-20" />
+                  <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filtered.length === 0 ? (
+                {pagination.items.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7}>
+                    <TableCell colSpan={6}>
                       <div className="empty-state border-0">
-                        No applications match those filters.
+                        Nothing matches that search.
                       </div>
                     </TableCell>
                   </TableRow>
                 ) : (
-                  pagination.items.map((app) => (
-                    <TableRow key={app.id} data-testid={`row-${app.reference}`}>
+                  pagination.items.map((row) => (
+                    <TableRow
+                      key={row.id}
+                      data-testid={`queue-${row.reference}`}
+                    >
                       <TableCell className="font-mono text-sm">
-                        {app.reference}
+                        {row.reference}
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {app.applicantName}
+                            {row.applicantName}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {app.applicantEmail}
+                            {row.applicantEmail}
                           </span>
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {app.department || "-"}
+                        {row.department || "-"}
                       </TableCell>
-                      <TableCell className="text-sm">{app.stage}</TableCell>
-                      <TableCell>
-                        <StatusBadge status={app.status} />
-                      </TableCell>
+                      <TableCell className="text-sm">{row.stage}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {app.submittedAt
-                          ? formatter.format(new Date(app.submittedAt))
+                        {row.submittedAt
+                          ? formatter.format(new Date(row.submittedAt))
                           : "-"}
                       </TableCell>
                       <TableCell>
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/applications/${app.id}`}>View</Link>
+                        <Button asChild size="sm">
+                          <Link href={`/reviews/${row.id}`}>Review</Link>
                         </Button>
                       </TableCell>
                     </TableRow>

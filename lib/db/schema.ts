@@ -132,6 +132,11 @@ export const role = pgTable(
       .$type<RolePermission[]>()
       .notNull()
       .default(sql`'[]'::jsonb`),
+    /**
+     * Rank within the role list, lowest first. Admins set it by dragging, and
+     * the lowest-numbered role is what a user gets when none is specified.
+     */
+    priority: integer("priority").default(0).notNull(),
     /** System roles cannot be deleted, only renamed. */
     isSystem: boolean("is_system").default(false).notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -140,7 +145,10 @@ export const role = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [uniqueIndex("role_name_uidx").on(table.name)],
+  (table) => [
+    uniqueIndex("role_name_uidx").on(table.name),
+    index("role_priority_idx").on(table.priority),
+  ],
 );
 
 export const userRole = pgTable(

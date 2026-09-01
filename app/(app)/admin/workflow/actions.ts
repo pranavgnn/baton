@@ -11,7 +11,11 @@ import {
   parseInput,
   type ActionResult,
 } from "@/lib/actions";
-import { requirePermissionAction } from "@/lib/auth/session";
+import { grants } from "@/lib/auth/permissions";
+import {
+  requireAnyPermissionAction,
+  requirePermissionAction,
+} from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
   emailTemplate,
@@ -20,7 +24,11 @@ import {
   workflowVersion,
 } from "@/lib/db/schema";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
-import { hasBlockingIssues, validateGraph } from "@/lib/workflow/graph";
+import {
+  hasBlockingIssues,
+  structureSignature,
+  validateGraph,
+} from "@/lib/workflow/graph";
 import { workflowGraphSchema, type WorkflowGraph } from "@/lib/workflow/types";
 
 const graphInput = z.object({ graph: workflowGraphSchema });
@@ -55,12 +63,32 @@ export async function saveWorkflowDraft(
   input: SaveWorkflowInput,
 ): Promise<ActionResult<{ issues: number }>> {
   try {
-    await requirePermissionAction("workflow.manage");
+    const current = await requireAnyPermissionAction([
+      "workflow.manage",
+      "forms.manage",
+    ]);
 
     const parsed = parseInput(graphInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
 
     const existing = await currentWorkflow();
+
+    // Re-checked here rather than trusted from the page: a form editor must
+    // not be able to reshape the process by posting a different graph.
+    if (!grants(current.permissions, "workflow.manage")) {
+      if (!existing) {
+        return fail("Only a workflow administrator can create the workflow.");
+      }
+      if (
+        structureSignature(parsed.data.graph) !==
+        structureSignature(existing.graph)
+      ) {
+        return fail(
+          "You can edit the questions on a step, but not add, remove or rewire steps.",
+        );
+      }
+    }
+
     if (existing) {
       await db
         .update(workflow)

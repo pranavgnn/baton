@@ -21,6 +21,7 @@ import {
   CircleCheckBig,
   FileInput,
   Loader2,
+  Lock,
   Mail,
   RotateCcw,
   Save,
@@ -74,6 +75,11 @@ import { VersionHistory } from "./version-history";
 
 export type WorkflowBuilderProps = {
   initialGraph: WorkflowGraph;
+  /**
+   * False for someone who may edit forms but not the flow: the canvas becomes
+   * read-only structurally and only the form editor stays available.
+   */
+  canManageFlow: boolean;
   publishedGraph: WorkflowGraph | null;
   version: number;
   acceptingApplications: boolean;
@@ -157,6 +163,7 @@ export function WorkflowBuilder(props: WorkflowBuilderProps) {
 
 function WorkflowCanvas({
   initialGraph,
+  canManageFlow,
   publishedGraph,
   version,
   acceptingApplications,
@@ -530,36 +537,40 @@ function WorkflowCanvas({
         </div>
 
         <div className="toolbar">
-          <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
-            <Switch
-              id="accepting"
-              checked={accepting}
-              onCheckedChange={handleAcceptingChange}
-              data-testid="accepting-toggle"
-            />
-            <label htmlFor="accepting" className="text-sm">
-              Accepting applications
-            </label>
-          </div>
+          {canManageFlow ? (
+            <div className="flex items-center gap-2 rounded-md border px-3 py-1.5">
+              <Switch
+                id="accepting"
+                checked={accepting}
+                onCheckedChange={handleAcceptingChange}
+                data-testid="accepting-toggle"
+              />
+              <label htmlFor="accepting" className="text-sm">
+                Accepting applications
+              </label>
+            </div>
+          ) : null}
 
           <VersionHistory
             refreshToken={historyToken}
             onRestore={handleRestore}
           />
 
-          <Button
-            variant="outline"
-            onClick={handleRevert}
-            disabled={isReverting || !savedPublished}
-            data-testid="revert-workflow"
-          >
-            {isReverting ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <RotateCcw className="size-4" />
-            )}
-            Revert
-          </Button>
+          {canManageFlow ? (
+            <Button
+              variant="outline"
+              onClick={handleRevert}
+              disabled={isReverting || !savedPublished}
+              data-testid="revert-workflow"
+            >
+              {isReverting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <RotateCcw className="size-4" />
+              )}
+              Revert
+            </Button>
+          ) : null}
 
           <Button
             variant="outline"
@@ -575,86 +586,101 @@ function WorkflowCanvas({
             Save draft
           </Button>
 
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <span>
-                <Button
-                  onClick={() => setPublishOpen(true)}
-                  disabled={isPublishing || errors.length > 0}
-                  data-testid="publish-workflow"
-                >
-                  {isPublishing ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Send className="size-4" />
-                  )}
-                  Publish
-                </Button>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent>
-              {errors.length > 0
-                ? `Resolve ${errors.length} problem(s) first`
-                : "Make this the live workflow for new applications"}
-            </TooltipContent>
-          </Tooltip>
+          {canManageFlow ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    onClick={() => setPublishOpen(true)}
+                    disabled={isPublishing || errors.length > 0}
+                    data-testid="publish-workflow"
+                  >
+                    {isPublishing ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Send className="size-4" />
+                    )}
+                    Publish
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>
+                {errors.length > 0
+                  ? `Resolve ${errors.length} problem(s) first`
+                  : "Make this the live workflow for new applications"}
+              </TooltipContent>
+            </Tooltip>
+          ) : null}
         </div>
       </div>
 
       <div className="flow-layout">
         <div className="builder-sidebar">
-          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            Add a step
-          </p>
-          <button
-            type="button"
-            className="palette-item"
-            onClick={() => addNode("stage")}
-            data-testid="add-stage-node"
-          >
-            <UserCheck className="mt-0.5 size-4 shrink-0" />
-            <span>
-              <span className="block font-medium">Review stage</span>
-              <span className="block text-xs text-muted-foreground">
-                Waits for a role to act
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            className="palette-item"
-            onClick={() => addNode("email")}
-            data-testid="add-email-node"
-          >
-            <Mail className="mt-0.5 size-4 shrink-0" />
-            <span>
-              <span className="block font-medium">Send email</span>
-              <span className="block text-xs text-muted-foreground">
-                Sent in the background, alongside the next step
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            className="palette-item"
-            onClick={() => addNode("end")}
-            data-testid="add-end-node"
-          >
-            <CircleCheckBig className="mt-0.5 size-4 shrink-0" />
-            <span>
-              <span className="block font-medium">End</span>
-              <span className="block text-xs text-muted-foreground">
-                Closes the application
-              </span>
-            </span>
-          </button>
+          {canManageFlow ? (
+            <>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                Add a step
+              </p>
+              <button
+                type="button"
+                className="palette-item"
+                onClick={() => addNode("stage")}
+                data-testid="add-stage-node"
+              >
+                <UserCheck className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  <span className="block font-medium">Review stage</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Waits for a role to act
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="palette-item"
+                onClick={() => addNode("email")}
+                data-testid="add-email-node"
+              >
+                <Mail className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  <span className="block font-medium">Send email</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Sent in the background, alongside the next step
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                className="palette-item"
+                onClick={() => addNode("end")}
+                data-testid="add-end-node"
+              >
+                <CircleCheckBig className="mt-0.5 size-4 shrink-0" />
+                <span>
+                  <span className="block font-medium">End</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Closes the application
+                  </span>
+                </span>
+              </button>
 
-          <Separator />
+              <Separator />
 
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <FileInput className="size-4" />
-            The submission node is fixed as the entry point.
-          </div>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <FileInput className="size-4" />
+                The submission node is fixed as the entry point.
+              </div>
+            </>
+          ) : (
+            <div
+              className="flex items-start gap-2 rounded-md border p-2.5 text-xs text-muted-foreground"
+              data-testid="forms-only-notice"
+            >
+              <Lock className="mt-0.5 size-4 shrink-0" />
+              You can edit the questions on any step. Changing the shape of the
+              process needs workflow permission.
+            </div>
+          )}
 
           <Separator />
 
@@ -701,6 +727,10 @@ function WorkflowCanvas({
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            nodesConnectable={canManageFlow}
+            edgesReconnectable={canManageFlow}
+            nodesDraggable={canManageFlow}
+            elementsSelectable
             onNodeClick={(_, node) => setSelectedId(node.id)}
             onPaneClick={() => setSelectedId(null)}
             fitView
@@ -742,6 +772,7 @@ function WorkflowCanvas({
         node={selectedNode}
         roles={roles}
         templates={templates}
+        canManageFlow={canManageFlow}
         onChange={updateNodeData}
         onDelete={deleteNode}
         onClose={() => setSelectedId(null)}
