@@ -192,6 +192,7 @@ export default async function ApplicationPage() {
     .map((event) => ({
       nodeId: event.nodeId ?? "",
       handleId: event.outcomeId ?? DEFAULT_SOURCE_HANDLE,
+      at: event.createdAt.toISOString(),
     }))
     .filter((step) => step.nodeId.length > 0);
 
@@ -200,6 +201,7 @@ export default async function ApplicationPage() {
     travelled,
     currentNodeId: open.currentNodeId,
     roleName: (roleId) => (roleId ? (roleNameById.get(roleId) ?? null) : null),
+    startedAt: open.createdAt.toISOString(),
   });
 
   const positions: Record<string, { x: number; y: number }> = {};

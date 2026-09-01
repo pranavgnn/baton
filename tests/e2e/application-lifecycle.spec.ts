@@ -169,6 +169,16 @@ test.describe("1. the applicant fills in and submits", () => {
     await expect(page.getByTestId("application-progress")).toBeVisible();
     await expect(page.getByTestId("progress-current").first()).toBeVisible();
 
+    // Each step it has reached says when, so the wait is legible.
+    const submission = page.getByTestId("progress-dates-Applicant Submission");
+    await expect(submission).toContainText("Arrived");
+    await expect(submission).toContainText("Moved on");
+
+    // The step it is sitting on has arrived but not moved on.
+    const stage = page.getByTestId("progress-dates-Head of Department Review");
+    await expect(stage).toContainText("Arrived");
+    await expect(stage).not.toContainText("Moved on");
+
     const mail = await waitForEmail((message) =>
       message.Subject.includes("received"),
     );
@@ -295,6 +305,16 @@ test.describe("6. the outcome is visible to everyone entitled to it", () => {
     test("shows the approved status on the dashboard", async ({ page }) => {
       await page.goto("/dashboard");
       await expect(page.getByTestId("status-approved").first()).toBeVisible();
+    });
+
+    test("dates the application on the dashboard", async ({ page }) => {
+      await page.goto("/dashboard");
+
+      const past = page.getByTestId("past-applications");
+      await expect(past).toContainText("Submitted");
+      await expect(past).toContainText("Decided");
+      // A real date, not the placeholder for a missing one.
+      await expect(past).not.toContainText("Submitted —");
     });
   });
 

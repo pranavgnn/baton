@@ -20,6 +20,10 @@ export type ProgressStep = {
   state: ProgressNodeState;
   /** How many times the application has passed through, for loops. */
   visits: number;
+  /** ISO timestamp of the application's latest arrival here. */
+  enteredAt: string | null;
+  /** ISO timestamp of its latest departure. Null while it is still here. */
+  completedAt: string | null;
 };
 
 export type ProgressEdge = {
@@ -43,6 +47,8 @@ export type TravelledStep = {
   nodeId: string;
   /** Outcome handle taken out of that node, when there was one. */
   handleId: string | null;
+  /** ISO timestamp of when the step was completed. */
+  at: string;
 };
 
 export type BuildProgressInput = {
@@ -51,6 +57,9 @@ export type BuildProgressInput = {
   currentNodeId: string | null;
   /** Resolves a stage's role id to a name for display. */
   roleName: (roleId: string | null) => string | null;
+  /** ISO timestamp the application was created, which is when it entered the
+   * submission step. */
+  startedAt: string | null;
 };
 
 export function buildProgressGraph({
@@ -58,6 +67,7 @@ export function buildProgressGraph({
   travelled,
   currentNodeId,
   roleName,
+  startedAt,
 }: BuildProgressInput): ProgressGraph {
   const visible = graph.nodes.filter((node) => node.kind !== "email");
 
@@ -69,10 +79,26 @@ export function buildProgressGraph({
   // A node counts as visited if the application has left it, or is sitting on
   // it now.
   const travelledEdges = new Set<string>();
+
+  /**
+   * When each step was last arrived at and last left. A step is entered at the
+   * moment the one before it was completed, so a single pass over the history
+   * fills both - and a loop simply overwrites the earlier visit, which is what
+   * someone tracking their application wants to read.
+   */
+  const enteredAt = new Map<string, string>();
+  const completedAt = new Map<string, string>();
+
+  const start = visible.find((node) => node.kind === "start");
+  if (start && startedAt) enteredAt.set(start.id, startedAt);
+
   for (const step of travelled) {
+    completedAt.set(step.nodeId, step.at);
     if (!step.handleId) continue;
     const target = continuationNodeId(graph, step.nodeId, step.handleId);
-    if (target) travelledEdges.add(`${step.nodeId}>${step.handleId}>${target}`);
+    if (!target) continue;
+    travelledEdges.add(`${step.nodeId}>${step.handleId}>${target}`);
+    enteredAt.set(target, step.at);
   }
 
   const steps: ProgressStep[] = visible.map((node) => ({
@@ -86,6 +112,10 @@ export function buildProgressGraph({
           ? "done"
           : "upcoming",
     visits: visits.get(node.id) ?? 0,
+    enteredAt: enteredAt.get(node.id) ?? null,
+    // Sitting here now: an earlier visit's departure is not this one's.
+    completedAt:
+      node.id === currentNodeId ? null : (completedAt.get(node.id) ?? null),
   }));
 
   const edges: ProgressEdge[] = [];

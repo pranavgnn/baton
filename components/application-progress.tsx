@@ -22,6 +22,7 @@ import { memo, useMemo } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import type { ProgressGraph, ProgressStep } from "@/lib/workflow/progress";
+import { formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /* -------------------------------------------------------------------------- */
@@ -88,6 +89,8 @@ const ProgressNodeView = memo(function ProgressNodeView({
             </Badge>
           ) : null}
         </span>
+
+        <StepDates step={step} />
       </div>
 
       <Handle
@@ -100,6 +103,26 @@ const ProgressNodeView = memo(function ProgressNodeView({
     </div>
   );
 });
+
+/**
+ * When the application got here and when it moved on. A step it is sitting on
+ * shows only its arrival, because it has not left yet.
+ */
+function StepDates({ step }: { step: ProgressStep }) {
+  if (!step.enteredAt) return null;
+
+  return (
+    <span
+      className="progress-node-dates"
+      data-testid={`progress-dates-${step.label}`}
+    >
+      <span>Arrived {formatDateTime(step.enteredAt)}</span>
+      {step.completedAt ? (
+        <span>Moved on {formatDateTime(step.completedAt)}</span>
+      ) : null}
+    </span>
+  );
+}
 
 const NODE_TYPES = { progress: ProgressNodeView };
 
