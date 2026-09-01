@@ -40,8 +40,6 @@ import { toast } from "sonner";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FieldLabel } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
@@ -71,11 +69,11 @@ import {
   type RoleOption,
   type TemplateOption,
 } from "./node-inspector";
+import { PublishDialog } from "./publish-dialog";
+import { VersionHistory } from "./version-history";
 
 export type WorkflowBuilderProps = {
   initialGraph: WorkflowGraph;
-  initialName: string;
-  initialDescription: string;
   publishedGraph: WorkflowGraph | null;
   version: number;
   acceptingApplications: boolean;
@@ -159,8 +157,6 @@ export function WorkflowBuilder(props: WorkflowBuilderProps) {
 
 function WorkflowCanvas({
   initialGraph,
-  initialName,
-  initialDescription,
   publishedGraph,
   version,
   acceptingApplications,
@@ -171,9 +167,10 @@ function WorkflowCanvas({
   const canvasRef = useRef<HTMLDivElement>(null);
 
   const [graph, setGraph] = useState<WorkflowGraph>(initialGraph);
-  const [name, setName] = useState(initialName);
-  const [description, setDescription] = useState(initialDescription);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
+  /** Bumped after a publish so the history sheet refetches. */
+  const [historyToken, setHistoryToken] = useState(0);
   const [accepting, setAccepting] = useState(acceptingApplications);
   const [publishedVersion, setPublishedVersion] = useState(version);
   const [savedGraph, setSavedGraph] = useState<WorkflowGraph>(initialGraph);
@@ -224,11 +221,8 @@ function WorkflowCanvas({
   );
 
   const dirty = useMemo(
-    () =>
-      JSON.stringify(graph) !== JSON.stringify(savedGraph) ||
-      name !== initialName ||
-      description !== initialDescription,
-    [graph, savedGraph, name, description, initialName, initialDescription],
+    () => JSON.stringify(graph) !== JSON.stringify(savedGraph),
+    [graph, savedGraph],
   );
 
   const unpublished = useMemo(
@@ -447,7 +441,7 @@ function WorkflowCanvas({
 
   function handleSave() {
     startSave(async () => {
-      const result = await saveWorkflowDraft({ name, description, graph });
+      const result = await saveWorkflowDraft({ graph });
       if (result.ok) {
         setSavedGraph(graph);
         toast.success(
@@ -461,17 +455,30 @@ function WorkflowCanvas({
     });
   }
 
-  function handlePublish() {
+  function handlePublish(memo: string) {
     startPublish(async () => {
-      const result = await publishWorkflow({ name, description, graph });
+      const result = await publishWorkflow({ graph, memo });
       if (result.ok) {
         setSavedGraph(graph);
         setSavedPublished(graph);
         setPublishedVersion(result.data.version);
+        setPublishOpen(false);
+        setHistoryToken((token) => token + 1);
         toast.success(`Published version ${result.data.version}.`);
       } else {
         toast.error(result.error);
       }
+    });
+  }
+
+  /** An older revision loaded back onto the canvas, not yet published. */
+  function handleRestore(restored: WorkflowGraph, version: number) {
+    setGraph(restored);
+    setSavedGraph(restored);
+    setSelectedId(null);
+    setDragPositions({});
+    toast.message(`Editing version ${version}`, {
+      description: "Publish to make it the live workflow.",
     });
   }
 
@@ -535,6 +542,11 @@ function WorkflowCanvas({
             </label>
           </div>
 
+          <VersionHistory
+            refreshToken={historyToken}
+            onRestore={handleRestore}
+          />
+
           <Button
             variant="outline"
             onClick={handleRevert}
@@ -567,7 +579,7 @@ function WorkflowCanvas({
             <TooltipTrigger asChild>
               <span>
                 <Button
-                  onClick={handlePublish}
+                  onClick={() => setPublishOpen(true)}
                   disabled={isPublishing || errors.length > 0}
                   data-testid="publish-workflow"
                 >
@@ -586,32 +598,6 @@ function WorkflowCanvas({
                 : "Make this the live workflow for new applications"}
             </TooltipContent>
           </Tooltip>
-        </div>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-        <div>
-          <FieldLabel htmlFor="workflow-name" className="sr-only">
-            Workflow name
-          </FieldLabel>
-          <Input
-            id="workflow-name"
-            value={name}
-            placeholder="Workflow name"
-            onChange={(event) => setName(event.target.value)}
-            data-testid="workflow-name"
-          />
-        </div>
-        <div>
-          <FieldLabel htmlFor="workflow-description" className="sr-only">
-            Description
-          </FieldLabel>
-          <Input
-            id="workflow-description"
-            value={description}
-            placeholder="Short description of this workflow"
-            onChange={(event) => setDescription(event.target.value)}
-          />
         </div>
       </div>
 
@@ -743,6 +729,14 @@ function WorkflowCanvas({
           </AlertDescription>
         </Alert>
       ) : null}
+
+      <PublishDialog
+        open={publishOpen}
+        onOpenChange={setPublishOpen}
+        nextVersion={publishedVersion + 1}
+        busy={isPublishing}
+        onConfirm={handlePublish}
+      />
 
       <NodeInspector
         node={selectedNode}

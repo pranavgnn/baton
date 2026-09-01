@@ -35,7 +35,6 @@ export async function getWorkflow() {
 export type PublishedWorkflow = {
   graph: WorkflowGraph;
   version: number;
-  name: string;
   acceptingApplications: boolean;
 };
 
@@ -45,7 +44,6 @@ export async function getPublishedWorkflow(): Promise<PublishedWorkflow | null> 
   return {
     graph: row.publishedGraph,
     version: row.version,
-    name: row.name,
     acceptingApplications: row.acceptingApplications,
   };
 }

@@ -9,7 +9,14 @@ import { eq } from "drizzle-orm";
 
 import { provisionUser } from "@/lib/auth/provision";
 import { db } from "@/lib/db";
-import { emailTemplate, role, user, userRole, workflow } from "@/lib/db/schema";
+import {
+  emailTemplate,
+  role,
+  user,
+  userRole,
+  workflow,
+  workflowVersion,
+} from "@/lib/db/schema";
 import { env } from "@/lib/env";
 import { ensureBucket } from "@/lib/storage/s3";
 import {
@@ -113,16 +120,24 @@ async function seedWorkflow(
     throw new Error("Refusing to seed an invalid workflow.");
   }
 
+  const publishedAt = new Date();
   await db.insert(workflow).values({
     id: SINGLETON_WORKFLOW_ID,
-    name: "Faculty Promotion 2026",
-    description:
-      "Standard promotion pipeline: submission, departmental review, dean approval.",
     graph,
     publishedGraph: graph,
     version: 1,
-    publishedAt: new Date(),
+    publishedAt,
     acceptingApplications: true,
+  });
+
+  await db.insert(workflowVersion).values({
+    id: crypto.randomUUID(),
+    workflowId: SINGLETON_WORKFLOW_ID,
+    version: 1,
+    graph,
+    memo: "Initial pipeline: submission, departmental review, dean approval.",
+    publishedByName: "Seed",
+    createdAt: publishedAt,
   });
   log("+ created", "published version 1");
 }
