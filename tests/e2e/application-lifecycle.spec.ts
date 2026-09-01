@@ -5,7 +5,6 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   clearMailbox,
   expectToast,
-  selectOption,
   storageStatePath,
   waitForEmail,
 } from "./helpers";
@@ -64,6 +63,28 @@ async function attach(page: Page, key: string) {
   });
 }
 
+/**
+ * Fills one entry of a repeating group, adding it first if it is not there.
+ *
+ * Columns are addressed by the group's own path, so `qualifications.1.year`
+ * reaches the second entry - the same path validation reports against.
+ */
+async function fillEntry(
+  page: Page,
+  group: string,
+  index: number,
+  values: Record<string, string>,
+) {
+  const rows = page.getByTestId(new RegExp(`^${group}-row-`));
+  while ((await rows.count()) <= index) {
+    await page.getByTestId(`${group}-add`).click();
+  }
+
+  for (const [column, value] of Object.entries(values)) {
+    await input(page, `${group}.${index}.${column}`).fill(value);
+  }
+}
+
 /** Picks from a shadcn select, which renders a combobox rather than a native one. */
 async function choose(page: Page, key: string, optionLabel: string) {
   await field(page, key).getByRole("combobox").click();
@@ -93,15 +114,39 @@ async function fillPersonalDetails(page: Page) {
 }
 
 async function fillQualifications(page: Page) {
-  await input(page, "qualifications").fill(
-    "Ph.D. in Information Security | Manipal Academy of Higher Education | 2016 | Awarded with distinction\nM.Tech. in Computer Science | NIT Karnataka | 2010 | First class",
-  );
+  await fillEntry(page, "qualifications", 0, {
+    qualification: "Ph.D. in Information Security",
+    institution: "Manipal Academy of Higher Education",
+    year: "2016",
+    remarks: "Awarded with distinction",
+  });
+  await fillEntry(page, "qualifications", 1, {
+    qualification: "M.Tech. in Computer Science",
+    institution: "NIT Karnataka",
+    year: "2010",
+  });
 }
 
 async function fillAppointments(page: Page) {
-  await input(page, "previous_appointments").fill(
-    "Assistant Professor | Manipal Institute of Technology | 2017 | Present | 9 years\nLecturer | NMAM Institute of Technology | 2011 | 2017 | 6 years",
-  );
+  // The current appointment has no end date, which the tick box says instead.
+  await fillEntry(page, "previous_appointments", 0, {
+    designation: "Assistant Professor",
+    institution: "Manipal Institute of Technology",
+    from_date: "2017-06-01",
+    total_experience: "9 years",
+  });
+  await field(page, "previous_appointments.0.is_current")
+    .getByRole("checkbox")
+    .check();
+
+  await fillEntry(page, "previous_appointments", 1, {
+    designation: "Lecturer",
+    institution: "NMAM Institute of Technology",
+    from_date: "2011-07-01",
+    to_date: "2017-05-31",
+    total_experience: "6 years",
+  });
+
   await input(page, "courses_taught").fill(
     "Information Security, Computer Networks, Applied Cryptography, Operating Systems.",
   );
@@ -156,6 +201,10 @@ async function fillChecklist(page: Page) {
 async function fillDocuments(page: Page) {
   await attach(page, "scopus_profile");
   await attach(page, "best_publication_first_pages");
+
+  // Items 11-14 are all above zero, so both proofs are now asked for.
+  await attach(page, "phd_guided_proof");
+  await attach(page, "phd_guiding_proof");
 }
 
 async function acceptDeclaration(page: Page) {
@@ -379,12 +428,15 @@ test.describe("3. HR reviews experience and service", () => {
 
         await page.getByTestId("wizard-next").click();
 
-        await input(page, "performance_year_1").fill("2023");
-        await selectOption(page, "Grade for year 1", "A++");
-        await input(page, "performance_year_2").fill("2024");
-        await selectOption(page, "Grade for year 2", "A+++");
-        await input(page, "performance_year_3").fill("2025");
-        await selectOption(page, "Grade for year 3", "A++");
+        const grades: [string, string][] = [
+          ["2023", "A++"],
+          ["2024", "A+++"],
+          ["2025", "A++"],
+        ];
+        for (const [index, [year, grade]] of grades.entries()) {
+          await fillEntry(page, "performance_grades", index, { year });
+          await choose(page, `performance_grades.${index}.grade`, grade);
+        }
 
         await page.getByTestId("wizard-next").click();
 
@@ -441,7 +493,9 @@ test.describe("4. R&C evaluates the research", () => {
 
         await page.getByTestId("wizard-next").click();
 
+        // Saying Yes is what asks for the date of eligibility at all.
         await page.getByRole("radio", { name: "Yes" }).check();
+        await input(page, "date_of_eligibility").fill("2026-07-01");
         await input(page, "remarks").fill(
           "Publication record verified against Scopus. Criteria met.",
         );
@@ -501,6 +555,11 @@ test.describe("6. HR declares the candidate eligible", () => {
     ).toBeVisible();
 
     await page.getByRole("tab", { name: "Your review" }).click();
+
+    // The reason field belongs to a different decision and is not asked for.
+    await expect(field(page, "ineligibility_reason")).toHaveCount(0);
+
+    await choose(page, "final_decision", "Eligible");
     await input(page, "effective_from").fill("2026-07-01");
     await input(page, "remarks").fill(
       "Eligible on every criterion. Referred to the Director.",

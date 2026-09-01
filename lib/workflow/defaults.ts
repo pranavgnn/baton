@@ -1,5 +1,8 @@
 import { DEFAULT_SOURCE_HANDLE } from "./types";
 import type {
+  ConditionGroup,
+  ConditionOperator,
+  ConditionRule,
   FormField,
   FormSchema,
   FormSection,
@@ -262,29 +265,22 @@ function choices(...entries: [label: string, value: string][]) {
   return entries.map(([label, value]) => ({ id: newId("opt"), label, value }));
 }
 
-/**
- * A repeating table from the paper form.
- *
- * The form engine has no repeating-row field, and inventing one here would
- * mean changing the compiler, the runtime and the builder at once. Until it
- * has one, each table is a single block of text whose columns are named in the
- * helper text - which keeps every column the paper form asked for, and keeps
- * what an applicant types in one answer that a reviewer can read.
- */
-function tableField(
-  key: string,
-  label: string,
-  columns: string[],
-  required = false,
-) {
-  return createField({
-    type: "textarea",
-    key,
-    label,
-    required,
-    description: `One entry per line: ${columns.join(" | ")}`,
-    placeholder: columns.join(" | "),
-  });
+function rule(
+  field: string,
+  operator: ConditionOperator,
+  value = "",
+): ConditionRule {
+  return { id: newId("rule"), field, operator, value };
+}
+
+/** Applies when every rule holds. */
+function when(...rules: ConditionRule[]): ConditionGroup {
+  return { mode: "all", rules };
+}
+
+/** Applies when any one rule holds. */
+function whenAny(...rules: ConditionRule[]): ConditionGroup {
+  return { mode: "any", rules };
 }
 
 export function defaultApplicantForm(): FormSchema {
@@ -386,11 +382,43 @@ export function defaultApplicantForm(): FormSchema {
       createSection(
         "B. Qualifications",
         [
-          tableField(
-            "qualifications",
-            "Qualifications",
-            ["Qualification", "College or University", "Year", "Remarks"],
-            true,
+          createRepeater(
+            {
+              key: "qualifications",
+              label: "Qualifications",
+              required: true,
+              description: "Add one entry per qualification you hold.",
+            },
+            [
+              createField({
+                type: "text",
+                key: "qualification",
+                label: "Qualification",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "text",
+                key: "institution",
+                label: "College or University",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "number",
+                key: "year",
+                label: "Year",
+                required: true,
+                width: "half",
+                validation: { min: 1950, max: 2100 },
+              }),
+              createField({
+                type: "text",
+                key: "remarks",
+                label: "Remarks",
+                width: "half",
+              }),
+            ],
           ),
         ],
         "Every qualification you hold, starting with the most recent.",
@@ -399,17 +427,60 @@ export function defaultApplicantForm(): FormSchema {
       createSection(
         "C. Previous Appointments & Teaching Experience",
         [
-          tableField(
-            "previous_appointments",
-            "Previous appointments",
+          createRepeater(
+            {
+              key: "previous_appointments",
+              label: "Previous appointments",
+              required: true,
+              description: "Add one entry per appointment, most recent first.",
+            },
             [
-              "Designation",
-              "Institution",
-              "From",
-              "To (or Present)",
-              "Total experience",
+              createField({
+                type: "text",
+                key: "designation",
+                label: "Designation",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "text",
+                key: "institution",
+                label: "Institution",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "date",
+                key: "from_date",
+                label: "From",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "checkbox",
+                key: "is_current",
+                label: "This is my current appointment",
+                width: "half",
+              }),
+              createField({
+                type: "date",
+                key: "to_date",
+                label: "To",
+                required: true,
+                width: "half",
+                // The paper form allows "Present" in this column instead of a
+                // date, which the tick box above says more plainly.
+                visibleWhen: when(rule("is_current", "isNotChecked")),
+              }),
+              createField({
+                type: "text",
+                key: "total_experience",
+                label: "Total experience",
+                required: true,
+                width: "half",
+                placeholder: "e.g. 6 years 2 months",
+              }),
             ],
-            true,
           ),
           createField({
             type: "textarea",
@@ -579,16 +650,22 @@ export function defaultApplicantForm(): FormSchema {
             key: "sponsored_rd_amount",
             label:
               "9. Total amount received through Sponsored R&D external projects",
-            description: "Leave blank if you have none. Amount in rupees.",
+            description: "In rupees. Leave blank if you have none.",
             width: "half",
             validation: { min: 0 },
           }),
           createField({
-            type: "text",
+            type: "select",
             key: "sponsored_rd_role",
             label: "9a. Your role on those projects",
-            description: "State PI or Co-PI. Leave blank if item 9 is blank.",
             width: "half",
+            options: choices(
+              ["Principal Investigator", "pi"],
+              ["Co-Principal Investigator", "co_pi"],
+            ),
+            // The paper form asks for the role only once an amount is stated.
+            visibleWhen: when(rule("sponsored_rd_amount", "isFilled")),
+            requiredWhen: when(rule("sponsored_rd_amount", "isFilled")),
           }),
           createField({
             type: "number",
@@ -665,26 +742,89 @@ export function defaultApplicantForm(): FormSchema {
       createSection(
         "F. Conferences & Workshops",
         [
-          tableField("conferences", "Conferences and workshops", [
-            "Conference or workshop",
-            "Organiser",
-            "Date",
-            "Duration",
-          ]),
+          createRepeater(
+            {
+              key: "conferences",
+              label: "Conferences and workshops",
+              description: "Optional, but worth listing.",
+            },
+            [
+              createField({
+                type: "text",
+                key: "name",
+                label: "Conference or workshop",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "text",
+                key: "organiser",
+                label: "Organiser",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "date",
+                key: "date",
+                label: "Date",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "text",
+                key: "duration",
+                label: "Duration",
+                width: "half",
+                placeholder: "e.g. 3 days",
+              }),
+            ],
+          ),
         ],
-        "Optional, but worth listing.",
+        "Conferences and workshops you have taken part in.",
       ),
 
       createSection(
         "G. Teacher Training & Faculty Development Programmes",
         [
-          tableField("faculty_development", "Programmes attended", [
-            "Programme",
-            "Organiser",
-            "Dates",
-          ]),
+          createRepeater(
+            {
+              key: "faculty_development",
+              label: "Programmes attended",
+              description: "Programmes from the last three years.",
+            },
+            [
+              createField({
+                type: "text",
+                key: "programme",
+                label: "Programme",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "text",
+                key: "organiser",
+                label: "Organiser",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "date",
+                key: "from_date",
+                label: "From",
+                required: true,
+                width: "half",
+              }),
+              createField({
+                type: "date",
+                key: "to_date",
+                label: "To",
+                required: true,
+                width: "half",
+              }),
+            ],
+          ),
         ],
-        "Programmes from the last three years, with their dates.",
+        "Teacher training and faculty development from the last three years.",
       ),
 
       createSection(
@@ -745,48 +885,69 @@ export function defaultApplicantForm(): FormSchema {
             type: "file",
             key: "phd_guided_proof",
             label: "Proof of PhD scholars guided or co-guided",
-            description:
-              "Registrar evaluation announcement. Required if items 11 or 12 are above zero.",
+            description: "Registrar evaluation announcement.",
             validation: {
               maxFileSizeMb: 10,
               acceptedFileTypes: ["application/pdf", ".pdf"],
               maxFiles: 5,
             },
+            // Asked for exactly when items 11 or 12 say there are any.
+            visibleWhen: whenAny(
+              rule("phd_guided", "greaterThan", "0"),
+              rule("phd_co_guided", "greaterThan", "0"),
+            ),
+            requiredWhen: whenAny(
+              rule("phd_guided", "greaterThan", "0"),
+              rule("phd_co_guided", "greaterThan", "0"),
+            ),
           }),
           createField({
             type: "file",
             key: "phd_guiding_proof",
             label: "Proof of PhD scholars currently guiding or co-guiding",
-            description:
-              "IPAC letter. Required if items 13 or 14 are above zero.",
+            description: "IPAC letter.",
             validation: {
               maxFileSizeMb: 10,
               acceptedFileTypes: ["application/pdf", ".pdf"],
               maxFiles: 5,
             },
+            visibleWhen: whenAny(
+              rule("phd_guiding", "greaterThan", "0"),
+              rule("phd_co_guiding", "greaterThan", "0"),
+            ),
+            requiredWhen: whenAny(
+              rule("phd_guiding", "greaterThan", "0"),
+              rule("phd_co_guiding", "greaterThan", "0"),
+            ),
           }),
           createField({
             type: "file",
             key: "sponsored_rd_proof",
             label: "Sponsored R&D project proof",
-            description:
-              "Receipt from MAHE Finance. Required if item 9 is filled in.",
+            description: "Receipt from MAHE Finance.",
             validation: {
               maxFileSizeMb: 10,
               acceptedFileTypes: ["application/pdf", ".pdf"],
               maxFiles: 5,
             },
+            visibleWhen: when(rule("sponsored_rd_amount", "isFilled")),
+            requiredWhen: when(rule("sponsored_rd_amount", "isFilled")),
           }),
           createField({
             type: "file",
             key: "patent_certificates",
             label: "Patent certificates",
-            description: "Required if item 10 is above zero.",
             validation: {
               maxFileSizeMb: 10,
               acceptedFileTypes: ["application/pdf", ".pdf"],
               maxFiles: 5,
             },
+            visibleWhen: when(
+              rule("utility_patents_granted", "greaterThan", "0"),
+            ),
+            requiredWhen: when(
+              rule("utility_patents_granted", "greaterThan", "0"),
+            ),
           }),
           createField({
             type: "file",
@@ -819,7 +980,7 @@ export function defaultApplicantForm(): FormSchema {
             },
           }),
         ],
-        "PDF, JPG or PNG, up to 10 MB each.",
+        "PDF, JPG or PNG, up to 10 MB each. Some are asked for only when your answers call for them.",
       ),
 
       createSection("Declaration", [
@@ -931,56 +1092,39 @@ function hrInitialForm(): FormSchema {
         ],
         "Service history as HR records it.",
       ),
-      createSection("Performance Grades", [
-        createField({
-          type: "number",
-          key: "performance_year_1",
-          label: "Year 1",
-          required: true,
-          width: "half",
-          validation: { min: 1950, max: 2100 },
-        }),
-        createField({
-          type: "select",
-          key: "performance_grade_1",
-          label: "Grade for year 1",
-          required: true,
-          width: "half",
-          options: choices(...PERFORMANCE_GRADES),
-        }),
-        createField({
-          type: "number",
-          key: "performance_year_2",
-          label: "Year 2",
-          required: true,
-          width: "half",
-          validation: { min: 1950, max: 2100 },
-        }),
-        createField({
-          type: "select",
-          key: "performance_grade_2",
-          label: "Grade for year 2",
-          required: true,
-          width: "half",
-          options: choices(...PERFORMANCE_GRADES),
-        }),
-        createField({
-          type: "number",
-          key: "performance_year_3",
-          label: "Year 3",
-          required: true,
-          width: "half",
-          validation: { min: 1950, max: 2100 },
-        }),
-        createField({
-          type: "select",
-          key: "performance_grade_3",
-          label: "Grade for year 3",
-          required: true,
-          width: "half",
-          options: choices(...PERFORMANCE_GRADES),
-        }),
-      ]),
+      createSection(
+        "Performance Grades",
+        [
+          createRepeater(
+            {
+              key: "performance_grades",
+              label: "Performance grades",
+              required: true,
+              description: "The last three years, one entry each.",
+              validation: { minRows: 3, maxRows: 3 },
+            },
+            [
+              createField({
+                type: "number",
+                key: "year",
+                label: "Year",
+                required: true,
+                width: "half",
+                validation: { min: 1950, max: 2100 },
+              }),
+              createField({
+                type: "select",
+                key: "grade",
+                label: "Grade",
+                required: true,
+                width: "half",
+                options: choices(...PERFORMANCE_GRADES),
+              }),
+            ],
+          ),
+        ],
+        "Three years of performance grades, as the paper form records them.",
+      ),
       createSection(
         "Verdict",
         [
@@ -995,8 +1139,9 @@ function hrInitialForm(): FormSchema {
             type: "date",
             key: "date_of_eligibility",
             label: "Date of eligibility",
-            description: "Only if eligible.",
+            required: true,
             width: "half",
+            visibleWhen: when(rule("experience_eligibility", "equals", "yes")),
           }),
           createField({
             type: "textarea",
@@ -1077,14 +1222,16 @@ function rcForm(): FormSchema {
           type: "date",
           key: "date_of_eligibility",
           label: "Date of eligibility",
-          description: "Only if eligible.",
+          required: true,
           width: "half",
+          visibleWhen: when(rule("research_eligibility", "equals", "yes")),
         }),
         createField({
           type: "textarea",
           key: "remarks",
           label: "Remarks by AD (R&C)",
-          description: "Required if the verdict is No.",
+          description: "Required when the verdict is No.",
+          requiredWhen: when(rule("research_eligibility", "equals", "no")),
         }),
       ]),
     ],
@@ -1111,21 +1258,30 @@ function fdwForm(): FormSchema {
             type: "text",
             key: "post_eligible_for",
             label: "Post eligible for",
-            description: "Only if eligible.",
+            required: true,
             width: "half",
+            visibleWhen: when(
+              rule("eligibility_verdict", "equals", "eligible"),
+            ),
           }),
           createField({
             type: "date",
             key: "effective_from",
             label: "Effective from",
-            description: "Only if eligible.",
+            required: true,
             width: "half",
+            visibleWhen: when(
+              rule("eligibility_verdict", "equals", "eligible"),
+            ),
           }),
           createField({
             type: "textarea",
             key: "remarks",
             label: "Remarks",
-            description: "Required if not eligible.",
+            description: "Required when the candidate is not eligible.",
+            requiredWhen: when(
+              rule("eligibility_verdict", "equals", "not_eligible"),
+            ),
           }),
         ],
         "The formal evaluation by AD (FD&W).",
@@ -1147,22 +1303,38 @@ function hrFinalForm(): FormSchema {
               "Read the R&C and FD&W verdicts above before declaring. Either may have recorded an ineligibility that did not stop the application.",
           }),
           createField({
+            type: "select",
+            key: "final_decision",
+            label: "Final decision",
+            required: true,
+            width: "half",
+            options: choices(
+              ["Eligible", "eligible"],
+              ["Not eligible", "not_eligible"],
+              ["Other", "other"],
+            ),
+          }),
+          createField({
             type: "date",
             key: "effective_from",
             label: "Effective from",
-            description: "Only if you declare the applicant eligible.",
+            required: true,
             width: "half",
+            visibleWhen: when(rule("final_decision", "equals", "eligible")),
           }),
           createField({
             type: "textarea",
             key: "ineligibility_reason",
             label: "Reason for ineligibility",
-            description: "Only if you declare the applicant not eligible.",
+            required: true,
+            visibleWhen: when(rule("final_decision", "equals", "not_eligible")),
           }),
           createField({
             type: "textarea",
             key: "other_details",
-            label: "Anything the two outcomes do not cover",
+            label: "Please specify",
+            required: true,
+            visibleWhen: when(rule("final_decision", "equals", "other")),
           }),
           createField({
             type: "textarea",
