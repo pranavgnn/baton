@@ -166,6 +166,15 @@ test.describe("workflow builder canvas", () => {
   });
 
   test("dragging a node keeps the graph on screen", async ({ page }) => {
+    // React Flow reports an unmeasured node by logging, not by throwing, so
+    // the console is the only place the regression shows up.
+    const complaints: string[] = [];
+    page.on("console", (message) => {
+      if (message.text().includes("not initialized")) {
+        complaints.push(message.text());
+      }
+    });
+
     const node = page.getByTestId("node-stage-Dean Review");
     await expect(node).toBeVisible();
 
@@ -174,19 +183,22 @@ test.describe("workflow builder canvas", () => {
     await page.mouse.down();
 
     // Mid-drag the canvas must still be intact: the regression this guards
-    // against blanked every node out while the pointer was down.
+    // against blanked the dragged node and its edges out while the pointer
+    // was down.
     for (const offset of [40, 80, 120]) {
       await page.mouse.move(
         box.x + box.width / 2 + offset,
         box.y + 12 + offset,
       );
       await expect(nodes(page)).toHaveCount(10);
+      await expect(edges(page)).toHaveCount(12);
       await expect(node).toBeVisible();
     }
 
     await page.mouse.up();
     await expect(nodes(page)).toHaveCount(10);
     await expect(edges(page)).toHaveCount(12);
+    expect(complaints).toEqual([]);
   });
 
   test("reverting throws away draft edits", async ({ page }) => {
