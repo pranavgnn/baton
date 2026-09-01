@@ -37,7 +37,8 @@ test.describe("workflow builder canvas", () => {
     page,
   }) => {
     await expect(nodes(page)).toHaveCount(10);
-    await expect(edges(page)).toHaveCount(11);
+    // Each outcome carries a continuation plus its parallel email branch.
+    await expect(edges(page)).toHaveCount(12);
 
     await expect(page.getByTestId("node-start")).toBeVisible();
     await expect(
@@ -130,7 +131,7 @@ test.describe("workflow builder canvas", () => {
     await page.getByTestId("delete-node").click();
     await closeOverlays(page);
     await expect(nodes(page)).toHaveCount(10);
-    await expect(edges(page)).toHaveCount(11);
+    await expect(edges(page)).toHaveCount(12);
     await expect(page.getByTestId("publish-workflow")).toBeEnabled();
   });
 
@@ -164,6 +165,30 @@ test.describe("workflow builder canvas", () => {
     await expect(page.getByText("draft has unpublished changes")).toBeVisible();
   });
 
+  test("dragging a node keeps the graph on screen", async ({ page }) => {
+    const node = page.getByTestId("node-stage-Dean Review");
+    await expect(node).toBeVisible();
+
+    const box = (await node.boundingBox())!;
+    await page.mouse.move(box.x + box.width / 2, box.y + 12);
+    await page.mouse.down();
+
+    // Mid-drag the canvas must still be intact: the regression this guards
+    // against blanked every node out while the pointer was down.
+    for (const offset of [40, 80, 120]) {
+      await page.mouse.move(
+        box.x + box.width / 2 + offset,
+        box.y + 12 + offset,
+      );
+      await expect(nodes(page)).toHaveCount(10);
+      await expect(node).toBeVisible();
+    }
+
+    await page.mouse.up();
+    await expect(nodes(page)).toHaveCount(10);
+    await expect(edges(page)).toHaveCount(12);
+  });
+
   test("reverting throws away draft edits", async ({ page }) => {
     await page.getByTestId("node-stage-Dean Review").click();
     await page.getByTestId("node-label").fill("Temporary Name");
@@ -177,14 +202,46 @@ test.describe("workflow builder canvas", () => {
     await expect(page.getByTestId("node-stage-Temporary Name")).toHaveCount(0);
   });
 
-  test("publishing bumps the version", async ({ page }) => {
+  test("publishing asks for a memo and bumps the version", async ({ page }) => {
     // Scoped to the subtitle: the success toast repeats the same text.
     const subtitle = page.locator(".page-subtitle");
     const version = Number((await subtitle.innerText()).match(/\d+/)![0]);
 
     await page.getByTestId("publish-workflow").click();
+    await expect(page.getByTestId("publish-dialog")).toBeVisible();
+    await page
+      .getByTestId("publish-memo")
+      .fill("Tightened the Dean review wording.");
+    await page.getByTestId("confirm-publish").click();
+
     await expectToast(page, `Published version ${version + 1}.`);
     await expect(subtitle).toContainText(`Published version ${version + 1}`);
+  });
+
+  test("the memo is optional", async ({ page }) => {
+    const subtitle = page.locator(".page-subtitle");
+    const version = Number((await subtitle.innerText()).match(/\d+/)![0]);
+
+    await page.getByTestId("publish-workflow").click();
+    await page.getByTestId("confirm-publish").click();
+
+    await expectToast(page, `Published version ${version + 1}.`);
+  });
+
+  test("the history lists published revisions and can restore one", async ({
+    page,
+  }) => {
+    await page.getByTestId("open-version-history").click();
+    const history = page.getByTestId("version-history");
+    await expect(history).toBeVisible();
+
+    // The seed publishes version 1 with a memo of its own.
+    await expect(page.getByTestId("version-1")).toBeVisible();
+    await expect(page.getByTestId("version-1")).toContainText(
+      "Initial pipeline",
+    );
+
+    await closeOverlays(page);
   });
 });
 

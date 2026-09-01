@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 
 import {
   clearMailbox,
+  closeOverlays,
   expectToast,
   storageStatePath,
   waitForEmail,
@@ -238,6 +239,40 @@ test.describe("email templates", () => {
     await page.getByRole("button", { name: "Delete template" }).click();
 
     await expectToast(page, /used by email step/);
+  });
+
+  test("inserts a clickable button into the body", async ({ page }) => {
+    await page.goto("/admin/templates");
+
+    await page
+      .getByTestId(`template-${NEW_TEMPLATE}`)
+      .getByRole("button", { name: "Edit template" })
+      .click();
+
+    // The editor asks for the label and the destination in turn.
+    const answers = ["Open your application", "{{application_url}}"];
+    page.on("dialog", (dialog) => void dialog.accept(answers.shift()));
+
+    const body = page.getByTestId("rich-text-body");
+    await body.click();
+    await page.getByRole("button", { name: "Insert button" }).click();
+
+    const button = body.locator("[data-email-button]");
+    await expect(button).toHaveText("Open your application");
+
+    await page.getByTestId("save-template").click();
+    await expectToast(page, "Template saved.");
+
+    // It survives the round trip through the stored HTML.
+    await page.reload();
+    await page
+      .getByTestId(`template-${NEW_TEMPLATE}`)
+      .getByRole("button", { name: "Edit template" })
+      .click();
+    await expect(
+      page.getByTestId("rich-text-body").locator("[data-email-button]"),
+    ).toHaveText("Open your application");
+    await closeOverlays(page);
   });
 
   test("deletes an unused template", async ({ page }) => {

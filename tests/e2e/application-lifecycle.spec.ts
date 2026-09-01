@@ -164,7 +164,10 @@ test.describe("1. the applicant fills in and submits", () => {
 
     await page.getByTestId("submit-application").click();
     await expectToast(page, /Application submitted/);
-    await expect(page.getByText("Currently with:")).toBeVisible();
+
+    // The tracking page draws the whole workflow, marking where it now sits.
+    await expect(page.getByTestId("application-progress")).toBeVisible();
+    await expect(page.getByTestId("progress-current").first()).toBeVisible();
 
     const mail = await waitForEmail((message) =>
       message.Subject.includes("received"),

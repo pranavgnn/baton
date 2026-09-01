@@ -1,0 +1,225 @@
+import { expect, test } from "@playwright/test";
+
+import { closeOverlays, expectToast, storageStatePath } from "./helpers";
+
+test.describe.configure({ mode: "serial", retries: 0 });
+test.use({ storageState: storageStatePath("superAdmin") });
+
+test.describe("role priority", () => {
+  test("shows the top role as the default", async ({ page }) => {
+    await page.goto("/admin/roles");
+
+    // The seed puts Faculty first, so it is what an unnamed user is given.
+    await expect(
+      page.getByTestId("role-card-Faculty").getByText("Default"),
+    ).toBeVisible();
+  });
+
+  test("lists roles in priority order with the default marked", async ({
+    page,
+  }) => {
+    await page.goto("/admin/roles");
+    await page.getByTestId("open-role-priority").click();
+
+    const dialog = page.getByTestId("role-priority-dialog");
+    await expect(dialog).toBeVisible();
+
+    const rows = page.getByTestId("priority-list").locator("li");
+    await expect(rows.first()).toContainText("Faculty");
+    await expect(rows.first()).toContainText("Default");
+
+    await closeOverlays(page);
+  });
+
+  test("saves a reordered list", async ({ page }) => {
+    await page.goto("/admin/roles");
+    await page.getByTestId("open-role-priority").click();
+
+    // Keyboard reordering is the accessible path dnd-kit provides.
+    await page.getByRole("button", { name: "Reorder Faculty" }).focus();
+    await page.keyboard.press("Space");
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Space");
+
+    await page.getByTestId("save-priority").click();
+    await expectToast(page, "Role priority saved.");
+
+    await page.reload();
+    await expect(
+      page.getByTestId("role-card-Faculty").getByText("Default"),
+    ).toHaveCount(0);
+  });
+
+  test("restores Faculty to the top", async ({ page }) => {
+    await page.goto("/admin/roles");
+    await page.getByTestId("open-role-priority").click();
+
+    await page.getByRole("button", { name: "Reorder Faculty" }).focus();
+    await page.keyboard.press("Space");
+    await page.keyboard.press("ArrowUp");
+    await page.keyboard.press("Space");
+
+    await page.getByTestId("save-priority").click();
+    await expectToast(page, "Role priority saved.");
+
+    await page.reload();
+    await expect(
+      page.getByTestId("role-card-Faculty").getByText("Default"),
+    ).toBeVisible();
+  });
+});
+
+test.describe("bulk user import", () => {
+  const IMPORTED = "bulk.one@manipal.edu";
+  const SECOND = "bulk.two@manipal.edu";
+
+  test("previews a pasted CSV before writing anything", async ({ page }) => {
+    await page.goto("/admin/users");
+    await page.getByTestId("bulk-import").click();
+
+    await page
+      .getByTestId("import-csv")
+      .fill(
+        `email,name,department,roles\n${IMPORTED},Bulk One,Civil Engineering,Faculty\n${SECOND},Bulk Two,Civil Engineering,\nnot-an-email,Broken,,`,
+      );
+
+    const preview = page.getByTestId("import-preview");
+    await expect(preview).toContainText(IMPORTED);
+    await expect(preview).toContainText(SECOND);
+
+    // The bad row is reported, not silently dropped.
+    await expect(page.getByTestId("import-issues")).toContainText(
+      "is not a valid email address",
+    );
+
+    // Still nothing written.
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("textbox", { name: "Search users" }).fill("bulk.");
+    await expect(page.getByTestId(`user-${IMPORTED}`)).toHaveCount(0);
+  });
+
+  test("imports the valid rows and applies the default role", async ({
+    page,
+  }) => {
+    await page.goto("/admin/users");
+    await page.getByTestId("bulk-import").click();
+
+    await page
+      .getByTestId("import-csv")
+      .fill(
+        `email,name,department,roles\n${IMPORTED},Bulk One,Civil Engineering,Faculty\n${SECOND},Bulk Two,Civil Engineering,`,
+      );
+    await page.getByTestId("confirm-import").click();
+
+    await expectToast(page, /Imported 2/);
+
+    await page.getByRole("textbox", { name: "Search users" }).fill("bulk.");
+    await expect(page.getByTestId(`user-${IMPORTED}`)).toContainText("Faculty");
+    // The row naming no role falls back to the default.
+    await expect(page.getByTestId(`user-${SECOND}`)).toContainText("Faculty");
+  });
+
+  test("skips addresses already on the whitelist", async ({ page }) => {
+    await page.goto("/admin/users");
+    await page.getByTestId("bulk-import").click();
+
+    await page.getByTestId("import-csv").fill(`email\n${IMPORTED}`);
+    await page.getByTestId("confirm-import").click();
+
+    await expectToast(page, /skipped 1/);
+  });
+
+  test("imports a pasted list of addresses", async ({ page }) => {
+    await page.goto("/admin/users");
+    await page.getByTestId("bulk-import").click();
+
+    await page.getByRole("tab", { name: "Paste addresses" }).click();
+    await page
+      .getByTestId("import-list")
+      .fill("Bulk Three <bulk.three@manipal.edu>");
+
+    await expect(page.getByTestId("import-preview")).toContainText(
+      "Bulk Three",
+    );
+    await page.getByTestId("confirm-import").click();
+    await expectToast(page, /Imported 1/);
+  });
+
+  test("cleans up the imported accounts", async ({ page }) => {
+    await page.goto("/admin/users");
+
+    for (const email of [IMPORTED, SECOND, "bulk.three@manipal.edu"]) {
+      await page.getByRole("textbox", { name: "Search users" }).fill(email);
+      const row = page.getByTestId(`user-${email}`);
+      await row.getByRole("button", { name: /Actions for/ }).click();
+      await page
+        .getByRole("menuitem", { name: "Remove from whitelist" })
+        .click();
+      await page.getByRole("button", { name: "Remove user" }).click();
+      await expectToast(page, "User removed.");
+    }
+  });
+});
+
+test.describe("pagination", () => {
+  test("offers page controls on the user list", async ({ page }) => {
+    await page.goto("/admin/users");
+
+    const pagination = page.getByTestId("pagination");
+    await expect(pagination).toBeVisible();
+    await expect(page.getByTestId("page-indicator")).toContainText("1 /");
+
+    // One page of results, so there is nowhere to go.
+    await expect(page.getByTestId("page-previous")).toBeDisabled();
+  });
+
+  test("splits the list when the page size is reduced", async ({ page }) => {
+    await page.goto("/admin/users");
+
+    await page.getByRole("combobox", { name: "Rows per page" }).click();
+    await page.getByRole("option", { name: "10 per page" }).click();
+
+    await expect(page.getByTestId("page-indicator")).toBeVisible();
+  });
+
+  test("appears on the roles and templates lists too", async ({ page }) => {
+    await page.goto("/admin/roles");
+    await expect(page.getByTestId("pagination")).toBeVisible();
+
+    await page.goto("/admin/templates");
+    await expect(page.getByTestId("pagination")).toBeVisible();
+  });
+});
+
+test.describe("account", () => {
+  test("rejects a change with the wrong current password", async ({ page }) => {
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await page.getByTestId("change-password").click();
+
+    await expect(page.getByTestId("change-password-dialog")).toBeVisible();
+    await page.getByLabel("Current password").fill("DefinitelyWrong1");
+    await page.getByLabel("New password", { exact: true }).fill("Newpass@123");
+    await page.getByLabel("Confirm new password").fill("Newpass@123");
+    await page.getByTestId("save-password").click();
+
+    await expect(
+      page.getByTestId("change-password-dialog").getByRole("alert"),
+    ).toBeVisible();
+  });
+
+  test("refuses a new password that does not match its confirmation", async ({
+    page,
+  }) => {
+    await page.goto("/dashboard");
+    await page.getByRole("button", { name: "Account menu" }).click();
+    await page.getByTestId("change-password").click();
+
+    await page.getByLabel("Current password").fill("SuperAdmin@123");
+    await page.getByLabel("New password", { exact: true }).fill("Newpass@123");
+    await page.getByLabel("Confirm new password").fill("Different@123");
+    await page.getByTestId("save-password").click();
+
+    await expect(page.getByText("Passwords do not match")).toBeVisible();
+  });
+});
