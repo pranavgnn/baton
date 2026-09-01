@@ -2,6 +2,8 @@
 
 import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+
+import { recordAudit } from "@/lib/audit/record";
 import { z } from "zod";
 
 import {
@@ -57,7 +59,7 @@ async function setRoles(userId: string, roleIds: string[]) {
  */
 export async function inviteUser(input: UserInput): Promise<ActionResult> {
   try {
-    await requirePermissionAction("users.manage");
+    const current = await requirePermissionAction("users.manage");
 
     const parsed = parseInput(userInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
@@ -100,6 +102,16 @@ export async function inviteUser(input: UserInput): Promise<ActionResult> {
       await sendActivationLink(parsed.data.email);
     }
 
+    await recordAudit({
+      action: "user.invited",
+      actor: current,
+      summary: `Added ${parsed.data.email} to the whitelist.`,
+      targetType: "user",
+      targetId: provisioned.id,
+      targetLabel: parsed.data.email,
+      detail: { roleIds, invited: parsed.data.sendInvite },
+    });
+
     revalidatePath("/admin/users");
     return ok();
   } catch (error) {
@@ -115,7 +127,7 @@ export async function updateUser(
   input: UpdateUserInput,
 ): Promise<ActionResult> {
   try {
-    await requirePermissionAction("users.manage");
+    const current = await requirePermissionAction("users.manage");
 
     const parsed = parseInput(updateInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
@@ -138,6 +150,16 @@ export async function updateUser(
       .where(eq(user.id, id));
 
     await setRoles(id, parsed.data.roleIds);
+
+    await recordAudit({
+      action: "user.updated",
+      actor: current,
+      summary: `Updated the details and roles of ${existing.email}.`,
+      targetType: "user",
+      targetId: id,
+      targetLabel: existing.email,
+      detail: { roleIds: parsed.data.roleIds },
+    });
 
     revalidatePath("/admin/users");
     return ok();
@@ -179,7 +201,7 @@ export async function bulkImportUsers(
   input: BulkImportInput,
 ): Promise<ActionResult<BulkImportOutcome>> {
   try {
-    await requirePermissionAction("users.manage");
+    const current = await requirePermissionAction("users.manage");
 
     const parsed = parseInput(bulkInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
@@ -247,6 +269,14 @@ export async function bulkImportUsers(
       }
     }
 
+    await recordAudit({
+      action: "user.imported",
+      actor: current,
+      summary: `Imported ${created} user(s), skipping ${skipped.length}.`,
+      targetType: "user",
+      detail: { created, skipped: skipped.map((entry) => entry.email) },
+    });
+
     revalidatePath("/admin/users");
     return ok({ created, skipped });
   } catch (error) {
@@ -256,12 +286,22 @@ export async function bulkImportUsers(
 
 export async function resendInvite(id: string): Promise<ActionResult> {
   try {
-    await requirePermissionAction("users.manage");
+    const current = await requirePermissionAction("users.manage");
 
     const target = await db.query.user.findFirst({ where: eq(user.id, id) });
     if (!target) return fail("That user no longer exists.");
 
     await sendActivationLink(target.email);
+
+    await recordAudit({
+      action: "user.invite_resent",
+      actor: current,
+      summary: `Sent ${target.email} a new activation link.`,
+      targetType: "user",
+      targetId: id,
+      targetLabel: target.email,
+    });
+
     return ok();
   } catch (error) {
     return failFrom(error);
@@ -282,6 +322,17 @@ export async function setUserDisabled(
     if (!target) return fail("That user no longer exists.");
 
     await db.update(user).set({ disabled }).where(eq(user.id, id));
+
+    await recordAudit({
+      action: disabled ? "user.disabled" : "user.enabled",
+      actor: current,
+      summary: disabled
+        ? `Disabled access for ${target.email}.`
+        : `Restored access for ${target.email}.`,
+      targetType: "user",
+      targetId: id,
+      targetLabel: target.email,
+    });
 
     revalidatePath("/admin/users");
     return ok();
@@ -306,7 +357,17 @@ export async function deleteUser(id: string): Promise<ActionResult> {
       );
     }
 
+    const target = await db.query.user.findFirst({ where: eq(user.id, id) });
     await db.delete(user).where(eq(user.id, id));
+
+    await recordAudit({
+      action: "user.deleted",
+      actor: current,
+      summary: `Removed ${target?.email ?? id} from the whitelist.`,
+      targetType: "user",
+      targetId: id,
+      targetLabel: target?.email,
+    });
 
     revalidatePath("/admin/users");
     return ok();

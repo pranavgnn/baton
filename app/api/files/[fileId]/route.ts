@@ -6,6 +6,7 @@ import {
   canViewApplication,
 } from "@/lib/applications/service";
 import { getCurrentUser } from "@/lib/auth/session";
+import { recordAudit } from "@/lib/audit/record";
 import { db } from "@/lib/db";
 import { applicationFile } from "@/lib/db/schema";
 import { presignDownload } from "@/lib/storage/s3";
@@ -46,6 +47,19 @@ export async function GET(
     objectKey: record.objectKey,
     fileName: record.fileName,
     inline,
+  });
+
+  // Recorded on the redirect rather than on the download itself: the link
+  // is time-limited and signed, so issuing one is the access that matters.
+  await recordAudit({
+    action: "application.file_downloaded",
+    actor: current,
+    summary: `Opened ${record.fileName}.`,
+    targetType: "file",
+    targetId: record.id,
+    targetLabel: record.fileName,
+    applicationId: record.applicationId ?? undefined,
+    detail: { inline },
   });
 
   return NextResponse.redirect(url, 307);

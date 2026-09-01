@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getCurrentUser } from "@/lib/auth/session";
+import { recordAudit } from "@/lib/audit/record";
 import { db } from "@/lib/db";
 import { applicationFile } from "@/lib/db/schema";
 import { objectSize } from "@/lib/storage/s3";
@@ -47,6 +48,17 @@ export async function POST(request: Request) {
     .update(applicationFile)
     .set({ confirmed: true, size })
     .where(eq(applicationFile.id, record.id));
+
+  await recordAudit({
+    action: "application.file_uploaded",
+    actor: current,
+    summary: `Uploaded ${record.fileName}.`,
+    targetType: "file",
+    targetId: record.id,
+    targetLabel: record.fileName,
+    applicationId: record.applicationId ?? undefined,
+    detail: { size, contentType: record.contentType },
+  });
 
   return NextResponse.json({
     id: record.id,

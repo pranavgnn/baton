@@ -25,6 +25,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { PasswordInput } from "@/components/ui/password-input";
+import { recordPasswordChanged } from "@/lib/audit/session";
 import { authClient } from "@/lib/auth/client";
 
 const schema = z
@@ -91,6 +92,8 @@ export function ChangePasswordDialog({
       );
       return;
     }
+
+    await recordPasswordChanged();
 
     reset();
     onOpenChange(false);

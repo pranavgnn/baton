@@ -43,6 +43,12 @@ export const PERMISSIONS = [
     description: "Create and edit the templates used by email nodes.",
   },
   {
+    key: "audit.view",
+    label: "View the audit log",
+    group: "Administration",
+    description: "Read and export the record of who did what, and when.",
+  },
+  {
     key: "applications.apply",
     label: "Submit applications",
     group: "Applications",
