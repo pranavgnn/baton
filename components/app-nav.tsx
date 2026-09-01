@@ -3,6 +3,7 @@
 import {
   ClipboardList,
   FileText,
+  KeyRound,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -14,6 +15,7 @@ import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ComponentType } from "react";
 
+import { ChangePasswordDialog } from "@/components/change-password-dialog";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +61,7 @@ export function AppNav({ links, user }: AppNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(`${href}/`);
@@ -149,6 +152,13 @@ export function AppNav({ links, user }: AppNavProps) {
                 ) : null}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => setPasswordOpen(true)}
+                data-testid="change-password"
+              >
+                <KeyRound className="size-4" />
+                Change password
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="size-4" />
                 Sign out
@@ -194,6 +204,10 @@ export function AppNav({ links, user }: AppNavProps) {
           </Sheet>
         </div>
       </div>
+      <ChangePasswordDialog
+        open={passwordOpen}
+        onOpenChange={setPasswordOpen}
+      />
     </header>
   );
 }
