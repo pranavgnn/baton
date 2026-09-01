@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { requirePermission } from "@/lib/auth/session";
+import { can, requireAnyPermission } from "@/lib/auth/session";
 import { getWorkflow, listRoles } from "@/lib/applications/service";
 import { db } from "@/lib/db";
 import { emailTemplate } from "@/lib/db/schema";
@@ -30,7 +30,11 @@ function blankGraph(): WorkflowGraph {
 }
 
 export default async function WorkflowPage() {
-  await requirePermission("workflow.manage");
+  const current = await requireAnyPermission([
+    "workflow.manage",
+    "forms.manage",
+  ]);
+  const canManageFlow = can(current, "workflow.manage");
 
   const [flow, roles, templates] = await Promise.all([
     getWorkflow(),
@@ -41,6 +45,7 @@ export default async function WorkflowPage() {
   return (
     <WorkflowBuilder
       initialGraph={flow?.graph ?? blankGraph()}
+      canManageFlow={canManageFlow}
       publishedGraph={flow?.publishedGraph ?? null}
       version={flow?.version ?? 0}
       acceptingApplications={flow?.acceptingApplications ?? false}

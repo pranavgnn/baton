@@ -1,6 +1,13 @@
 "use client";
 
-import { Loader2, Pencil, Plus, Shield, Trash2 } from "lucide-react";
+import {
+  ArrowUpDown,
+  Loader2,
+  Pencil,
+  Plus,
+  Shield,
+  Trash2,
+} from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -39,6 +46,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -48,12 +56,15 @@ import {
   type PermissionKey,
 } from "@/lib/auth/permissions";
 import { createRole, deleteRole, updateRole } from "./actions";
+import { RolePriorityDialog } from "./role-priority";
 
 export type RoleRow = {
   id: string;
   name: string;
   description: string;
   permissions: string[];
+  /** Rank in the list, lowest first. The lowest is the default role. */
+  priority: number;
   isSystem: boolean;
   memberCount: number;
 };
@@ -64,12 +75,18 @@ type EditorState = {
 };
 
 export function RolesManager({ roles }: { roles: RoleRow[] }) {
+  // The list arrives in priority order, so the first row is the default.
+  const defaultRoleId = roles[0]?.id ?? null;
+
   const [editor, setEditor] = useState<EditorState>({
     open: false,
     role: null,
   });
   const [pendingDelete, setPendingDelete] = useState<RoleRow | null>(null);
+  const [priorityOpen, setPriorityOpen] = useState(false);
   const [isDeleting, startDelete] = useTransition();
+
+  const pagination = usePagination(roles, 25);
 
   function handleDelete() {
     if (!pendingDelete) return;
@@ -89,6 +106,14 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
     <>
       <div className="toolbar justify-end">
         <Button
+          variant="outline"
+          onClick={() => setPriorityOpen(true)}
+          data-testid="open-role-priority"
+        >
+          <ArrowUpDown className="size-4" />
+          Set priority
+        </Button>
+        <Button
           onClick={() => setEditor({ open: true, role: null })}
           data-testid="new-role"
         >
@@ -98,7 +123,7 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {roles.map((item) => {
+        {pagination.items.map((item) => {
           const isSuper = item.permissions.includes(SUPER_ADMIN_PERMISSION);
           return (
             <Card key={item.id} data-testid={`role-card-${item.name}`}>
@@ -111,10 +136,17 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
                   {item.description || "No description."}
                 </CardDescription>
                 <CardAction>
-                  <Badge variant="secondary">
-                    {item.memberCount} member
-                    {item.memberCount === 1 ? "" : "s"}
-                  </Badge>
+                  <span className="flex flex-wrap items-center justify-end gap-1">
+                    {item.id === defaultRoleId ? (
+                      <Badge title="Given to users when no role is named">
+                        Default
+                      </Badge>
+                    ) : null}
+                    <Badge variant="secondary">
+                      {item.memberCount} member
+                      {item.memberCount === 1 ? "" : "s"}
+                    </Badge>
+                  </span>
                 </CardAction>
               </CardHeader>
               <CardContent className="flex flex-col gap-3">
@@ -160,6 +192,16 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
           );
         })}
       </div>
+
+      <ListPagination pagination={pagination} label="roles" />
+
+      {/* Keyed so reopening starts from the saved order, not a stale draft. */}
+      <RolePriorityDialog
+        key={priorityOpen ? "open" : "closed"}
+        open={priorityOpen}
+        onOpenChange={setPriorityOpen}
+        roles={roles}
+      />
 
       <RoleEditor
         key={editor.role?.id ?? "new"}

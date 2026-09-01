@@ -42,6 +42,7 @@ export default async function DashboardPage() {
     "users.manage",
     "roles.manage",
     "workflow.manage",
+    "forms.manage",
     "templates.manage",
   ]);
 
@@ -209,7 +210,7 @@ export default async function DashboardPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="toolbar">
-              {can(current, "workflow.manage") ? (
+              {canAny(current, ["workflow.manage", "forms.manage"]) ? (
                 <Button asChild variant="outline" size="sm">
                   <Link href="/admin/workflow">Workflow builder</Link>
                 </Button>

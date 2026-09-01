@@ -22,7 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { can, requireAnyPermission } from "@/lib/auth/session";
+import { can, canAny, requireAnyPermission } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { emailTemplate, role, user } from "@/lib/db/schema";
 import { getWorkflow, listRoles } from "@/lib/applications/service";
@@ -36,6 +36,7 @@ export default async function AdminOverviewPage() {
     "users.manage",
     "roles.manage",
     "workflow.manage",
+    "forms.manage",
     "templates.manage",
   ]);
 
@@ -95,7 +96,7 @@ export default async function AdminOverviewPage() {
       ) : null}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {can(current, "workflow.manage") ? (
+        {canAny(current, ["workflow.manage", "forms.manage"]) ? (
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

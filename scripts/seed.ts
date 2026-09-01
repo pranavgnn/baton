@@ -37,7 +37,7 @@ async function seedRoles(): Promise<Record<string, string>> {
   console.log("\nRoles");
   const byName: Record<string, string> = {};
 
-  for (const definition of DEFAULT_ROLES) {
+  for (const [index, definition] of DEFAULT_ROLES.entries()) {
     const existing = await db.query.role.findFirst({
       where: eq(role.name, definition.name),
     });
@@ -54,6 +54,8 @@ async function seedRoles(): Promise<Record<string, string>> {
       name: definition.name,
       description: definition.description,
       permissions: definition.permissions as unknown as RolePermission[],
+      // Position in the list is the priority; the first is the default role.
+      priority: index,
       isSystem: definition.isSystem,
     });
     byName[definition.name] = id;

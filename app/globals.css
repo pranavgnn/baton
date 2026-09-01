@@ -253,6 +253,19 @@
     @apply text-3xl font-semibold tabular-nums;
   }
 
+  .pagination-bar {
+    @apply flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center;
+  }
+
+  /* Role priority list ------------------------------------------------- */
+  .priority-row {
+    @apply flex items-start gap-2 rounded-md border bg-card p-2.5;
+  }
+
+  .priority-row-dragging {
+    @apply opacity-70 shadow-lg;
+  }
+
   /* Status pills ------------------------------------------------------ */
   .status-pill {
     @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium whitespace-nowrap;

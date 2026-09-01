@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, eq, ne } from "drizzle-orm";
+import { and, count, desc, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -58,11 +58,20 @@ export async function createRole(input: RoleInput): Promise<ActionResult> {
       });
     }
 
+    const [last] = await db
+      .select({ priority: role.priority })
+      .from(role)
+      .orderBy(desc(role.priority))
+      .limit(1);
+
     await db.insert(role).values({
       id: crypto.randomUUID(),
       name: parsed.data.name,
       description: parsed.data.description || null,
       permissions: parsed.data.permissions,
+      // Appended to the end: a new role must not silently become the default
+      // that unnamed users are given.
+      priority: (last?.priority ?? -1) + 1,
       isSystem: false,
     });
 
@@ -106,6 +115,42 @@ export async function updateRole(
         permissions,
       })
       .where(eq(role.id, id));
+
+    revalidatePath("/admin/roles");
+    revalidatePath("/admin/users");
+    return ok();
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+/**
+ * Persists the order the admin dragged the roles into. Priority is positional,
+ * so the whole list is rewritten in one transaction rather than shuffling
+ * individual numbers around.
+ */
+export async function reorderRoles(
+  orderedIds: string[],
+): Promise<ActionResult> {
+  try {
+    await requirePermissionAction("roles.manage");
+
+    const existing = await db.select({ id: role.id }).from(role);
+    const known = new Set(existing.map((row) => row.id));
+
+    if (
+      orderedIds.length !== known.size ||
+      orderedIds.some((id) => !known.has(id)) ||
+      new Set(orderedIds).size !== orderedIds.length
+    ) {
+      return fail("The role list has changed. Reload and try again.");
+    }
+
+    await db.transaction(async (tx) => {
+      for (const [index, id] of orderedIds.entries()) {
+        await tx.update(role).set({ priority: index }).where(eq(role.id, id));
+      }
+    });
 
     revalidatePath("/admin/roles");
     revalidatePath("/admin/users");

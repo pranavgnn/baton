@@ -22,6 +22,13 @@
       "when": 1788263471082,
       "tag": "0002_strange_vision",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788263842738,
+      "tag": "0003_perpetual_catseye",
+      "breakpoints": true
     }
   ]
 }

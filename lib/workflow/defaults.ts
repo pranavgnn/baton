@@ -136,13 +136,12 @@ export type DefaultTemplateName =
 
 export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
 
+/**
+ * Listed in priority order, lowest first. The first entry is what a user gets
+ * when an import or invite names no role, so it is deliberately the least
+ * privileged one.
+ */
 export const DEFAULT_ROLES = [
-  {
-    name: SUPER_ADMIN_ROLE_NAME,
-    description: "Full access to every part of the portal.",
-    permissions: ["*"],
-    isSystem: true,
-  },
   {
     name: "Faculty",
     description: "Can submit and track their own promotion application.",
@@ -172,6 +171,12 @@ export const DEFAULT_ROLES = [
       "applications.viewAll",
     ],
     isSystem: false,
+  },
+  {
+    name: SUPER_ADMIN_ROLE_NAME,
+    description: "Full access to every part of the portal.",
+    permissions: ["*"],
+    isSystem: true,
   },
 ] as const;
 

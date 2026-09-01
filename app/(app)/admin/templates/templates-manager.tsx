@@ -40,6 +40,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import { TEMPLATE_VARIABLES } from "@/lib/workflow/types";
 import {
   createTemplate,
@@ -60,6 +61,7 @@ export type TemplateRow = {
 const BLANK_BODY = "<p>Dear {{applicant_name}},</p><p></p>";
 
 export function TemplatesManager({ templates }: { templates: TemplateRow[] }) {
+  const pagination = usePagination(templates, 25);
   const [editing, setEditing] = useState<TemplateRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<TemplateRow | null>(null);
@@ -81,7 +83,7 @@ export function TemplatesManager({ templates }: { templates: TemplateRow[] }) {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {templates.map((template) => (
+          {pagination.items.map((template) => (
             <Card key={template.id} data-testid={`template-${template.name}`}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -121,6 +123,8 @@ export function TemplatesManager({ templates }: { templates: TemplateRow[] }) {
           ))}
         </div>
       )}
+
+      <ListPagination pagination={pagination} label="templates" />
 
       <TemplateEditor
         key={editing?.id ?? "new"}

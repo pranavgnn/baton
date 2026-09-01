@@ -24,9 +24,17 @@ export const PERMISSIONS = [
   },
   {
     key: "workflow.manage",
-    label: "Manage workflow",
+    label: "Manage the workflow",
     group: "Configuration",
-    description: "Edit and publish the promotion workflow.",
+    description:
+      "Add, remove and rewire steps, and publish the workflow. Includes editing forms.",
+  },
+  {
+    key: "forms.manage",
+    label: "Edit forms",
+    group: "Configuration",
+    description:
+      "Change the questions on any existing step, without being able to alter the flow itself.",
   },
   {
     key: "templates.manage",
@@ -78,6 +86,15 @@ export function grants(
   required: PermissionKey,
 ): boolean {
   return held.includes(SUPER_ADMIN_PERMISSION) || held.includes(required);
+}
+
+/**
+ * Editing a step's questions is implied by being able to rewire the workflow -
+ * an admin who can delete the step entirely is not meaningfully restrained by
+ * being kept out of its form.
+ */
+export function canEditForms(held: readonly string[]): boolean {
+  return grants(held, "forms.manage") || grants(held, "workflow.manage");
 }
 
 export function grantsAny(

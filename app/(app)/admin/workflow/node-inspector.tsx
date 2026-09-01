@@ -49,6 +49,8 @@ export type NodeInspectorProps = {
   node: WorkflowNode | null;
   roles: RoleOption[];
   templates: TemplateOption[];
+  /** False hides everything that would change the shape of the process. */
+  canManageFlow: boolean;
   onChange: (nodeId: string, data: WorkflowNode["data"]) => void;
   onDelete: (nodeId: string) => void;
   onClose: () => void;
@@ -58,6 +60,7 @@ export function NodeInspector({
   node,
   roles,
   templates,
+  canManageFlow,
   onChange,
   onDelete,
   onClose,
@@ -116,7 +119,7 @@ export function NodeInspector({
               />
             </Field>
 
-            {node.kind === "stage" ? (
+            {node.kind === "stage" && canManageFlow ? (
               <>
                 <Field>
                   <FieldLabel htmlFor="node-role">Authorised role</FieldLabel>
@@ -148,7 +151,7 @@ export function NodeInspector({
               </>
             ) : null}
 
-            {node.kind === "email" ? (
+            {node.kind === "email" && canManageFlow ? (
               <>
                 <Field>
                   <FieldLabel htmlFor="node-template">Template</FieldLabel>
@@ -243,7 +246,7 @@ export function NodeInspector({
               </>
             ) : null}
 
-            {node.kind === "end" ? (
+            {node.kind === "end" && canManageFlow ? (
               <Field>
                 <FieldLabel htmlFor="node-result">Final status</FieldLabel>
                 <Select
@@ -288,7 +291,12 @@ export function NodeInspector({
           </div>
 
           <SheetFooter>
-            {node.kind === "start" ? (
+            {!canManageFlow ? (
+              <p className="text-xs text-muted-foreground">
+                Editing the questions on this step only. Its role, outcomes and
+                connections need workflow permission.
+              </p>
+            ) : node.kind === "start" ? (
               <p className="text-xs text-muted-foreground">
                 The submission node is the entry point and cannot be deleted.
               </p>
