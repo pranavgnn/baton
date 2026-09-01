@@ -14,6 +14,7 @@ import {
   type ApplicationStatus,
 } from "@/lib/db/schema";
 import { nodeById, startNode, stageNodes } from "@/lib/workflow/graph";
+import { pruneToSchema } from "@/lib/workflow/form";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
 import {
   APPLICANT_NAMESPACE,
@@ -102,6 +103,49 @@ export async function getOpenApplicationFor(
     .limit(1);
 
   return rows[0] ?? null;
+}
+
+/**
+ * Brings a not-yet-submitted draft onto the current published workflow.
+ *
+ * Snapshotting the graph is what protects an application already moving
+ * through the process - but a draft has not entered it yet, so leaving it on
+ * an old snapshot means the applicant fills in questions the institute has
+ * since changed. Answers to fields that still exist are kept; answers to
+ * fields that were removed are dropped, because they no longer have anywhere
+ * to live.
+ *
+ * Returns the application as it should now be read.
+ */
+export async function refreshDraftToPublished(
+  app: Application,
+): Promise<Application> {
+  if (app.status !== "draft") return app;
+
+  const published = await getPublishedWorkflow();
+  if (!published) return app;
+  if (published.version === app.workflowVersion) return app;
+
+  const start = startNode(published.graph);
+  if (!start) return app;
+
+  const pruned = pruneToSchema(
+    start.data.form,
+    app.data?.[APPLICANT_NAMESPACE] ?? null,
+  );
+
+  const [updated] = await db
+    .update(application)
+    .set({
+      graph: published.graph,
+      workflowVersion: published.version,
+      currentNodeId: start.id,
+      data: { ...app.data, [APPLICANT_NAMESPACE]: pruned },
+    })
+    .where(eq(application.id, app.id))
+    .returning();
+
+  return updated ?? app;
 }
 
 export async function listApplicationsFor(

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { StatusBadge } from "@/components/status-badge";
+import { ApplicationProgress } from "@/components/application-progress";
 import { ApplicationTimeline } from "@/components/application-timeline";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -18,10 +19,19 @@ import {
   getPublishedWorkflow,
   getTimeline,
   listApplicationsFor,
+  listRoles,
+  refreshDraftToPublished,
 } from "@/lib/applications/service";
 import { requirePermission } from "@/lib/auth/session";
 import { nodeById, startNode } from "@/lib/workflow/graph";
-import { APPLICANT_NAMESPACE } from "@/lib/workflow/types";
+import {
+  buildProgressGraph,
+  type TravelledStep,
+} from "@/lib/workflow/progress";
+import {
+  APPLICANT_NAMESPACE,
+  DEFAULT_SOURCE_HANDLE,
+} from "@/lib/workflow/types";
 import { ApplicationWizard } from "./application-wizard";
 import { StartApplicationButton } from "./start-application-button";
 
@@ -30,11 +40,16 @@ export const metadata: Metadata = { title: "My application" };
 export default async function ApplicationPage() {
   const current = await requirePermission("applications.apply");
 
-  const [published, open, history] = await Promise.all([
+  const [published, existing, history] = await Promise.all([
     getPublishedWorkflow(),
     getOpenApplicationFor(current.id),
     listApplicationsFor(current.id),
   ]);
+
+  // A draft has not entered the workflow yet, so it should be filled in
+  // against the questions currently published rather than the ones that were
+  // live when it was started.
+  const open = existing ? await refreshDraftToPublished(existing) : null;
 
   if (!published) {
     return (
@@ -161,8 +176,42 @@ export default async function ApplicationPage() {
     );
   }
 
-  /* Submitted: show progress --------------------------------------------- */
+  /* Submitted: show where it is in the process ---------------------------- */
   const currentNode = nodeById(open.graph, open.currentNodeId);
+  const roles = await listRoles();
+  const roleNameById = new Map(roles.map((role) => [role.id, role.name]));
+
+  /**
+   * The route the application has actually taken, oldest first. Only the
+   * events that moved it count - email is a notification, not a step.
+   */
+  const travelled: TravelledStep[] = timeline
+    .filter(
+      (event) => event.type === "submitted" || event.type === "stage_completed",
+    )
+    .map((event) => ({
+      nodeId: event.nodeId ?? "",
+      handleId: event.outcomeId ?? DEFAULT_SOURCE_HANDLE,
+    }))
+    .filter((step) => step.nodeId.length > 0);
+
+  const progress = buildProgressGraph({
+    graph: open.graph,
+    travelled,
+    currentNodeId: open.currentNodeId,
+    roleName: (roleId) => (roleId ? (roleNameById.get(roleId) ?? null) : null),
+  });
+
+  const positions: Record<string, { x: number; y: number }> = {};
+  const kinds: Record<string, "start" | "stage" | "end"> = {};
+  const results: Record<string, "approved" | "rejected" | "withdrawn" | null> =
+    {};
+  for (const node of open.graph.nodes) {
+    if (node.kind === "email") continue;
+    positions[node.id] = node.position;
+    kinds[node.id] = node.kind;
+    results[node.id] = node.kind === "end" ? node.data.result : null;
+  }
 
   return (
     <div className="app-shell section-stack">
@@ -170,9 +219,14 @@ export default async function ApplicationPage() {
         <div>
           <h1 className="page-title">{open.reference}</h1>
           <p className="page-subtitle">
-            {currentNode
-              ? `Currently with: ${currentNode.data.label}`
-              : "In progress"}
+            {currentNode?.kind === "stage"
+              ? `Currently with ${
+                  roleNameById.get(currentNode.data.roleId ?? "") ??
+                  currentNode.data.label
+                }`
+              : currentNode
+                ? currentNode.data.label
+                : "In progress"}
           </p>
         </div>
         <StatusBadge status={open.status} />
@@ -180,13 +234,19 @@ export default async function ApplicationPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Progress</CardTitle>
+          <CardTitle>Where your application is</CardTitle>
           <CardDescription>
-            You will be emailed each time your application moves forward.
+            Every step it can pass through. The route it has taken is
+            highlighted, and the ring marks where it sits now.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ApplicationTimeline events={timeline} />
+          <ApplicationProgress
+            progress={progress}
+            positions={positions}
+            kinds={kinds}
+            results={results}
+          />
         </CardContent>
       </Card>
 
