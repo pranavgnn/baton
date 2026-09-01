@@ -37,11 +37,6 @@ declare module "@tiptap/core" {
 
 export const EmailButton = Node.create({
   name: "emailButton",
-
-  // The Link mark also claims <a href>, and on a tie ProseMirror picks by
-  // registration order - which turned a saved button back into a plain link
-  // the next time the template was opened. Loading earlier wins the element.
-  priority: 1000,
   group: "block",
   atom: true,
   selectable: true,
@@ -64,7 +59,16 @@ export const EmailButton = Node.create({
   },
 
   parseHTML() {
-    return [{ tag: `${EMAIL_BUTTON_TAG}[${EMAIL_BUTTON_MARKER}]` }];
+    return [
+      {
+        tag: `${EMAIL_BUTTON_TAG}[${EMAIL_BUTTON_MARKER}]`,
+        // ProseMirror weighs every parse rule in one list and puts mark rules
+        // ahead of node rules when they tie, so the Link mark claimed the
+        // anchor and a saved button came back as ordinary underlined text.
+        // Rules default to 50; outranking them keeps the marked anchor ours.
+        priority: 100,
+      },
+    ];
   },
 
   renderHTML({ HTMLAttributes, node }) {
