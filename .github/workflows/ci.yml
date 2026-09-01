@@ -25,6 +25,8 @@ env:
   S3_BUCKET: promotion-portal
   S3_ACCESS_KEY_ID: minioadmin
   S3_SECRET_ACCESS_KEY: minioadmin
+  KAFKA_BROKERS: localhost:9092
+  KAFKA_CLIENT_ID: promotion-portal-ci
   SUPER_ADMIN_EMAIL: superadmin@manipal.edu
   SUPER_ADMIN_NAME: Super Admin
   SUPER_ADMIN_PASSWORD: SuperAdmin@123
@@ -96,7 +98,7 @@ jobs:
 
       # The same compose file developers use, so CI and local runs agree on
       # Postgres, MinIO and the SMTP sink.
-      - name: Start Postgres, MinIO and Mailpit
+      - name: Start Postgres, MinIO, Mailpit and Kafka
         run: docker compose -p promotion-portal up -d --wait
 
       - name: Cache Playwright browsers

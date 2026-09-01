@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  continuationNodeId,
+  emailTargets,
+  handleTargets,
   hasBlockingIssues,
   incomingEdges,
-  nextNodeId,
   orderedStageNodes,
   outgoingEdges,
   reachableNodeIds,
@@ -30,15 +32,32 @@ describe("graph lookups", () => {
     expect(startNode(graph)?.id).toBe("start");
   });
 
-  it("resolves the target of a specific outcome handle", () => {
+  it("resolves the step that continues, skipping the email branches", () => {
     const { graph, outcomes } = buildGraph();
-    expect(nextNodeId(graph, "stage_hod", outcomes.approve.id)).toBe(
-      "email_approved",
+    expect(continuationNodeId(graph, "stage_hod", outcomes.approve.id)).toBe(
+      "end_approved",
     );
-    expect(nextNodeId(graph, "stage_hod", outcomes.reject.id)).toBe(
+    expect(continuationNodeId(graph, "stage_hod", outcomes.reject.id)).toBe(
       "end_rejected",
     );
-    expect(nextNodeId(graph, "stage_hod", "no-such-handle")).toBeNull();
+    expect(continuationNodeId(graph, "stage_hod", "no-such-handle")).toBeNull();
+  });
+
+  it("lists the email branches of a handle separately", () => {
+    const { graph, outcomes } = buildGraph();
+    expect(
+      emailTargets(graph, "stage_hod", outcomes.approve.id).map((n) => n.id),
+    ).toEqual(["email_approved"]);
+    // The reject outcome deliberately has no email attached.
+    expect(emailTargets(graph, "stage_hod", outcomes.reject.id)).toEqual([]);
+  });
+
+  it("reports every target of a handle, email or not", () => {
+    const { graph } = buildGraph();
+    expect(handleTargets(graph, "start", "out").map((n) => n.id)).toEqual([
+      "stage_hod",
+      "email_ack",
+    ]);
   });
 
   it("exposes one source handle per stage outcome", () => {
@@ -56,6 +75,13 @@ describe("graph lookups", () => {
     const end = graph.nodes.find((node) => node.id === "end_approved")!;
     expect(sourceHandles(end)).toEqual([]);
     expect(outgoingEdges(graph, "end_approved")).toEqual([]);
+  });
+
+  it("treats email nodes as leaves", () => {
+    const { graph } = buildGraph();
+    const email = graph.nodes.find((node) => node.id === "email_ack")!;
+    expect(sourceHandles(email)).toEqual([]);
+    expect(outgoingEdges(graph, "email_ack")).toEqual([]);
   });
 
   it("walks loops without hanging when computing reachability", () => {
@@ -127,7 +153,7 @@ describe("validateGraph", () => {
     );
   });
 
-  it("flags an outcome wired to two targets", () => {
+  it("flags an outcome wired to two steps that both continue", () => {
     const { graph, context, outcomes } = buildGraph();
     graph.edges.push({
       id: "dup",
@@ -136,7 +162,41 @@ describe("validateGraph", () => {
       target: "end_approved",
     });
     expect(errorsOf(graph, context)).toContain(
-      'Outcome "Reject" on "HOD Review" has 2 connections - it may only have one.',
+      'Outcome "Reject" on "HOD Review" leads to "Rejected" and "Approved". Only email steps may run alongside the one that continues.',
+    );
+  });
+
+  it("accepts an outcome that fans out to several email steps", () => {
+    const { graph, context, outcomes } = buildGraph();
+    graph.nodes.push({
+      id: "email_extra",
+      kind: "email",
+      position: { x: 0, y: 0 },
+      data: {
+        label: "Copy the registrar",
+        description: "",
+        templateId: TEMPLATE_ACK,
+        recipientMode: "custom",
+        recipientRoleId: null,
+        recipientEmail: "registrar@manipal.edu",
+      },
+    });
+    graph.edges.push({
+      id: "e_extra",
+      source: "stage_hod",
+      sourceHandle: outcomes.approve.id,
+      target: "email_extra",
+    });
+
+    expect(errorsOf(graph, context)).toEqual([]);
+  });
+
+  it("flags an outcome that only sends email and never continues", () => {
+    const { graph, context } = buildGraph();
+    // e3 is the Approve outcome's continuation; only its email branch is left.
+    graph.edges = graph.edges.filter((edge) => edge.id !== "e3");
+    expect(errorsOf(graph, context)).toContain(
+      'Outcome "Approve" on "HOD Review" only sends email. It also needs a step that carries the application forward.',
     );
   });
 
@@ -185,12 +245,31 @@ describe("validateGraph", () => {
     );
   });
 
-  it("flags a dangling email node", () => {
+  it("refuses to let an email node continue the workflow", () => {
+    const { graph, context } = buildGraph();
+    graph.edges.push({
+      id: "bad_email_out",
+      source: "email_ack",
+      sourceHandle: "out",
+      target: "stage_hod",
+    });
+    expect(errorsOf(graph, context)).toContain(
+      '"Acknowledge" cannot lead anywhere. Email is sent in the background, so it runs alongside the step that continues rather than in front of it.',
+    );
+  });
+
+  it("warns about an email node nothing triggers", () => {
     const { graph, context } = buildGraph();
     graph.edges = graph.edges.filter((edge) => edge.id !== "e2");
-    expect(errorsOf(graph, context)).toContain(
-      '"Acknowledge" has no next step - email nodes must continue somewhere.',
+    const issues = validateGraph(graph, context);
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        severity: "warning",
+        message: '"Acknowledge" is never triggered by anything.',
+      }),
     );
+    // A stranded email step is untidy, not a reason to block publishing.
+    expect(hasBlockingIssues(issues)).toBe(false);
   });
 
   it("flags an end node that leads somewhere", () => {
@@ -213,42 +292,6 @@ describe("validateGraph", () => {
     section.fields.push({ ...section.fields[0], id: "dup" });
     expect(errorsOf(graph, context)).toContain(
       '"Applicant Submission" has two fields using the key "full_name".',
-    );
-  });
-
-  it("flags an email-only cycle that would never halt", () => {
-    const { graph, context } = buildGraph();
-    // Point the acknowledgement back at itself through a second email node.
-    graph.nodes.push({
-      id: "email_loop",
-      kind: "email",
-      position: { x: 0, y: 0 },
-      data: {
-        label: "Loop",
-        description: "",
-        templateId: TEMPLATE_ACK,
-        recipientMode: "applicant",
-        recipientRoleId: null,
-        recipientEmail: "",
-      },
-    });
-    graph.edges = graph.edges.filter((edge) => edge.id !== "e2");
-    graph.edges.push(
-      {
-        id: "l1",
-        source: "email_ack",
-        sourceHandle: "out",
-        target: "email_loop",
-      },
-      {
-        id: "l2",
-        source: "email_loop",
-        sourceHandle: "out",
-        target: "email_ack",
-      },
-    );
-    expect(errorsOf(graph, context)).toContain(
-      "Email nodes form a loop with no stage in between - the workflow would never stop.",
     );
   });
 
@@ -290,6 +333,7 @@ describe("orderedStageNodes", () => {
     expect(ordered).toContain("end_rejected");
     // Email nodes are plumbing, not steps a person sees.
     expect(ordered).not.toContain("email_ack");
+    expect(ordered).not.toContain("email_approved");
   });
 
   it("returns nothing when the graph has no entry point", () => {
@@ -302,11 +346,10 @@ describe("orderedStageNodes", () => {
 describe("incomingEdges", () => {
   it("finds every route into a shared node", () => {
     const { graph } = buildGraph();
-    // Both the reject outcome and nothing else lands on the rejected ending.
     expect(incomingEdges(graph, "end_rejected").map((e) => e.id)).toEqual([
       "e4",
     ]);
     // The submission node is re-entered by the send-back loop.
-    expect(incomingEdges(graph, "start").map((e) => e.id)).toEqual(["e6"]);
+    expect(incomingEdges(graph, "start").map((e) => e.id)).toEqual(["e5"]);
   });
 });

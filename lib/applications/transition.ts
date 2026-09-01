@@ -4,14 +4,12 @@ import { db } from "@/lib/db";
 import {
   application,
   applicationEvent,
-  emailTemplate,
   user,
   type Application,
   type ApplicationStatus,
 } from "@/lib/db/schema";
-import { renderTemplate } from "@/lib/mail/render";
 import { portalUrl } from "@/lib/mail/system";
-import { sendMail } from "@/lib/mail/transport";
+import { publishEmailJobs, type EmailJob } from "@/lib/mail/queue";
 import { classifyDestination, resolveTransition } from "@/lib/workflow/engine";
 import { nodeById } from "@/lib/workflow/graph";
 import {
@@ -100,21 +98,28 @@ export type EmailDispatchRecord = {
   nodeId: string;
   nodeLabel: string;
   recipients: string[];
+  /** Whether the job reached the queue - not whether the mail was delivered. */
   ok: boolean;
   error?: string;
 };
 
 /**
- * Fires every Email node passed on the way to the destination. Delivery
- * failures are recorded on the timeline but never block the transition - a
- * down mail server must not strand an application mid-graph.
+ * Turns the email nodes hanging off a handle into queue jobs and publishes
+ * them.
+ *
+ * Nothing here waits on SMTP: the worker renders and sends. A node that cannot
+ * produce a job (no template, no recipients) and a broker that will not take
+ * the message are both recorded against the application rather than allowed to
+ * strand it mid-workflow.
  */
-async function dispatchEmails(
+async function queueEmails(
+  applicationId: string,
   nodes: EmailNode[],
   variables: TemplateVariables,
   applicantEmail: string,
 ): Promise<EmailDispatchRecord[]> {
   const records: EmailDispatchRecord[] = [];
+  const jobs: EmailJob[] = [];
 
   for (const node of nodes) {
     const label = node.data.label;
@@ -126,20 +131,6 @@ async function dispatchEmails(
         recipients: [],
         ok: false,
         error: "No template configured on this email step.",
-      });
-      continue;
-    }
-
-    const template = await db.query.emailTemplate.findFirst({
-      where: eq(emailTemplate.id, node.data.templateId),
-    });
-    if (!template) {
-      records.push({
-        nodeId: node.id,
-        nodeLabel: label,
-        recipients: [],
-        ok: false,
-        error: "The configured template no longer exists.",
       });
       continue;
     }
@@ -156,28 +147,30 @@ async function dispatchEmails(
       continue;
     }
 
-    const rendered = await renderTemplate({
-      subject: template.subject,
-      bodyHtml: template.bodyHtml,
-      variables,
-    });
-
-    const result = await sendMail({
-      to: recipients,
-      subject: rendered.subject,
-      html: rendered.html,
-    });
-
-    records.push({
+    jobs.push({
+      id: crypto.randomUUID(),
+      applicationId,
       nodeId: node.id,
       nodeLabel: label,
+      templateId: node.data.templateId,
       recipients,
-      ok: result.ok,
-      error: result.ok ? undefined : result.error,
+      variables: variables as Record<string, string>,
     });
+    records.push({ nodeId: node.id, nodeLabel: label, recipients, ok: true });
   }
 
-  return records;
+  if (jobs.length === 0) return records;
+
+  const published = await publishEmailJobs(jobs);
+  if (published.ok) return records;
+
+  // The broker refused the batch; mark every job in it as unqueued.
+  const failed = new Set(jobs.map((job) => job.nodeId));
+  return records.map((record) =>
+    failed.has(record.nodeId)
+      ? { ...record, ok: false, error: `Could not queue: ${published.error}` }
+      : record,
+  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -287,7 +280,8 @@ export async function advanceApplication(
     status,
   });
 
-  const emails = await dispatchEmails(
+  const emails = await queueEmails(
+    app.id,
     resolved.emails,
     variables,
     applicant.email,
@@ -297,14 +291,14 @@ export async function advanceApplication(
     await db.insert(applicationEvent).values({
       id: crypto.randomUUID(),
       applicationId: app.id,
-      type: "email_sent",
+      type: "email_queued",
       nodeId: record.nodeId,
       nodeLabel: record.nodeLabel,
       actorId: null,
       actorName: null,
       note: record.ok
-        ? `Sent to ${record.recipients.join(", ")}`
-        : `Delivery failed: ${record.error}`,
+        ? `Queued for ${record.recipients.join(", ")}`
+        : `Could not queue: ${record.error}`,
       detail: { recipients: record.recipients, ok: record.ok },
     });
   }

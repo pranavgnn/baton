@@ -10,13 +10,16 @@ const TITLES: Record<ApplicationEvent["type"], string> = {
   created: "Application started",
   submitted: "Submitted",
   stage_completed: "Stage completed",
+  email_queued: "Email queued",
   email_sent: "Email sent",
+  email_failed: "Email failed",
   completed: "Completed",
   withdrawn: "Withdrawn",
   reopened: "Returned to applicant",
 };
 
 function dotClass(event: ApplicationEvent, isLast: boolean): string {
+  if (event.type === "email_failed") return "timeline-dot-rejected";
   if (event.type === "completed") {
     const ok =
       typeof event.note === "string" && event.note.includes("approved");

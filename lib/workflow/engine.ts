@@ -1,4 +1,4 @@
-import { nodeById, nextNodeId } from "./graph";
+import { nodeById, outgoingEdges } from "./graph";
 import {
   DEFAULT_SOURCE_HANDLE,
   type EmailNode,
@@ -6,13 +6,14 @@ import {
   type WorkflowNode,
 } from "./types";
 
-/** Guards against a malformed graph spinning forever. */
-const MAX_AUTOMATED_HOPS = 50;
-
 export type ResolvedTransition =
   | {
       ok: true;
-      /** Email nodes traversed on the way, in dispatch order. */
+      /**
+       * Email nodes hanging off this handle. They are dispatched in parallel
+       * and do not sit between the source and the destination - delivery is
+       * asynchronous, so the application never waits on it.
+       */
       emails: EmailNode[];
       /**
        * Where the application comes to rest: a stage awaiting human input, the
@@ -23,8 +24,12 @@ export type ResolvedTransition =
   | { ok: false; error: string };
 
 /**
- * Follows the graph from `fromNodeId` through `handleId`, firing past every
- * automated Email node until a node that halts the workflow is reached.
+ * Resolves what leaving `fromNodeId` through `handleId` does.
+ *
+ * A handle may fan out to several nodes: exactly one of them continues the
+ * workflow, and any others must be email nodes, which are fired off in
+ * parallel. Email nodes are leaves - nothing continues from them - so there is
+ * no chain to walk and no way for the graph to spin.
  */
 export function resolveTransition(
   graph: WorkflowGraph,
@@ -43,41 +48,39 @@ export function resolveTransition(
     }
   }
 
-  let cursorId = nextNodeId(graph, fromNodeId, handleId);
-  if (!cursorId) {
+  const targets = outgoingEdges(graph, fromNodeId)
+    .filter((edge) => edge.sourceHandle === handleId)
+    .map((edge) => nodeById(graph, edge.target));
+
+  if (targets.length === 0) {
+    return { ok: false, error: "This step is not connected to a next step." };
+  }
+  if (targets.some((node) => !node)) {
+    return { ok: false, error: "The next step no longer exists." };
+  }
+
+  const found = targets as WorkflowNode[];
+  const emails = found.filter(
+    (node): node is EmailNode => node.kind === "email",
+  );
+  const continuations = found.filter((node) => node.kind !== "email");
+
+  if (continuations.length === 0) {
     return {
       ok: false,
-      error: "This step is not connected to a next step.",
+      error:
+        "This step only sends email and never continues - it needs a step that carries the application forward.",
+    };
+  }
+  if (continuations.length > 1) {
+    return {
+      ok: false,
+      error:
+        "This step leads to more than one next step. Only email steps may run alongside the one that continues.",
     };
   }
 
-  const emails: EmailNode[] = [];
-  for (let hop = 0; hop < MAX_AUTOMATED_HOPS; hop += 1) {
-    const node = nodeById(graph, cursorId);
-    if (!node) {
-      return { ok: false, error: "The next step no longer exists." };
-    }
-
-    if (node.kind === "email") {
-      emails.push(node);
-      const next = nextNodeId(graph, node.id);
-      if (!next) {
-        return {
-          ok: false,
-          error: `"${node.data.label}" is not connected to a next step.`,
-        };
-      }
-      cursorId = next;
-      continue;
-    }
-
-    return { ok: true, emails, destination: node };
-  }
-
-  return {
-    ok: false,
-    error: "The workflow loops through email steps without ever stopping.",
-  };
+  return { ok: true, emails, destination: continuations[0] };
 }
 
 /**

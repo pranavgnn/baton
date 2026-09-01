@@ -121,32 +121,44 @@ export function buildGraph(options: BuildOptions = {}) {
   ];
 
   const edges: WorkflowEdge[] = [
-    { id: "e1", source: "start", sourceHandle: "out", target: "email_ack" },
-    { id: "e2", source: "email_ack", sourceHandle: "out", target: "stage_hod" },
+    // Submission continues to the stage; the acknowledgement rides alongside.
+    { id: "e1", source: "start", sourceHandle: "out", target: "stage_hod" },
+    { id: "e2", source: "start", sourceHandle: "out", target: "email_ack" },
+
+    // Approve: straight to the approved ending, with a letter in parallel.
     {
       id: "e3",
       source: "stage_hod",
       sourceHandle: approve.id,
+      target: "end_approved",
+    },
+    {
+      id: "e3m",
+      source: "stage_hod",
+      sourceHandle: approve.id,
       target: "email_approved",
     },
+
+    // Reject: no email at all, to prove a bare continuation is valid.
     {
       id: "e4",
       source: "stage_hod",
       sourceHandle: reject.id,
       target: "end_rejected",
     },
+
+    // Send back: returns to the applicant, who is told why.
     {
       id: "e5",
       source: "stage_hod",
       sourceHandle: sendBack.id,
-      target: "email_back",
+      target: "start",
     },
-    { id: "e6", source: "email_back", sourceHandle: "out", target: "start" },
     {
-      id: "e7",
-      source: "email_approved",
-      sourceHandle: "out",
-      target: "end_approved",
+      id: "e5m",
+      source: "stage_hod",
+      sourceHandle: sendBack.id,
+      target: "email_back",
     },
   ];
 

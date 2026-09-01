@@ -325,20 +325,29 @@ function WorkflowCanvas({
   const onConnect = useCallback((connection: Connection) => {
     setGraph((current) => {
       const handle = connection.sourceHandle ?? DEFAULT_SOURCE_HANDLE;
-      // A handle drives exactly one branch, so reconnecting replaces the old
-      // edge rather than stacking a second one.
-      const withoutExisting = current.edges.filter(
-        (edge) =>
-          !(edge.source === connection.source && edge.sourceHandle === handle),
+      const target = current.nodes.find(
+        (node) => node.id === connection.target,
       );
+      if (!target) return current;
+
+      /**
+       * A handle may fan out to any number of email nodes, but only one step
+       * may carry the application forward - so wiring up a new continuation
+       * replaces the previous one, while email branches simply accumulate.
+       */
+      const keep = current.edges.filter((edge) => {
+        if (edge.source !== connection.source) return true;
+        if (edge.sourceHandle !== handle) return true;
+        // Never leave a duplicate of the edge being made.
+        if (edge.target === connection.target) return false;
+        if (target.kind === "email") return true;
+        const existing = current.nodes.find((node) => node.id === edge.target);
+        return existing?.kind === "email";
+      });
 
       const edges = addEdge(
-        {
-          ...connection,
-          sourceHandle: handle,
-          id: newId("edge"),
-        },
-        toFlowEdges(withoutExisting, current.nodes),
+        { ...connection, sourceHandle: handle, id: newId("edge") },
+        toFlowEdges(keep, current.nodes),
       );
 
       return {
@@ -635,7 +644,7 @@ function WorkflowCanvas({
             <span>
               <span className="block font-medium">Send email</span>
               <span className="block text-xs text-muted-foreground">
-                Fires automatically, then continues
+                Sent in the background, alongside the next step
               </span>
             </span>
           </button>

@@ -36,6 +36,10 @@ const serverSchema = z.object({
   S3_ACCESS_KEY_ID: z.string().default("minioadmin"),
   S3_SECRET_ACCESS_KEY: z.string().default("minioadmin"),
 
+  // Email delivery runs through Kafka so a transition never waits on SMTP.
+  KAFKA_BROKERS: z.string().default("localhost:9092"),
+  KAFKA_CLIENT_ID: z.string().default("promotion-portal"),
+
   SUPER_ADMIN_EMAIL: z.email().default("superadmin@manipal.edu"),
   SUPER_ADMIN_NAME: z.string().default("Super Admin"),
   SUPER_ADMIN_PASSWORD: z.string().min(8).default("SuperAdmin@123"),

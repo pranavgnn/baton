@@ -1,0 +1,2 @@
+ALTER TYPE "public"."application_event_type" ADD VALUE 'email_queued' BEFORE 'email_sent';--> statement-breakpoint
+ALTER TYPE "public"."application_event_type" ADD VALUE 'email_failed' BEFORE 'completed';

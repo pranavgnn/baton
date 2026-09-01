@@ -51,26 +51,56 @@ export function incomingEdges(
   return graph.edges.filter((edge) => edge.target === nodeId);
 }
 
-/** Resolves the node reached by leaving `nodeId` through `handleId`. */
-export function nextNodeId(
+/** Every node a handle points at, in edge order. */
+export function handleTargets(
+  graph: WorkflowGraph,
+  nodeId: string,
+  handleId: string = DEFAULT_SOURCE_HANDLE,
+): WorkflowNode[] {
+  return graph.edges
+    .filter((edge) => edge.source === nodeId && edge.sourceHandle === handleId)
+    .map((edge) => nodeById(graph, edge.target))
+    .filter((node): node is WorkflowNode => Boolean(node));
+}
+
+/**
+ * The node that carries the application forward when this handle is taken.
+ *
+ * A handle may also point at email nodes; those are dispatched in parallel and
+ * are not part of the path, so they are skipped here.
+ */
+export function continuationNodeId(
   graph: WorkflowGraph,
   nodeId: string,
   handleId: string = DEFAULT_SOURCE_HANDLE,
 ): string | null {
-  const edge = graph.edges.find(
-    (e) => e.source === nodeId && e.sourceHandle === handleId,
+  const target = handleTargets(graph, nodeId, handleId).find(
+    (node) => node.kind !== "email",
   );
-  return edge?.target ?? null;
+  return target?.id ?? null;
+}
+
+/** Email nodes fired off when this handle is taken. */
+export function emailTargets(
+  graph: WorkflowGraph,
+  nodeId: string,
+  handleId: string = DEFAULT_SOURCE_HANDLE,
+): EmailNode[] {
+  return handleTargets(graph, nodeId, handleId).filter(
+    (node): node is EmailNode => node.kind === "email",
+  );
 }
 
 /** Handles a node exposes as sources, in render order. */
 export function sourceHandles(node: WorkflowNode): string[] {
   switch (node.kind) {
     case "start":
-    case "email":
       return [DEFAULT_SOURCE_HANDLE];
     case "stage":
       return node.data.outcomes.map((outcome) => outcome.id);
+    // Email nodes are leaves: delivery is asynchronous, so nothing continues
+    // from them.
+    case "email":
     case "end":
       return [];
   }
@@ -96,6 +126,58 @@ export function reachableNodeIds(graph: WorkflowGraph): Set<string> {
 /* -------------------------------------------------------------------------- */
 /*  Validation                                                                 */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Checks one source handle. A handle may fan out to several nodes, but exactly
+ * one of them may carry the application forward - the rest must be email
+ * nodes, which are dispatched in parallel and never continue the workflow.
+ */
+function checkHandleFanOut(
+  graph: WorkflowGraph,
+  node: WorkflowNode,
+  handleId: string,
+  describe: string,
+): GraphIssue[] {
+  const targets = outgoingEdges(graph, node.id)
+    .filter((edge) => edge.sourceHandle === handleId)
+    .map((edge) => nodeById(graph, edge.target))
+    .filter((target): target is WorkflowNode => Boolean(target));
+
+  if (targets.length === 0) {
+    return [
+      {
+        severity: "error",
+        nodeId: node.id,
+        message: `${describe} goes nowhere.`,
+      },
+    ];
+  }
+
+  const continuations = targets.filter((target) => target.kind !== "email");
+
+  if (continuations.length === 0) {
+    return [
+      {
+        severity: "error",
+        nodeId: node.id,
+        message: `${describe} only sends email. It also needs a step that carries the application forward.`,
+      },
+    ];
+  }
+
+  if (continuations.length > 1) {
+    const labels = continuations.map((target) => `"${target.data.label}"`);
+    return [
+      {
+        severity: "error",
+        nodeId: node.id,
+        message: `${describe} leads to ${labels.join(" and ")}. Only email steps may run alongside the one that continues.`,
+      },
+    ];
+  }
+
+  return [];
+}
 
 export type GraphIssue = {
   severity: "error" | "warning";
@@ -186,6 +268,15 @@ export function validateGraph(
             nodeId: node.id,
             message: `"${node.data.label}" is not connected to anything.`,
           });
+        } else {
+          issues.push(
+            ...checkHandleFanOut(
+              graph,
+              node,
+              DEFAULT_SOURCE_HANDLE,
+              `"${node.data.label}"`,
+            ),
+          );
         }
         break;
       }
@@ -217,20 +308,14 @@ export function validateGraph(
         }
 
         for (const outcome of node.data.outcomes) {
-          const connected = out.filter((e) => e.sourceHandle === outcome.id);
-          if (connected.length === 0) {
-            issues.push({
-              severity: "error",
-              nodeId: node.id,
-              message: `Outcome "${outcome.label}" on "${node.data.label}" goes nowhere.`,
-            });
-          } else if (connected.length > 1) {
-            issues.push({
-              severity: "error",
-              nodeId: node.id,
-              message: `Outcome "${outcome.label}" on "${node.data.label}" has ${connected.length} connections - it may only have one.`,
-            });
-          }
+          issues.push(
+            ...checkHandleFanOut(
+              graph,
+              node,
+              outcome.id,
+              `Outcome "${outcome.label}" on "${node.data.label}"`,
+            ),
+          );
         }
         break;
       }
@@ -271,17 +356,19 @@ export function validateGraph(
           });
         }
 
-        if (out.length === 0) {
+        if (out.length > 0) {
           issues.push({
             severity: "error",
             nodeId: node.id,
-            message: `"${node.data.label}" has no next step - email nodes must continue somewhere.`,
+            message: `"${node.data.label}" cannot lead anywhere. Email is sent in the background, so it runs alongside the step that continues rather than in front of it.`,
           });
-        } else if (out.length > 1) {
+        }
+
+        if (incomingEdges(graph, node.id).length === 0) {
           issues.push({
-            severity: "error",
+            severity: "warning",
             nodeId: node.id,
-            message: `"${node.data.label}" has more than one next step.`,
+            message: `"${node.data.label}" is never triggered by anything.`,
           });
         }
         break;
@@ -311,38 +398,11 @@ export function validateGraph(
     }
   }
 
-  // A run of email nodes that loops forever would hang the transition.
-  const emailLoop = findEmailOnlyCycle(graph);
-  if (emailLoop) {
-    issues.push({
-      severity: "error",
-      nodeId: emailLoop,
-      message:
-        "Email nodes form a loop with no stage in between - the workflow would never stop.",
-    });
-  }
-
   return issues;
 }
 
 export function hasBlockingIssues(issues: GraphIssue[]): boolean {
   return issues.some((issue) => issue.severity === "error");
-}
-
-/** Returns the id of a node participating in an email-only cycle, if any. */
-function findEmailOnlyCycle(graph: WorkflowGraph): string | null {
-  for (const node of emailNodes(graph)) {
-    const seen = new Set<string>([node.id]);
-    let cursor = nextNodeId(graph, node.id);
-    while (cursor) {
-      const next = nodeById(graph, cursor);
-      if (!next || next.kind !== "email") break;
-      if (seen.has(next.id)) return node.id;
-      seen.add(next.id);
-      cursor = nextNodeId(graph, next.id);
-    }
-  }
-  return null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -370,7 +430,11 @@ export function orderedStageNodes(graph: WorkflowGraph): WorkflowNode[] {
     if (node.kind === "start" || node.kind === "stage" || node.kind === "end") {
       ordered.push(node);
     }
-    for (const edge of outgoingEdges(graph, id)) queue.push(edge.target);
+    for (const edge of outgoingEdges(graph, id)) {
+      const target = nodeById(graph, edge.target);
+      // Email branches are side effects, not steps on the path.
+      if (target && target.kind !== "email") queue.push(edge.target);
+    }
   }
 
   return ordered;
