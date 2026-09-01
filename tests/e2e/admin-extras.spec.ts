@@ -187,6 +187,34 @@ test.describe("bulk user import", () => {
   });
 });
 
+test.describe("action menus", () => {
+  test("sizes a row's action menu to its longest label", async ({ page }) => {
+    await page.goto("/admin/users");
+
+    const trigger = page.getByRole("button", { name: /Actions for/ }).first();
+    // Measured first: an open menu takes the rest of the page out of the
+    // accessibility tree, trigger included.
+    const triggerBox = (await trigger.boundingBox())!;
+    await trigger.click();
+
+    const menu = page.getByRole("menu");
+    await expect(menu).toBeVisible();
+
+    // The menu used to inherit the icon button's width, which folded every
+    // label onto three or four lines.
+    const item = page.getByRole("menuitem", { name: "Remove from whitelist" });
+    const wrapped = await item.evaluate(
+      (element) => element.scrollWidth > element.clientWidth + 1,
+    );
+    expect(wrapped).toBe(false);
+
+    const menuBox = (await menu.boundingBox())!;
+    expect(menuBox.width).toBeGreaterThan(triggerBox.width * 3);
+
+    await closeOverlays(page);
+  });
+});
+
 test.describe("pagination", () => {
   test("offers page controls on the user list", async ({ page }) => {
     await page.goto("/admin/users");
