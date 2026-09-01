@@ -128,7 +128,9 @@ test.describe("workflow builder canvas", () => {
     await expect(page.getByTestId("publish-workflow")).toBeDisabled();
   });
 
-  test("a new stage starts invalid and blocks publishing", async ({ page }) => {
+  test("a new stage blocks publishing until it has a role", async ({
+    page,
+  }) => {
     await page.getByTestId("add-stage-node").click();
     await expect(page.getByTestId("node-inspector")).toBeVisible();
     await expect(nodes(page)).toHaveCount(NODE_COUNT + 1);
@@ -138,6 +140,16 @@ test.describe("workflow builder canvas", () => {
       '"New Review Stage" has no role assigned.',
     );
     await expect(page.getByTestId("publish-workflow")).toBeDisabled();
+
+    // Assigning one clears that particular complaint.
+    await page.getByTestId("node-stage-New Review Stage").click();
+    await page.getByTestId("node-role").click();
+    await page.getByRole("option", { name: "HR Officer", exact: true }).click();
+    await closeOverlays(page);
+
+    await expect(page.getByTestId("issue-list")).not.toContainText(
+      "has no role assigned",
+    );
   });
 
   test("deleting a node removes it and its connections", async ({ page }) => {
@@ -149,21 +161,6 @@ test.describe("workflow builder canvas", () => {
     await expect(nodes(page)).toHaveCount(NODE_COUNT);
     await expect(edges(page)).toHaveCount(EDGE_COUNT);
     await expect(page.getByTestId("publish-workflow")).toBeEnabled();
-  });
-
-  test("assigning a role clears the stage's validation error", async ({
-    page,
-  }) => {
-    await page.getByTestId("add-stage-node").click();
-    await expect(page.getByTestId("node-inspector")).toBeVisible();
-
-    await page.getByTestId("node-role").click();
-    await page.getByRole("option", { name: "HR Officer", exact: true }).click();
-    await closeOverlays(page);
-
-    await expect(page.getByTestId("issue-list")).not.toContainText(
-      "has no role assigned",
-    );
   });
 
   test("saving a draft persists across a reload", async ({ page }) => {

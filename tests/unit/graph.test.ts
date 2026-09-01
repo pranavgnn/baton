@@ -15,6 +15,7 @@ import {
   validateGraph,
 } from "@/lib/workflow/graph";
 import type { WorkflowGraph } from "@/lib/workflow/types";
+import { createField, createRepeater } from "@/lib/workflow/defaults";
 import { buildGraph, ROLE_HOD, TEMPLATE_ACK } from "./fixtures";
 
 function errorsOf(
@@ -292,6 +293,74 @@ describe("validateGraph", () => {
     section.fields.push({ ...section.fields[0], id: "dup" });
     expect(errorsOf(graph, context)).toContain(
       '"Applicant Submission" has two questions using the key "full_name".',
+    );
+  });
+
+  it("flags a repeating group with no columns, or one that nests", () => {
+    const { graph, context } = buildGraph();
+    const section = startNode(graph)!.data.form.sections[0];
+
+    section.fields.push(
+      createRepeater({ key: "empty_group", label: "Empty group" }, []),
+    );
+    section.fields.push(
+      createRepeater({ key: "nested_group", label: "Nested group" }, [
+        createRepeater({ key: "inner", label: "Inner" }, []),
+      ]),
+    );
+
+    const errors = errorsOf(graph, context);
+    expect(errors).toContain(
+      '"Empty group" is a repeating group with no columns.',
+    );
+    expect(errors).toContain(
+      '"Inner" cannot be a repeating group inside "Nested group".',
+    );
+  });
+
+  it("flags two columns of one group sharing a key", () => {
+    const { graph, context } = buildGraph();
+    const section = startNode(graph)!.data.form.sections[0];
+
+    section.fields.push(
+      createRepeater({ key: "papers", label: "Papers" }, [
+        createField({ type: "text", key: "title", label: "Title" }),
+        createField({ type: "text", key: "title", label: "Title again" }),
+      ]),
+    );
+
+    expect(errorsOf(graph, context)).toContain(
+      '"Papers" has two columns using the key "title".',
+    );
+  });
+
+  it("flags a rule pointing at a question that is not on the form", () => {
+    // Such a rule never matches, which would quietly hide the field or drop
+    // its requirement rather than failing where anyone would notice.
+    const { graph, context } = buildGraph();
+    const section = startNode(graph)!.data.form.sections[0];
+
+    section.fields.push(
+      createField({
+        type: "text",
+        key: "conditional",
+        label: "Conditional",
+        visibleWhen: {
+          mode: "all",
+          rules: [
+            {
+              id: "r1",
+              field: "no_such_question",
+              operator: "equals",
+              value: "x",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(errorsOf(graph, context)).toContain(
+      '"Conditional" is shown based on "no_such_question", which is not a question on the same form.',
     );
   });
 

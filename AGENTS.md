@@ -39,6 +39,23 @@ application since the page rendered.
 re-validates the whole form against the node's schema on submit. Both go
 through `lib/workflow/form.ts` so the rules cannot drift.
 
+**A field may repeat, and it may depend on its neighbours.** A repeating group
+carries its own columns and stores an array of entries; each column is an
+ordinary field, so it keeps its own type and validation. Groups do not nest.
+Two rule sets decide when a question applies - `visibleWhen` and
+`requiredWhen`, evaluated by `lib/workflow/conditions.ts`, which is pure and
+knows nothing of React or Zod. A rule may only name a sibling: a field of the
+same form, or a column of the same entry. `requiredWhen` replaces the plain
+`required` flag rather than adding to it, and a hidden field is never
+required, never asked and never shown blank on a preview.
+
+**Conditional validation happens after the object parses, not during it.**
+Whether a field is required cannot be known until the surrounding answers are
+in hand, so anything conditional is compiled optional and `withConditions` in
+`lib/workflow/form.ts` adds the requirement back in a `superRefine`. The wizard
+resolves against the whole form even when gating one step, which is what lets a
+document in the last section depend on an answer in the fifth.
+
 **Never mutate a published workflow in place for a running application.**
 Applications carry their own graph snapshot. If you add a field to the graph
 shape, update `workflowGraphSchema` in `lib/workflow/types.ts` and make the
@@ -98,24 +115,25 @@ what made it report nodes as uninitialised.
 carries the institute's real form and route: six review stages, the
 seventeen-item research checklist, and one role per signing authority. It is a
 starting point an admin may edit, but it is what a fresh install runs, so
-changing it changes what the institute sees on day one. Two things the form
-engine cannot yet express are worked around there and flagged in place:
-repeating tables, and fields the paper form makes conditional.
+changing it changes what the institute sees on day one. It now says what the paper form
+says: the tables are repeating groups with typed columns, and the questions
+marked conditional carry the rule that makes them so.
 
 ## Layout
 
-| Path                        | Contents                                                                                                                       |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `lib/workflow/`             | Domain: graph types, validation, transition engine, form-to-Zod compiler. Pure and unit-tested — keep it free of DB and React. |
-| `lib/applications/`         | Queries and the transition runtime (DB writes, email dispatch, timeline).                                                      |
-| `lib/auth/`                 | Better Auth config, session helpers, permission vocabulary, provisioning.                                                      |
-| `lib/mail/`                 | `template.ts` is pure text (tested); `render.ts` and `layout.tsx` add the React shell.                                         |
-| `lib/mail/job.ts`           | The pure Kafka job contract, split from `queue.ts` so tests need no env.                                                       |
-| `lib/users/import.ts`       | Pure CSV and address-list parsing for the bulk user import.                                                                    |
-| `lib/audit/`                | Audit vocabulary, the recorder, the filtered query and the CSV export. `csv.ts` and `actions.ts` are pure and unit-tested.     |
-| `components/form-runtime/`  | Renders admin-defined forms for applicants and reviewers.                                                                      |
-| `components/form-builder/`  | The dnd-kit editor admins use to define those forms.                                                                           |
-| `app/(app)/admin/workflow/` | React Flow canvas, custom nodes, node inspector.                                                                               |
+| Path                         | Contents                                                                                                                       |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `lib/workflow/`              | Domain: graph types, validation, transition engine, form-to-Zod compiler. Pure and unit-tested — keep it free of DB and React. |
+| `lib/applications/`          | Queries and the transition runtime (DB writes, email dispatch, timeline).                                                      |
+| `lib/auth/`                  | Better Auth config, session helpers, permission vocabulary, provisioning.                                                      |
+| `lib/mail/`                  | `template.ts` is pure text (tested); `render.ts` and `layout.tsx` add the React shell.                                         |
+| `lib/mail/job.ts`            | The pure Kafka job contract, split from `queue.ts` so tests need no env.                                                       |
+| `lib/users/import.ts`        | Pure CSV and address-list parsing for the bulk user import.                                                                    |
+| `lib/audit/`                 | Audit vocabulary, the recorder, the filtered query and the CSV export. `csv.ts` and `actions.ts` are pure and unit-tested.     |
+| `lib/workflow/conditions.ts` | When a question applies, given the answers around it. Pure; used by the compiler, the runtime and the preview alike.           |
+| `components/form-runtime/`   | Renders admin-defined forms for applicants and reviewers.                                                                      |
+| `components/form-builder/`   | The dnd-kit editor admins use to define those forms.                                                                           |
+| `app/(app)/admin/workflow/`  | React Flow canvas, custom nodes, node inspector.                                                                               |
 
 ## Before you push
 
