@@ -116,3 +116,39 @@ describe("htmlToText", () => {
     ).toBe("Visible");
   });
 });
+
+describe("email buttons", () => {
+  const button =
+    '<a data-email-button="true" href="https://portal.manipal.edu/applications/1" style="background-color:#173a6b;border-radius:6px;color:#ffffff;display:inline-block;padding:10px 20px;text-decoration:none" target="_blank" rel="noreferrer">Open the portal</a>';
+
+  it("survives sanitisation intact", () => {
+    // The inline styles are the whole point: email clients ignore stylesheets.
+    expect(sanitizeTemplateHtml(button)).toBe(button);
+  });
+
+  it("still has its placeholders hydrated", () => {
+    const withPlaceholder = button.replace(
+      "https://portal.manipal.edu/applications/1",
+      "{{application_url}}",
+    );
+    const rendered = hydrate(sanitizeTemplateHtml(withPlaceholder), {
+      application_url: "https://portal.manipal.edu/applications/42",
+    });
+    expect(rendered).toContain(
+      'href="https://portal.manipal.edu/applications/42"',
+    );
+    expect(rendered).not.toContain("{{");
+  });
+
+  it("cannot smuggle a javascript: target through the button", () => {
+    const hostile = button.replace(
+      "https://portal.manipal.edu/applications/1",
+      "javascript:steal()",
+    );
+    expect(sanitizeTemplateHtml(hostile)).toContain('href="#"');
+  });
+
+  it("keeps its label in the plain-text alternative", () => {
+    expect(htmlToText(button)).toBe("Open the portal");
+  });
+});

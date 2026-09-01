@@ -5,6 +5,8 @@ import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+
+import { EmailButton } from "@/components/email-button-extension";
 import {
   AlignCenter,
   AlignLeft,
@@ -21,6 +23,7 @@ import {
   ListOrdered,
   Quote,
   Redo2,
+  SquareMousePointer,
   Strikethrough,
   Underline as UnderlineIcon,
   Undo2,
@@ -57,6 +60,7 @@ export function RichTextEditor({
       Underline,
       Link.configure({ openOnClick: false, autolink: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      EmailButton,
     ],
     content: value,
     editorProps: {
@@ -80,6 +84,18 @@ export function RichTextEditor({
       return;
     }
     editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
+  }, [editor]);
+
+  const insertButton = useCallback(() => {
+    if (!editor) return;
+    const label = window.prompt("Button text", "Open the portal");
+    if (!label) return;
+    const href = window.prompt(
+      "Where should it go? A placeholder such as {{application_url}} works too.",
+      "{{application_url}}",
+    );
+    if (!href) return;
+    editor.chain().focus().setEmailButton({ href, label }).run();
   }, [editor]);
 
   if (!editor) {
@@ -217,6 +233,11 @@ export function RichTextEditor({
           label="Remove link"
           disabled={!editor.isActive("link")}
           onClick={() => editor.chain().focus().unsetLink().run()}
+        />
+        <ToolbarButton
+          icon={SquareMousePointer}
+          label="Insert button"
+          onClick={insertButton}
         />
 
         <Separator orientation="vertical" className="mx-1 h-6" />
