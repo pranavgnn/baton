@@ -55,7 +55,7 @@ test.describe("role administration", () => {
 
     // Dean both holds members and is bound to a workflow stage; either guard
     // is a correct refusal, and the role must survive the attempt.
-    const card = page.getByTestId("role-card-Dean");
+    const card = page.getByTestId("role-card-Director");
     await card.getByRole("button", { name: "Delete" }).click();
     await page.getByRole("button", { name: "Delete role" }).click();
 
@@ -109,7 +109,7 @@ test.describe("user administration", () => {
     await page
       .getByRole("textbox", { name: "Department", exact: true })
       .fill("Civil Engineering");
-    await page.getByRole("checkbox", { name: "Faculty" }).click();
+    await page.getByRole("checkbox", { name: "Employee", exact: true }).click();
     await page.getByRole("button", { name: "Add user" }).click();
 
     await expectToast(page, /whitelisted/);
@@ -117,7 +117,7 @@ test.describe("user administration", () => {
     const row = page.getByTestId(`user-${INVITEE}`);
     await expect(row).toBeVisible();
     await expect(row).toContainText("Invited");
-    await expect(row).toContainText("Faculty");
+    await expect(row).toContainText("Employee");
 
     const mail = await waitForEmail((message) => message.To.includes(INVITEE));
     expect(mail.Subject).toContain("Activate");

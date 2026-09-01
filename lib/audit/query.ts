@@ -49,7 +49,9 @@ function conditions(filters: AuditFilters): SQL | undefined {
   }
   if (filters.to) {
     // The filter names a day, and the whole of that day belongs to it.
-    clauses.push(lte(auditLog.createdAt, new Date(`${filters.to}T23:59:59.999`)));
+    clauses.push(
+      lte(auditLog.createdAt, new Date(`${filters.to}T23:59:59.999`)),
+    );
   }
 
   const search = filters.search?.trim();

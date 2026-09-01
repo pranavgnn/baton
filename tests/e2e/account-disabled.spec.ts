@@ -9,9 +9,9 @@ import { ACCOUNTS, expectToast, storageStatePath } from "./helpers";
  */
 test.describe.configure({ mode: "serial" });
 
-const TARGET = ACCOUNTS.dean;
+const TARGET = ACCOUNTS.rc;
 
-async function setDeanDisabled(
+async function setTargetDisabled(
   page: import("@playwright/test").Page,
   disabled: boolean,
 ) {
@@ -34,7 +34,7 @@ test.describe("a disabled account", () => {
     const admin = await browser.newPage({
       storageState: storageStatePath("superAdmin"),
     });
-    await setDeanDisabled(admin, true);
+    await setTargetDisabled(admin, true);
 
     const page = await browser.newPage();
     try {
@@ -62,7 +62,7 @@ test.describe("a disabled account", () => {
       await expect(page).toHaveURL(/\/sign-in/);
     } finally {
       await page.close();
-      await setDeanDisabled(admin, false);
+      await setTargetDisabled(admin, false);
       await admin.close();
     }
   });

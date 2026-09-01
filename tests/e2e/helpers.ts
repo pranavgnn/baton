@@ -2,15 +2,19 @@ import path from "node:path";
 
 import { expect, type Page } from "@playwright/test";
 
+/** One account per role in the seeded process, plus the Super Admin. */
 export const ACCOUNTS = {
   superAdmin: {
     email: process.env.SUPER_ADMIN_EMAIL ?? "superadmin@manipal.edu",
     password: process.env.SUPER_ADMIN_PASSWORD ?? "SuperAdmin@123",
   },
-  faculty: { email: "faculty@manipal.edu", password: "Portal@123" },
+  employee: { email: "employee@manipal.edu", password: "Portal@123" },
   hod: { email: "hod@manipal.edu", password: "Portal@123" },
-  dean: { email: "dean@manipal.edu", password: "Portal@123" },
-  registrar: { email: "registrar@manipal.edu", password: "Portal@123" },
+  hr: { email: "hr@manipal.edu", password: "Portal@123" },
+  rc: { email: "rc@manipal.edu", password: "Portal@123" },
+  fdw: { email: "fdw@manipal.edu", password: "Portal@123" },
+  director: { email: "director@manipal.edu", password: "Portal@123" },
+  instituteHr: { email: "institutehr@manipal.edu", password: "Portal@123" },
 } as const;
 
 export type AccountName = keyof typeof ACCOUNTS;
