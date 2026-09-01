@@ -74,8 +74,10 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_LOG_DIRS: "/tmp/kraft-combined-logs"
-    volumes:
-      - kafka_data:/tmp/kraft-combined-logs
+    # No named volume: Docker creates the mount point root-owned, and the image
+    # runs as appuser, so KRaft cannot format its metadata directory. The queue
+    # is transient anyway - a job survives in the container, and a job lost with
+    # the container is an email that never blocked an application.
     healthcheck:
       test:
         [
@@ -90,4 +92,3 @@ services:
 volumes:
   postgres_data:
   minio_data:
-  kafka_data:
