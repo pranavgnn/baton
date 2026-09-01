@@ -57,6 +57,31 @@ async function connectedProducer(): Promise<Producer> {
   return instance;
 }
 
+/**
+ * Creates the topic if it is missing, and waits for a partition leader.
+ *
+ * Auto-creation is enabled on the broker, but it races: a consumer that
+ * subscribes while creation is still in flight gets
+ * "This server does not host this topic-partition" and dies. Asking for the
+ * topic explicitly, and waiting for the leader election, removes the race on a
+ * freshly started broker.
+ */
+export async function ensureEmailTopic(): Promise<void> {
+  const admin = kafka().admin();
+  await admin.connect();
+  try {
+    await admin.createTopics({
+      // KafkaJS 2 defers to the cluster unless these are given, and a
+      // single-node broker has no defaults to defer to.
+      topics: [{ topic: EMAIL_TOPIC, numPartitions: 1, replicationFactor: 1 }],
+      waitForLeaders: true,
+      timeout: 10_000,
+    });
+  } finally {
+    await admin.disconnect().catch(() => undefined);
+  }
+}
+
 export type PublishResult =
   { ok: true; published: number } | { ok: false; error: string };
 

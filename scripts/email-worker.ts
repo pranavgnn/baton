@@ -16,6 +16,7 @@ import {
   EMAIL_CONSUMER_GROUP,
   EMAIL_TOPIC,
   emailJobSchema,
+  ensureEmailTopic,
   kafka,
   type EmailJob,
 } from "@/lib/mail/queue";
@@ -86,11 +87,37 @@ async function handle(raw: string) {
   }
 }
 
+/**
+ * A broker that is still starting refuses connections and has no leader to
+ * offer yet. Retrying beats exiting: the worker is supervised alongside the
+ * app, so a crash here would take the site down with it.
+ */
+async function withRetries<T>(
+  what: string,
+  attempt: () => Promise<T>,
+  tries = 10,
+): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await attempt();
+    } catch (error) {
+      if (i >= tries) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`[worker] ${what} failed (${i}/${tries}): ${message}`);
+      await new Promise((resolve) => setTimeout(resolve, i * 1000));
+    }
+  }
+}
+
 async function main() {
+  await withRetries("topic setup", ensureEmailTopic);
+
   const consumer = kafka().consumer({ groupId: EMAIL_CONSUMER_GROUP });
 
-  await consumer.connect();
-  await consumer.subscribe({ topic: EMAIL_TOPIC, fromBeginning: false });
+  await withRetries("subscribe", async () => {
+    await consumer.connect();
+    await consumer.subscribe({ topic: EMAIL_TOPIC, fromBeginning: false });
+  });
 
   console.log(
     `[worker] listening on ${EMAIL_TOPIC} via ${env.KAFKA_BROKERS}, relaying to ${env.SMTP_HOST}:${env.SMTP_PORT}`,
