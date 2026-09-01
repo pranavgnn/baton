@@ -19,7 +19,7 @@ test.describe("unauthenticated access", () => {
     page,
   }) => {
     await page.goto("/sign-in");
-    await page.getByLabel("Institute email").fill(ACCOUNTS.faculty.email);
+    await page.getByLabel("Institute email").fill(ACCOUNTS.employee.email);
     await page.getByLabel("Password", { exact: true }).fill("WrongPassword1");
     await page.getByRole("button", { name: "Sign in" }).click();
 
@@ -51,7 +51,7 @@ test.describe("unauthenticated access", () => {
 });
 
 test.describe("applicant permissions", () => {
-  test.use({ storageState: storageStatePath("faculty") });
+  test.use({ storageState: storageStatePath("employee") });
 
   test("sees only the navigation their role allows", async ({ page }) => {
     await page.goto("/dashboard");

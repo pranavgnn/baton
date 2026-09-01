@@ -15,10 +15,13 @@ import { ACCOUNTS, storageStatePath, type AccountName } from "./helpers";
  */
 const ROLES: AccountName[] = [
   "superAdmin",
-  "faculty",
+  "employee",
   "hod",
-  "dean",
-  "registrar",
+  "hr",
+  "rc",
+  "fdw",
+  "director",
+  "instituteHr",
 ];
 
 setup.describe.configure({ mode: "serial" });
@@ -26,7 +29,9 @@ setup.describe.configure({ mode: "serial" });
 setup("authenticate every role", async ({ browser }) => {
   setup.setTimeout(180_000);
 
-  fs.mkdirSync(path.dirname(storageStatePath("faculty")), { recursive: true });
+  fs.mkdirSync(path.dirname(storageStatePath("superAdmin")), {
+    recursive: true,
+  });
 
   for (const role of ROLES) {
     const context = await browser.newContext();

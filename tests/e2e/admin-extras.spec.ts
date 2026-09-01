@@ -9,9 +9,9 @@ test.describe("role priority", () => {
   test("shows the top role as the default", async ({ page }) => {
     await page.goto("/admin/roles");
 
-    // The seed puts Faculty first, so it is what an unnamed user is given.
+    // The seed puts Employee first, so it is what an unnamed user is given.
     await expect(
-      page.getByTestId("role-card-Faculty").getByText("Default"),
+      page.getByTestId("role-card-Employee").getByText("Default"),
     ).toBeVisible();
   });
 
@@ -25,7 +25,7 @@ test.describe("role priority", () => {
     await expect(dialog).toBeVisible();
 
     const rows = page.getByTestId("priority-list").locator("li");
-    await expect(rows.first()).toContainText("Faculty");
+    await expect(rows.first()).toContainText("Employee");
     await expect(rows.first()).toContainText("Default");
 
     await closeOverlays(page);
@@ -34,7 +34,7 @@ test.describe("role priority", () => {
   test("saves a reordered list", async ({ page }) => {
     await page.goto("/admin/roles");
     await page.getByTestId("open-role-priority").click();
-    await dragRole(page, "Faculty", 1);
+    await dragRole(page, "Employee", 1);
 
     await page.getByTestId("save-priority").click();
     await expectToast(page, "Role priority saved.");
@@ -42,24 +42,24 @@ test.describe("role priority", () => {
     await page.reload();
     // The default badge follows the top of the list, wherever that now is.
     await expect(
-      page.getByTestId("role-card-Faculty").getByText("Default"),
+      page.getByTestId("role-card-Employee").getByText("Default"),
     ).toHaveCount(0);
     await expect(
-      page.getByTestId("role-card-Head of Department").getByText("Default"),
+      page.getByTestId("role-card-HOD").getByText("Default"),
     ).toBeVisible();
   });
 
-  test("restores Faculty to the top", async ({ page }) => {
+  test("restores Employee to the top", async ({ page }) => {
     await page.goto("/admin/roles");
     await page.getByTestId("open-role-priority").click();
-    await dragRole(page, "Faculty", -1);
+    await dragRole(page, "Employee", -1);
 
     await page.getByTestId("save-priority").click();
     await expectToast(page, "Role priority saved.");
 
     await page.reload();
     await expect(
-      page.getByTestId("role-card-Faculty").getByText("Default"),
+      page.getByTestId("role-card-Employee").getByText("Default"),
     ).toBeVisible();
   });
 });
@@ -106,7 +106,7 @@ test.describe("bulk user import", () => {
     await page
       .getByTestId("import-csv")
       .fill(
-        `email,name,department,roles\n${IMPORTED},Bulk One,Civil Engineering,Faculty\n${SECOND},Bulk Two,Civil Engineering,\nnot-an-email,Broken,,`,
+        `email,name,department,roles\n${IMPORTED},Bulk One,Civil Engineering,Employee\n${SECOND},Bulk Two,Civil Engineering,\nnot-an-email,Broken,,`,
       );
 
     const preview = page.getByTestId("import-preview");
@@ -133,16 +133,18 @@ test.describe("bulk user import", () => {
     await page
       .getByTestId("import-csv")
       .fill(
-        `email,name,department,roles\n${IMPORTED},Bulk One,Civil Engineering,Faculty\n${SECOND},Bulk Two,Civil Engineering,`,
+        `email,name,department,roles\n${IMPORTED},Bulk One,Civil Engineering,Employee\n${SECOND},Bulk Two,Civil Engineering,`,
       );
     await page.getByTestId("confirm-import").click();
 
     await expectToast(page, /Imported 2/);
 
     await page.getByRole("textbox", { name: "Search users" }).fill("bulk.");
-    await expect(page.getByTestId(`user-${IMPORTED}`)).toContainText("Faculty");
+    await expect(page.getByTestId(`user-${IMPORTED}`)).toContainText(
+      "Employee",
+    );
     // The row naming no role falls back to the default.
-    await expect(page.getByTestId(`user-${SECOND}`)).toContainText("Faculty");
+    await expect(page.getByTestId(`user-${SECOND}`)).toContainText("Employee");
   });
 
   test("skips addresses already on the whitelist", async ({ page }) => {

@@ -13,14 +13,13 @@ import {
 const FIXTURE_CV = path.join(__dirname, "fixtures", "curriculum-vitae.pdf");
 
 /**
- * Drives the whole promotion pipeline against a real database, MinIO and SMTP
- * sink: submission, a send-back loop, resubmission, HOD recommendation and
- * final Dean approval. The blocks run in declaration order and share one
- * application, so each one depends on the state the previous left behind.
- */
-/**
- * Retries are off: the blocks mutate one shared application, so re-running a
- * failed test would start from state the first attempt already changed.
+ * Drives the whole promotion process against a real database, MinIO and SMTP
+ * sink: submission, then HOD, HR, R&C, FD&W, the final HR declaration and the
+ * Director's approval. The blocks run in declaration order and share one
+ * application, so each depends on the state the previous one left behind.
+ *
+ * Retries are off for the same reason: re-running a failed block would start
+ * from state the first attempt already changed.
  */
 test.describe.configure({ mode: "serial", retries: 0 });
 
@@ -31,64 +30,167 @@ const APPLICANT = "Dr. Nikhil Prabhu";
  * Queues and listings identify an application by its account holder, not by
  * whatever was typed into the form, so rows are found by the account's email.
  */
-const APPLICANT_EMAIL = "faculty@manipal.edu";
+const APPLICANT_EMAIL = "employee@manipal.edu";
 const applicationRow = (page: Page) =>
   page.locator("tr").filter({ hasText: APPLICANT_EMAIL }).first();
 
-async function fillPersonalDetails(page: Page) {
-  await page.getByLabel("Full name").fill(APPLICANT);
-  await page.getByLabel("Employee ID").fill("MIT-7788");
-  await page.getByLabel("Institute email").fill("faculty@manipal.edu");
-  await page.getByLabel("Contact number").fill("+91 99000 11223");
-  await selectOption(page, "Department", "Computer Science & Engineering");
-  await selectOption(page, "Current designation", "Assistant Professor");
-  await page.getByLabel("Date of joining").fill("2017-06-01");
-  await selectOption(page, "Designation applied for", "Associate Professor");
-}
-
-async function fillAcademicRecord(page: Page) {
-  await page
-    .getByLabel("Highest qualification")
-    .fill("Ph.D. in Information Security");
-  await page.getByLabel("Years of teaching experience").fill("9");
-  await page.getByLabel("Peer-reviewed publications").fill("21");
-  await page.getByLabel("PhD scholars guided").fill("2");
-  await page
-    .getByLabel("Statement supporting your promotion")
-    .fill(
-      "I have taught information security and networks for nine years, published twenty-one peer reviewed papers, and led the departmental accreditation effort across two cycles while mentoring two doctoral scholars to completion.",
-    );
-}
-
-async function fillSupportingDocuments(page: Page) {
-  await page.getByLabel("Curriculum vitae (PDF)").setInputFiles(FIXTURE_CV);
-  await expect(page.getByTestId("file-curriculum-vitae.pdf")).toBeVisible({
-    timeout: 30_000,
-  });
-  await page
-    .getByRole("checkbox", {
-      name: "I declare that the information provided is true and complete.",
-    })
-    .check();
-}
-
-async function fillReview(page: Page, score: string, remarks: string) {
-  await page.getByLabel("Overall score (out of 10)").fill(score);
-  await selectOption(page, "Strength of recommendation", "Strong");
-  await page.getByLabel("Remarks").fill(remarks);
-}
+/* -------------------------------------------------------------------------- */
+/*  Filling the applicant's form                                               */
+/* -------------------------------------------------------------------------- */
 
 /**
- * Steps through the wizard to the preview. Each click waits for the step to
- * actually become current first - advancing runs validation and a draft save,
- * so firing the clicks back to back races on a fast machine.
+ * Fields are addressed by their data key, not their label.
+ *
+ * Several labels on the same step are prefixes of one another - "Total
+ * indexed" and "Total indexed publications as FA/CA", "Indexed (last 3 years)"
+ * and "Non-indexed (last 3 years)" - and a required field's accessible name
+ * carries the asterisk beside it, so neither a loose nor an exact label lookup
+ * is reliable here. The key is.
  */
-async function advanceToPreview(page: Page, sectionCount: number) {
-  for (let index = 0; index < sectionCount; index += 1) {
+function field(page: Page, key: string) {
+  return page.getByTestId(`field-${key}`);
+}
+
+function input(page: Page, key: string) {
+  return field(page, key).locator("input, textarea").first();
+}
+
+/** Uploads the fixture into one file field and waits for it to land. */
+async function attach(page: Page, key: string) {
+  const target = field(page, key);
+  await target.locator('input[type="file"]').setInputFiles(FIXTURE_CV);
+  await expect(target.getByTestId("file-curriculum-vitae.pdf")).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+/** Picks from a shadcn select, which renders a combobox rather than a native one. */
+async function choose(page: Page, key: string, optionLabel: string) {
+  await field(page, key).getByRole("combobox").click();
+  await page.getByRole("option", { name: optionLabel, exact: true }).click();
+}
+
+async function fillPostApplied(page: Page) {
+  await choose(page, "post_applied_for", "Associate Professor");
+}
+
+async function fillPersonalDetails(page: Page) {
+  const values: [string, string][] = [
+    ["full_name", APPLICANT],
+    ["employee_code", "MIT-7788"],
+    ["date_of_birth", "1984-02-11"],
+    ["present_designation", "Assistant Professor"],
+    ["department", "Computer Science & Engineering"],
+    ["institution", "Manipal Institute of Technology"],
+    ["date_of_joining", "2017-06-01"],
+    ["date_of_last_promotion", "2021-07-01"],
+    ["scopus_id", "57200000001"],
+  ];
+
+  for (const [key, value] of values) {
+    await input(page, key).fill(value);
+  }
+}
+
+async function fillQualifications(page: Page) {
+  await input(page, "qualifications").fill(
+    "Ph.D. in Information Security | Manipal Academy of Higher Education | 2016 | Awarded with distinction\nM.Tech. in Computer Science | NIT Karnataka | 2010 | First class",
+  );
+}
+
+async function fillAppointments(page: Page) {
+  await input(page, "previous_appointments").fill(
+    "Assistant Professor | Manipal Institute of Technology | 2017 | Present | 9 years\nLecturer | NMAM Institute of Technology | 2011 | 2017 | 6 years",
+  );
+  await input(page, "courses_taught").fill(
+    "Information Security, Computer Networks, Applied Cryptography, Operating Systems.",
+  );
+}
+
+async function fillPublications(page: Page) {
+  const values: [string, string][] = [
+    ["total_publications", "21"],
+    ["total_indexed", "17"],
+    ["total_non_indexed", "4"],
+    ["indexed_last_three_years", "8"],
+    ["non_indexed_last_three_years", "1"],
+    ["best_publication_1", "A lattice-based scheme for federated key exchange"],
+    [
+      "best_publication_2",
+      "Side-channel resilience in constrained IoT devices",
+    ],
+    ["best_publication_3", "Privacy-preserving telemetry for campus networks"],
+  ];
+
+  for (const [key, value] of values) {
+    await input(page, key).fill(value);
+  }
+}
+
+/** Every item of the research accomplishments checklist the form insists on. */
+async function fillChecklist(page: Page) {
+  const values: [string, string][] = [
+    ["min_required_scopus_fa_ca", "6"],
+    ["total_scopus_fa_ca", "11"],
+    ["min_required_mahe_fa_ca_present_cadre", "4"],
+    ["total_mahe_fa_ca_present_cadre", "9"],
+    ["total_multi_ca_mit_manipal", "3"],
+    ["min_required_q1_q2_present_cadre", "2"],
+    ["total_q1_q2_present_cadre", "5"],
+    ["top_500_collaborations", "2"],
+    ["phd_guided", "2"],
+    ["phd_co_guided", "1"],
+    ["phd_guiding", "3"],
+    ["phd_co_guiding", "2"],
+    ["internationally_co_authored", "6"],
+    ["sdg_linked_publications", "4"],
+  ];
+
+  for (const [key, value] of values) {
+    await input(page, key).fill(value);
+  }
+
+  await attach(page, "scopus_sdg_page");
+}
+
+async function fillDocuments(page: Page) {
+  await attach(page, "scopus_profile");
+  await attach(page, "best_publication_first_pages");
+}
+
+async function acceptDeclaration(page: Page) {
+  await field(page, "declaration").getByRole("checkbox").check();
+}
+
+/** Everything the form insists on, section by section, without advancing. */
+const SECTION_FILLERS: ((page: Page) => Promise<void>)[] = [
+  fillPostApplied,
+  fillPersonalDetails,
+  fillQualifications,
+  fillAppointments,
+  fillPublications,
+  fillChecklist,
+  async () => {}, // F. Conferences - optional
+  async () => {}, // G. Faculty development - optional
+  async () => {}, // H. Additional contributions - optional
+  fillDocuments,
+  acceptDeclaration,
+];
+
+/**
+ * Walks the wizard to the preview, filling each section on the way.
+ *
+ * Every click waits for the step to actually become current first: advancing
+ * runs validation and a draft save, so firing the clicks back to back races on
+ * a fast machine.
+ */
+async function completeForm(page: Page, fill = true) {
+  for (const [index, filler] of SECTION_FILLERS.entries()) {
     await expect(page.getByTestId(`wizard-step-${index}`)).toHaveAttribute(
       "aria-current",
       "step",
     );
+    if (fill) await filler(page);
     await page.getByTestId("wizard-next").click();
   }
   await expect(page.getByTestId("submit-application")).toBeVisible();
@@ -104,17 +206,58 @@ async function openApplication(page: Page) {
   await expect(page.getByTestId("wizard-step-0")).toBeVisible();
 }
 
+/* -------------------------------------------------------------------------- */
+/*  Reviewing                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Opens the application waiting on this role, fills its review form and takes
+ * the named outcome.
+ *
+ * A stage form is itself a wizard, so a `fill` that spans more than one
+ * section advances between them; this only makes the final step, which is what
+ * reveals the outcome buttons.
+ */
+async function review(
+  page: Page,
+  {
+    fill,
+    outcome,
+  }: {
+    fill: (page: Page) => Promise<void>;
+    outcome: string;
+  },
+) {
+  await page.goto("/reviews");
+  const row = applicationRow(page);
+  await expect(row).toBeVisible();
+  await row.getByRole("link", { name: "Review" }).click();
+
+  await page.getByRole("tab", { name: "Your review" }).click();
+  await fill(page);
+
+  await page.getByTestId("wizard-next").click();
+  await page.getByTestId(`outcome-${outcome}`).click();
+  await expect(page).toHaveURL(/\/reviews$/);
+}
+
+/* -------------------------------------------------------------------------- */
+/*  1. Submission                                                              */
+/* -------------------------------------------------------------------------- */
+
 test.describe("1. the applicant fills in and submits", () => {
-  test.use({ storageState: storageStatePath("faculty") });
+  test.use({ storageState: storageStatePath("employee") });
 
   test("cannot advance past a section with missing answers", async ({
     page,
   }) => {
     await openApplication(page);
+    // Section 0 asks the one question the whole form hangs off.
     await page.getByTestId("wizard-next").click();
 
-    await expect(page.getByText("Full name is required")).toBeVisible();
-    await expect(page.getByText("Employee ID is required")).toBeVisible();
+    await expect(
+      page.getByText("Application for promotion to is required"),
+    ).toBeVisible();
     await expect(page.getByTestId("wizard-step-0")).toHaveAttribute(
       "aria-current",
       "step",
@@ -123,6 +266,8 @@ test.describe("1. the applicant fills in and submits", () => {
 
   test("keeps a saved draft across page loads", async ({ page }) => {
     await openApplication(page);
+    await fillPostApplied(page);
+    await page.getByTestId("wizard-next").click();
     await fillPersonalDetails(page);
 
     await page.getByTestId("wizard-save-draft").click();
@@ -131,41 +276,34 @@ test.describe("1. the applicant fills in and submits", () => {
     await page.goto("/dashboard");
     await page.goto("/application");
 
-    await expect(page.getByLabel("Full name")).toHaveValue(APPLICANT);
-    await expect(page.getByLabel("Employee ID")).toHaveValue("MIT-7788");
+    // The wizard reopens at the first step, and later steps stay locked until
+    // the ones before them are complete - so walk forward rather than jumping.
+    await page.getByTestId("wizard-next").click();
+    await expect(input(page, "full_name")).toHaveValue(APPLICANT);
+    await expect(input(page, "employee_code")).toHaveValue("MIT-7788");
   });
 
-  test("completes every step, previews and submits", async ({ page }) => {
+  test("completes every section, previews and submits", async ({ page }) => {
     await clearMailbox();
     await openApplication(page);
-
-    await fillPersonalDetails(page);
-    await page.getByTestId("wizard-next").click();
-
-    await expect(page.getByLabel("Highest qualification")).toBeVisible();
-    await fillAcademicRecord(page);
-    await page.getByTestId("wizard-next").click();
-
-    await expect(page.getByLabel("Curriculum vitae (PDF)")).toBeVisible();
-    await fillSupportingDocuments(page);
-    await page.getByTestId("wizard-next").click();
+    await completeForm(page);
 
     // Nothing is sent until the applicant has seen the whole thing.
     await expect(page.getByText("Review before submitting")).toBeVisible();
-    await expect(page.getByTestId("preview-section-0")).toContainText(
+    await expect(page.getByTestId("preview-section-1")).toContainText(
       APPLICANT,
     );
-    await expect(page.getByTestId("preview-section-1")).toContainText(
+    await expect(page.getByTestId("preview-section-2")).toContainText(
       "Ph.D. in Information Security",
     );
-    await expect(page.getByTestId("preview-section-2")).toContainText(
+    await expect(page.getByTestId("preview-section-9")).toContainText(
       "curriculum-vitae.pdf",
     );
 
     await page.getByTestId("submit-application").click();
     await expectToast(page, /Application submitted/);
 
-    // The tracking page draws the whole workflow, marking where it now sits.
+    // The tracking page draws the whole process, marking where it now sits.
     await expect(page.getByTestId("application-progress")).toBeVisible();
     await expect(page.getByTestId("progress-current").first()).toBeVisible();
 
@@ -175,119 +313,234 @@ test.describe("1. the applicant fills in and submits", () => {
     await expect(submission).toContainText("Moved on");
 
     // The step it is sitting on has arrived but not moved on.
-    const stage = page.getByTestId("progress-dates-Head of Department Review");
+    const stage = page.getByTestId("progress-dates-HOD Recommendation");
     await expect(stage).toContainText("Arrived");
     await expect(stage).not.toContainText("Moved on");
 
     const mail = await waitForEmail((message) =>
       message.Subject.includes("received"),
     );
-    expect(mail.To).toContain("faculty@manipal.edu");
+    expect(mail.To).toContain(APPLICANT_EMAIL);
   });
 });
 
-test.describe("2. the head of department sends it back", () => {
+/* -------------------------------------------------------------------------- */
+/*  2 - 5. The review chain                                                    */
+/* -------------------------------------------------------------------------- */
+
+test.describe("2. the head of department recommends", () => {
   test.use({ storageState: storageStatePath("hod") });
 
-  test("returns the application for changes", async ({ page }) => {
+  test("reads the submission, recommends and hands over to HR", async ({
+    page,
+  }) => {
     await clearMailbox();
     await page.goto("/reviews");
-
-    const row = applicationRow(page);
-    await expect(row).toBeVisible();
-    await row.getByRole("link", { name: "Review" }).click();
+    await applicationRow(page).getByRole("link", { name: "Review" }).click();
 
     // The reviewer can read what the applicant submitted.
     await page.getByRole("tab", { name: "Applicant submission" }).click();
     await expect(page.getByText("Ph.D. in Information Security")).toBeVisible();
 
     await page.getByRole("tab", { name: "Your review" }).click();
-    await fillReview(
-      page,
-      "7",
-      "Promising record, but please attach the missing publication proofs before this goes to the Dean.",
+    await input(page, "vacancy_remarks").fill(
+      "One Associate Professor position is vacant in the department.",
     );
-    await page.getByTestId("wizard-next").click();
-    await page.getByTestId("outcome-Send back for changes").click();
-
-    await expect(page).toHaveURL(/\/reviews$/);
-    await waitForEmail((message) => message.Subject.includes("Action needed"));
-  });
-});
-
-test.describe("3. the applicant resubmits", () => {
-  test.use({ storageState: storageStatePath("faculty") });
-
-  test("sees the send-back notice with answers intact", async ({ page }) => {
-    await page.goto("/application");
-
-    await expect(
-      page.getByText("This application was sent back to you"),
-    ).toBeVisible();
-    await expect(page.getByLabel("Full name")).toHaveValue(APPLICANT);
-
-    await advanceToPreview(page, 3);
-
-    await page.getByTestId("submit-application").click();
-    await expectToast(page, /Application submitted/);
-  });
-});
-
-test.describe("4. the head of department recommends", () => {
-  test.use({ storageState: storageStatePath("hod") });
-
-  test("advances it and notifies the Dean's role", async ({ page }) => {
-    await clearMailbox();
-    await page.goto("/reviews");
-
-    await applicationRow(page).getByRole("link", { name: "Review" }).click();
-
-    await fillReview(
-      page,
-      "9",
-      "The revised submission is complete. Recommending strongly for promotion.",
+    await input(page, "recommendations").fill(
+      "Recommended. The candidate meets the departmental expectations.",
     );
+
     await page.getByTestId("wizard-next").click();
-    await page.getByTestId("outcome-Recommend").click();
+    await page.getByTestId("outcome-Forward to HR").click();
     await expect(page).toHaveURL(/\/reviews$/);
 
-    // The email node addressed to a role must resolve to the Dean's inbox.
+    // The email addressed to a role must resolve to the HR inbox.
     const mail = await waitForEmail((message) =>
       message.Subject.includes("awaits your review"),
     );
-    expect(mail.To).toContain("dean@manipal.edu");
+    expect(mail.To).toContain("hr@manipal.edu");
   });
 });
 
-test.describe("5. the dean approves", () => {
-  test.use({ storageState: storageStatePath("dean") });
+test.describe("3. HR reviews experience and service", () => {
+  test.use({ storageState: storageStatePath("hr") });
 
-  test("reads the earlier review and approves", async ({ page }) => {
+  test("records the service history and forwards to R&C", async ({ page }) => {
+    await clearMailbox();
+
+    await review(page, {
+      outcome: "Forward to R&C",
+      fill: async (page) => {
+        await input(page, "experience_at_mit").fill("9 years 3 months");
+        await input(page, "experience_before_mit").fill("6 years");
+        await input(page, "post_doc_duration").fill("None");
+        await input(page, "total_experience").fill("15 years 3 months");
+        await input(page, "required_experience_years").fill("8");
+
+        await page.getByTestId("wizard-next").click();
+
+        await input(page, "performance_year_1").fill("2023");
+        await selectOption(page, "Grade for year 1", "A++");
+        await input(page, "performance_year_2").fill("2024");
+        await selectOption(page, "Grade for year 2", "A+++");
+        await input(page, "performance_year_3").fill("2025");
+        await selectOption(page, "Grade for year 3", "A++");
+
+        await page.getByTestId("wizard-next").click();
+
+        await page.getByRole("radio", { name: "Yes" }).check();
+        await input(page, "date_of_eligibility").fill("2026-07-01");
+        await input(page, "remarks").fill(
+          "Service record verified. Meets the experience criteria.",
+        );
+      },
+    });
+
+    const mail = await waitForEmail((message) =>
+      message.Subject.includes("awaits your review"),
+    );
+    expect(mail.To).toContain("rc@manipal.edu");
+  });
+});
+
+test.describe("4. R&C evaluates the research", () => {
+  test.use({ storageState: storageStatePath("rc") });
+
+  test("verifies the figures and forwards to FD&W", async ({ page }) => {
+    await clearMailbox();
+
+    await review(page, {
+      outcome: "Forward to FD&W",
+      fill: async (page) => {
+        // HR's answers live in their own namespace and are readable here.
+        await page.getByRole("tab", { name: "Earlier reviews" }).click();
+        await expect(
+          page.getByText("Meets the experience criteria."),
+        ).toBeVisible();
+        await page.getByRole("tab", { name: "Your review" }).click();
+
+        // Every count R&C is asked to verify, addressed by key for the same
+        // reason as the applicant's form.
+        for (const key of [
+          "min_required_scopus_fa_ca",
+          "total_scopus_fa_ca",
+          "min_required_mahe_fa_ca_present_cadre",
+          "total_mahe_fa_ca_present_cadre",
+          "min_required_q1_q2_present_cadre",
+          "total_q1_q2_present_cadre",
+          "top_500_collaborations",
+          "sponsored_rd_equivalent",
+          "patents_equivalent",
+          "phd_guided",
+          "phd_co_guided",
+          "phd_guiding",
+          "phd_co_guiding",
+        ]) {
+          await input(page, key).fill("2");
+        }
+
+        await page.getByTestId("wizard-next").click();
+
+        await page.getByRole("radio", { name: "Yes" }).check();
+        await input(page, "remarks").fill(
+          "Publication record verified against Scopus. Criteria met.",
+        );
+      },
+    });
+
+    const mail = await waitForEmail((message) =>
+      message.Subject.includes("awaits your review"),
+    );
+    expect(mail.To).toContain("fdw@manipal.edu");
+  });
+});
+
+test.describe("5. FD&W completes the formal evaluation", () => {
+  test.use({ storageState: storageStatePath("fdw") });
+
+  test("declares the candidate eligible and sends it back to HR", async ({
+    page,
+  }) => {
+    await clearMailbox();
+
+    await review(page, {
+      outcome: "Forward to HR",
+      fill: async (page) => {
+        await page
+          .getByRole("radio", { name: "Eligible", exact: true })
+          .check();
+        await input(page, "post_eligible_for").fill("Associate Professor");
+        await input(page, "effective_from").fill("2026-07-01");
+        await input(page, "remarks").fill(
+          "Formal evaluation complete. No objections.",
+        );
+      },
+    });
+
+    const mail = await waitForEmail((message) =>
+      message.Subject.includes("awaits your review"),
+    );
+    expect(mail.To).toContain("hr@manipal.edu");
+  });
+});
+
+test.describe("6. HR declares the candidate eligible", () => {
+  test.use({ storageState: storageStatePath("hr") });
+
+  test("sees every earlier verdict before declaring", async ({ page }) => {
     await clearMailbox();
     await page.goto("/reviews");
-
     await applicationRow(page).getByRole("link", { name: "Review" }).click();
 
-    // The HOD's answers live in their own namespace and are visible here.
     await page.getByRole("tab", { name: "Earlier reviews" }).click();
     await expect(
-      page.getByText("Recommending strongly for promotion."),
+      page.getByText("Publication record verified against Scopus."),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Formal evaluation complete. No objections."),
     ).toBeVisible();
 
     await page.getByRole("tab", { name: "Your review" }).click();
-    await fillReview(
-      page,
-      "9",
-      "Endorsed by the department and supported by a strong record. Approved.",
+    await input(page, "effective_from").fill("2026-07-01");
+    await input(page, "remarks").fill(
+      "Eligible on every criterion. Referred to the Director.",
     );
+
     await page.getByTestId("wizard-next").click();
-    await page.getByTestId("outcome-Approve").click();
+    await page.getByTestId("outcome-Eligible").click();
     await expect(page).toHaveURL(/\/reviews$/);
 
     const mail = await waitForEmail((message) =>
+      message.Subject.includes("awaits your review"),
+    );
+    expect(mail.To).toContain("director@manipal.edu");
+  });
+});
+
+test.describe("7. the Director approves", () => {
+  test.use({ storageState: storageStatePath("director") });
+
+  test("approves, and the file goes to Institute HR", async ({ page }) => {
+    await clearMailbox();
+
+    await review(page, {
+      outcome: "Approve",
+      fill: async (page) => {
+        await input(page, "remarks").fill(
+          "Approved. A strong record, endorsed at every stage.",
+        );
+      },
+    });
+
+    const approval = await waitForEmail((message) =>
       message.Subject.includes("approved"),
     );
-    expect(mail.To).toContain("faculty@manipal.edu");
+    expect(approval.To).toContain(APPLICANT_EMAIL);
+
+    const archive = await waitForEmail((message) =>
+      message.Subject.includes("for filing"),
+    );
+    expect(archive.To).toContain("institutehr@manipal.edu");
   });
 
   test("no longer shows it in the queue", async ({ page }) => {
@@ -298,9 +551,13 @@ test.describe("5. the dean approves", () => {
   });
 });
 
-test.describe("6. the outcome is visible to everyone entitled to it", () => {
+/* -------------------------------------------------------------------------- */
+/*  8. The outcome                                                             */
+/* -------------------------------------------------------------------------- */
+
+test.describe("8. the outcome is visible to everyone entitled to it", () => {
   test.describe("to the applicant", () => {
-    test.use({ storageState: storageStatePath("faculty") });
+    test.use({ storageState: storageStatePath("employee") });
 
     test("shows the approved status on the dashboard", async ({ page }) => {
       await page.goto("/dashboard");
@@ -319,7 +576,7 @@ test.describe("6. the outcome is visible to everyone entitled to it", () => {
   });
 
   test.describe("to an overseer", () => {
-    test.use({ storageState: storageStatePath("registrar") });
+    test.use({ storageState: storageStatePath("director") });
 
     test("lists it and records the whole history", async ({ page }) => {
       await page.goto("/applications");
@@ -335,9 +592,10 @@ test.describe("6. the outcome is visible to everyone entitled to it", () => {
       const timeline = page.getByTestId("application-timeline");
       for (const entry of [
         "Submitted",
-        "Returned to applicant",
-        "Send back for changes",
-        "Recommend",
+        "Forward to HR",
+        "Forward to R&C",
+        "Forward to FD&W",
+        "Eligible",
         "Approve",
         "Completed",
       ]) {

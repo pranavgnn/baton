@@ -12,7 +12,11 @@ export const AUDIT_ACTIONS = [
   { key: "auth.signed_out", label: "Signed out", group: "Access" },
   { key: "auth.password_changed", label: "Password changed", group: "Access" },
   { key: "auth.password_reset", label: "Password reset", group: "Access" },
-  { key: "auth.reset_requested", label: "Reset link requested", group: "Access" },
+  {
+    key: "auth.reset_requested",
+    label: "Reset link requested",
+    group: "Access",
+  },
 
   /* Applications ---------------------------------------------------------- */
   {

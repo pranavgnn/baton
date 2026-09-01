@@ -107,7 +107,7 @@ test.describe("audit log", () => {
 });
 
 test.describe("audit log access", () => {
-  test.use({ storageState: storageStatePath("faculty") });
+  test.use({ storageState: storageStatePath("employee") });
 
   test("is closed to someone without the permission", async ({ page }) => {
     const response = await page.goto("/admin/audit");
