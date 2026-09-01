@@ -8,12 +8,12 @@ import {
   ReactFlow,
   ReactFlowProvider,
   addEdge,
+  applyNodeChanges,
   useReactFlow,
   type Connection,
   type Edge,
   type EdgeChange,
   type NodeChange,
-  type XYPosition,
 } from "@xyflow/react";
 import {
   AlertTriangle,
@@ -181,17 +181,6 @@ function WorkflowCanvas({
   const [accepting, setAccepting] = useState(acceptingApplications);
   const [publishedVersion, setPublishedVersion] = useState(version);
   const [savedGraph, setSavedGraph] = useState<WorkflowGraph>(initialGraph);
-  /**
-   * Positions of nodes the user is dragging right now.
-   *
-   * React Flow emits a position change on every animation frame. Writing those
-   * into `graph` re-ran validation and rebuilt every node object mid-drag,
-   * which made the whole canvas flicker and blink out. Live positions are held
-   * here instead and folded into the graph once the pointer is released.
-   */
-  const [dragPositions, setDragPositions] = useState<
-    Record<string, XYPosition>
-  >({});
   const [savedPublished, setSavedPublished] = useState<WorkflowGraph | null>(
     publishedGraph,
   );
@@ -237,7 +226,7 @@ function WorkflowCanvas({
     [graph, savedPublished],
   );
 
-  const flowNodes = useMemo(
+  const derivedNodes = useMemo(
     () => toFlowNodes(graph.nodes, roles, templates, errorNodeIds),
     [graph.nodes, roles, templates, errorNodeIds],
   );
@@ -247,21 +236,37 @@ function WorkflowCanvas({
   );
 
   /**
-   * Nodes as the canvas should draw them right now: the memoised nodes above
-   * with any in-flight drag position laid over the top. Overlaying keeps each
-   * node's `data` object identical while it moves, so the memoised node
-   * components never re-render during a drag.
+   * The node array React Flow actually draws.
+   *
+   * React Flow measures each node on mount and reports the size back as a
+   * change. Discarding those left every node unmeasured, which is exactly what
+   * "trying to drag a node that is not initialized" reports: the drag had no
+   * geometry to work from, so the node and its edges blinked out. Every change
+   * is applied here, and the domain graph below stays a separate concern.
    */
-  const canvasNodes = useMemo(
-    () =>
-      Object.keys(dragPositions).length === 0
-        ? flowNodes
-        : flowNodes.map((node) => {
-            const position = dragPositions[node.id];
-            return position ? { ...node, position } : node;
-          }),
-    [flowNodes, dragPositions],
-  );
+  const [canvasNodes, setCanvasNodes] = useState<BuilderNode[]>(derivedNodes);
+
+  /**
+   * Folds domain edits - a rename, a new validation error, a restored revision
+   * - back onto the canvas while carrying over the bookkeeping React Flow owns
+   * on each node, so a re-render never un-initialises one.
+   */
+  useEffect(() => {
+    setCanvasNodes((current) => {
+      const previous = new Map(current.map((node) => [node.id, node]));
+      return derivedNodes.map((node) => {
+        const prior = previous.get(node.id);
+        return prior
+          ? {
+              ...node,
+              measured: prior.measured,
+              selected: prior.selected,
+              dragging: prior.dragging,
+            }
+          : node;
+      });
+    });
+  }, [derivedNodes]);
 
   const selectedNode =
     graph.nodes.find((node) => node.id === selectedId) ?? null;
@@ -274,20 +279,16 @@ function WorkflowCanvas({
    * hand back a fresh object on every frame and re-render forever.
    */
   const onNodesChange = useCallback((changes: NodeChange<BuilderNode>[]) => {
+    // React Flow owns the live view of the canvas, measurements included.
+    setCanvasNodes((current) => applyNodeChanges(changes, current));
+
     const { moves, removals, settled } = summariseNodeChanges(changes);
     const moved = hasMoves({ moves, removals, settled });
     const removed = new Set(removals);
 
-    if (!moved && removed.size === 0) return;
-
-    if (moved && !settled) {
-      // Still dragging: keep the movement out of the domain graph.
-      setDragPositions((current) => ({ ...current, ...moves }));
-    }
-
-    if (!settled && removed.size === 0) return;
-
-    if (settled) setDragPositions({});
+    // A move only reaches the domain graph once it has come to rest:
+    // committing every frame re-runs validation and rebuilds every node.
+    if (removed.size === 0 && !(moved && settled)) return;
 
     setGraph((current) => {
       const nodes = current.nodes
@@ -483,7 +484,6 @@ function WorkflowCanvas({
     setGraph(restored);
     setSavedGraph(restored);
     setSelectedId(null);
-    setDragPositions({});
     toast.message(`Editing version ${version}`, {
       description: "Publish to make it the live workflow.",
     });
