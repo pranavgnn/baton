@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { isFieldVisible } from "@/lib/workflow/conditions";
+
 import {
   DEFAULT_EMAIL_TEMPLATES,
   DEFAULT_ROLES,
@@ -180,16 +182,84 @@ describe("the seeded applicant form", () => {
     expect(numbered).toHaveLength(17);
   });
 
-  it("does not require the items the paper form makes conditional", () => {
-    const optional = [
-      "sponsored_rd_amount",
-      "sponsored_rd_role",
-      "utility_patents_granted",
-    ];
+  it("leaves the items the paper form makes optional optional", () => {
     const fields = form.sections.flatMap((section) => section.fields);
 
-    for (const key of optional) {
+    for (const key of ["sponsored_rd_amount", "utility_patents_granted"]) {
       expect(fields.find((field) => field.key === key)?.required).toBe(false);
+    }
+  });
+
+  it("asks the tables of the paper form as repeating groups", () => {
+    const fields = form.sections.flatMap((section) => section.fields);
+
+    for (const key of [
+      "qualifications",
+      "previous_appointments",
+      "conferences",
+      "faculty_development",
+    ]) {
+      const group = fields.find((field) => field.key === key);
+      expect(group?.type).toBe("repeater");
+      expect(group?.fields.length).toBeGreaterThan(1);
+    }
+  });
+
+  it("keeps each column of a table typed rather than free text", () => {
+    const fields = form.sections.flatMap((section) => section.fields);
+    const columns = fields.find(
+      (field) => field.key === "qualifications",
+    )!.fields;
+
+    expect(columns.map((column) => [column.key, column.type])).toEqual([
+      ["qualification", "text"],
+      ["institution", "text"],
+      ["year", "number"],
+      ["remarks", "text"],
+    ]);
+  });
+
+  it("asks for a document exactly when the answers call for it", () => {
+    const fields = form.sections.flatMap((section) => section.fields);
+    const proof = fields.find((field) => field.key === "phd_guided_proof")!;
+
+    // "Conditional (if items 11/12 > 0)" on the paper form.
+    expect(proof.required).toBe(false);
+    expect(proof.requiredWhen?.mode).toBe("any");
+    expect(
+      proof.requiredWhen?.rules.map((rule) => [rule.field, rule.operator]),
+    ).toEqual([
+      ["phd_guided", "greaterThan"],
+      ["phd_co_guided", "greaterThan"],
+    ]);
+
+    // Nothing conditional is asked for before its condition holds.
+    expect(isFieldVisible(proof, { phd_guided: 0, phd_co_guided: 0 })).toBe(
+      false,
+    );
+    expect(isFieldVisible(proof, { phd_guided: 2, phd_co_guided: 0 })).toBe(
+      true,
+    );
+  });
+
+  it("never points a rule at a question that is not on the form", () => {
+    // The same check publishing makes, run against what the seed produces.
+    const keys = new Set(
+      form.sections.flatMap((section) =>
+        section.fields.map((field) => field.key),
+      ),
+    );
+
+    for (const section of form.sections) {
+      for (const field of section.fields) {
+        const rules = [
+          ...(field.visibleWhen?.rules ?? []),
+          ...(field.requiredWhen?.rules ?? []),
+        ];
+        for (const rule of rules) {
+          expect(keys.has(rule.field)).toBe(true);
+        }
+      }
     }
   });
 
