@@ -31,6 +31,8 @@ export function createField(
     validation: {},
     width: "full",
     fields: [],
+    visibleWhen: null,
+    requiredWhen: null,
     ...overrides,
   };
 }

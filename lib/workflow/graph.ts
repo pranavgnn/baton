@@ -1,5 +1,6 @@
 import {
   DEFAULT_SOURCE_HANDLE,
+  type AnyField,
   type EmailNode,
   type EndNode,
   type StageNode,
@@ -179,6 +180,34 @@ function checkHandleFanOut(
   return [];
 }
 
+/**
+ * Rules on a field that name an answer the scope does not hold.
+ *
+ * A field's rules may only reference its siblings: the other questions of the
+ * same form, or the other columns of the same entry. Anything else silently
+ * never matches.
+ */
+function danglingConditions(
+  field: AnyField,
+  availableKeys: Set<string>,
+): string[] {
+  const messages: string[] = [];
+
+  for (const [what, group] of [
+    ["shown", field.visibleWhen],
+    ["required", field.requiredWhen],
+  ] as const) {
+    for (const rule of group?.rules ?? []) {
+      if (availableKeys.has(rule.field)) continue;
+      messages.push(
+        `"${field.label}" is ${what} based on "${rule.field}", which is not a question on the same form.`,
+      );
+    }
+  }
+
+  return messages;
+}
+
 export type GraphIssue = {
   severity: "error" | "warning";
   nodeId?: string;
@@ -285,6 +314,26 @@ export function validateGraph(
           }
         }
       }
+      // A rule pointing at a question that no longer exists never matches,
+      // which would quietly hide a field or drop a requirement.
+      for (const section of node.data.form.sections) {
+        for (const field of section.fields) {
+          for (const message of danglingConditions(field, keys)) {
+            issues.push({ severity: "error", nodeId: node.id, message });
+          }
+
+          if (field.type !== "repeater") continue;
+          const columnKeys = new Set(
+            (field.fields ?? []).map((column) => column.key),
+          );
+          for (const column of field.fields ?? []) {
+            for (const message of danglingConditions(column, columnKeys)) {
+              issues.push({ severity: "error", nodeId: node.id, message });
+            }
+          }
+        }
+      }
+
       seenKeysByNode.set(node.id, keys);
     }
 

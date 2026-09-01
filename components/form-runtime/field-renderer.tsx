@@ -1,6 +1,11 @@
 "use client";
 
-import { Controller, type Control, type FieldValues } from "react-hook-form";
+import {
+  Controller,
+  useWatch,
+  type Control,
+  type FieldValues,
+} from "react-hook-form";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -19,6 +24,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  conditionDependencies,
+  isFieldRequired,
+  isFieldVisible,
+} from "@/lib/workflow/conditions";
 import type { AnyField, FileValue } from "@/lib/workflow/types";
 import { cn } from "@/lib/utils";
 import { FileField } from "./file-field";
@@ -48,6 +58,29 @@ export function FieldRenderer({
 }: FieldRendererProps) {
   const path = name ?? field.key;
 
+  /**
+   * A rule names a sibling: another field of the same form, or another column
+   * of the same entry. The scope is therefore whatever `path` sits inside, so
+   * `qualifications.0.year` looks for `qualifications.0.<key>`.
+   */
+  const scopePrefix = path.slice(0, path.lastIndexOf(".") + 1);
+  const dependencies = conditionDependencies(field);
+
+  const watched = useWatch({
+    control,
+    name: dependencies.map((key) => `${scopePrefix}${key}`),
+  }) as unknown[];
+
+  const scope: Record<string, unknown> = {};
+  dependencies.forEach((key, index) => {
+    scope[key] = watched[index];
+  });
+
+  const visible = isFieldVisible(field, scope);
+  const required = isFieldRequired(field, scope);
+
+  if (!visible) return null;
+
   if (field.type === "heading") {
     return (
       <h3 className="col-span-full text-base font-semibold first:mt-0">
@@ -71,7 +104,7 @@ export function FieldRenderer({
       <Field className="col-span-full" data-testid={`field-${path}`}>
         <FieldLabel htmlFor={inputId}>
           {field.label}
-          {field.required ? (
+          {required ? (
             <span aria-hidden className="text-destructive">
               *
             </span>
@@ -108,7 +141,7 @@ export function FieldRenderer({
             {field.type === "checkbox" ? null : (
               <FieldLabel htmlFor={inputId}>
                 {field.label}
-                {field.required ? (
+                {required ? (
                   <span aria-hidden className="text-destructive">
                     *
                   </span>
@@ -226,7 +259,7 @@ export function FieldRenderer({
                   />
                   <span>
                     {field.label}
-                    {field.required ? (
+                    {required ? (
                       <span aria-hidden className="text-destructive">
                         {" "}
                         *
