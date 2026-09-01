@@ -1,12 +1,8 @@
 "use client";
 
-import Link from "@tiptap/extension-link";
-import TextAlign from "@tiptap/extension-text-align";
-import Underline from "@tiptap/extension-underline";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
 
-import { EmailButton } from "@/components/email-button-extension";
+import { richTextExtensions } from "@/components/rich-text-extensions";
 import {
   AlignCenter,
   AlignLeft,
@@ -55,13 +51,7 @@ export function RichTextEditor({
   const editor = useEditor({
     // Tiptap renders on the client only; SSR would mismatch on hydration.
     immediatelyRender: false,
-    extensions: [
-      StarterKit.configure({ link: false, underline: false }),
-      Underline,
-      Link.configure({ openOnClick: false, autolink: true }),
-      TextAlign.configure({ types: ["heading", "paragraph"] }),
-      EmailButton,
-    ],
+    extensions: richTextExtensions(),
     content: value,
     editorProps: {
       attributes: {
