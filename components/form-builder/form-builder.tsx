@@ -38,6 +38,7 @@ import {
   PenTool,
   Phone,
   Plus,
+  Rows3,
   Text,
   Trash2,
   Type,
@@ -154,6 +155,13 @@ const FIELD_PALETTE: {
     description: "Upload document or media file",
   },
   {
+    type: "repeater",
+    label: "Repeating group",
+    icon: Rows3,
+    group: "Layout",
+    description: "A set of columns filled in once per entry",
+  },
+  {
     type: "heading",
     label: "Heading",
     icon: Heading,
@@ -267,6 +275,17 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
           ]
         : [],
       validation: type === "file" ? { maxFileSizeMb: 10, maxFiles: 1 } : {},
+      // A group with no columns cannot be published, so it starts with one.
+      fields:
+        type === "repeater"
+          ? [
+              createField({
+                type: "text",
+                label: "Column 1",
+                key: "column_1",
+              }),
+            ]
+          : [],
     });
 
     updateSection(activeSection.id, {

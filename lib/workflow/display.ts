@@ -1,9 +1,13 @@
-import { isFileValue } from "./form";
+import { isFileValue, valueColumns } from "./form";
 import {
   isDisplayField,
+  isRowArray,
+  type AnyField,
+  type ColumnField,
   type FileValue,
   type FormField,
   type FormSchema,
+  type RowValue,
   type SectionData,
 } from "./types";
 
@@ -13,11 +17,32 @@ const dateFormatter = new Intl.DateTimeFormat("en-IN", {
   year: "numeric",
 });
 
+/** One entry of a repeating group, ready to render as a labelled list. */
+export type DisplayRow = {
+  cells: { field: ColumnField; value: DisplayValue }[];
+};
+
 export type DisplayValue =
-  { kind: "text"; value: string } | { kind: "files"; files: FileValue[] };
+  | { kind: "text"; value: string }
+  | { kind: "files"; files: FileValue[] }
+  | { kind: "rows"; rows: DisplayRow[] };
 
 /** Turns a stored answer into something readable for previews and reviews. */
-export function displayValue(field: FormField, raw: unknown): DisplayValue {
+export function displayValue(field: AnyField, raw: unknown): DisplayValue {
+  if (field.type === "repeater") {
+    const rows = isRowArray(raw) ? (raw as RowValue[]) : [];
+    const columns = valueColumns(field);
+    return {
+      kind: "rows",
+      rows: rows.map((row) => ({
+        cells: columns.map((column) => ({
+          field: column,
+          value: displayValue(column, row[column.key]),
+        })),
+      })),
+    };
+  }
+
   if (field.type === "file") {
     const files = Array.isArray(raw)
       ? raw.filter(isFileValue)

@@ -8,9 +8,58 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { buildPreview } from "@/lib/workflow/display";
+import { buildPreview, type DisplayValue } from "@/lib/workflow/display";
 import type { FormSchema, SectionData } from "@/lib/workflow/types";
 import { formatBytes } from "@/lib/format";
+
+/** Renders one answer, whatever shape it turned out to be. */
+function PreviewValue({ value }: { value: DisplayValue }) {
+  if (value.kind === "files") {
+    if (value.files.length === 0) return "-";
+    return (
+      <ul className="flex flex-col gap-1">
+        {value.files.map((file) => (
+          <li key={file.id}>
+            <a
+              href={`/api/files/${file.id}?inline=1`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline"
+            >
+              <Paperclip className="size-3.5" />
+              {file.name}
+              <span className="text-xs text-muted-foreground">
+                ({formatBytes(file.size)})
+              </span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (value.kind === "rows") {
+    if (value.rows.length === 0) return "-";
+    return (
+      <ol className="flex flex-col gap-2">
+        {value.rows.map((row, index) => (
+          <li key={index} className="repeater-entry">
+            {row.cells.map((cell) => (
+              <span key={cell.field.id} className="text-sm">
+                <span className="text-muted-foreground">
+                  {cell.field.label}:{" "}
+                </span>
+                <PreviewValue value={cell.value} />
+              </span>
+            ))}
+          </li>
+        ))}
+      </ol>
+    );
+  }
+
+  return value.value;
+}
 
 export type FormPreviewProps = {
   form: FormSchema;
@@ -51,32 +100,7 @@ export function FormPreview({
                   <div key={field.id} className="preview-row">
                     <dt className="preview-label">{field.label}</dt>
                     <dd className="preview-value">
-                      {value.kind === "files" ? (
-                        value.files.length === 0 ? (
-                          "-"
-                        ) : (
-                          <ul className="flex flex-col gap-1">
-                            {value.files.map((file) => (
-                              <li key={file.id}>
-                                <a
-                                  href={`/api/files/${file.id}?inline=1`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 underline-offset-2 hover:underline"
-                                >
-                                  <Paperclip className="size-3.5" />
-                                  {file.name}
-                                  <span className="text-xs text-muted-foreground">
-                                    ({formatBytes(file.size)})
-                                  </span>
-                                </a>
-                              </li>
-                            ))}
-                          </ul>
-                        )
-                      ) : (
-                        value.value
-                      )}
+                      <PreviewValue value={value} />
                     </dd>
                   </div>
                 ))}

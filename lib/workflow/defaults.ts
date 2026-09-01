@@ -30,8 +30,27 @@ export function createField(
     options: [],
     validation: {},
     width: "full",
+    fields: [],
     ...overrides,
   };
+}
+
+/**
+ * A repeating group and the columns one entry of it carries.
+ *
+ * Columns are ordinary fields, so each keeps its own type and validation - a
+ * year is a number, a date is a date - which is the whole point of repeating a
+ * group rather than asking for a block of text.
+ */
+export function createRepeater(
+  overrides: Partial<FormField> & Pick<FormField, "label" | "key">,
+  columns: FormField[],
+): FormField {
+  return createField({
+    type: "repeater",
+    ...overrides,
+    fields: columns,
+  });
 }
 
 export function createSection(

@@ -227,6 +227,36 @@
     @apply flex flex-col gap-6;
   }
 
+  /* Repeating groups ---------------------------------------------------- */
+  .field-grid {
+    @apply grid gap-5 sm:grid-cols-2;
+  }
+
+  .repeater {
+    @apply flex flex-col gap-3;
+  }
+
+  .repeater-rows {
+    @apply flex flex-col gap-3;
+  }
+
+  .repeater-row {
+    @apply flex flex-col gap-4 rounded-lg border bg-card/60 p-4;
+  }
+
+  .repeater-row-header {
+    @apply flex items-center justify-between gap-2 border-b pb-2;
+  }
+
+  .repeater-row-number {
+    @apply text-xs font-medium tracking-wide text-muted-foreground uppercase;
+  }
+
+  /* One entry as it reads back on a preview or a reviewer's screen. */
+  .repeater-entry {
+    @apply flex flex-col gap-1 rounded-md border p-3;
+  }
+
   .form-stack {
     @apply flex flex-col gap-5;
   }
