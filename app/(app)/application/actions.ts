@@ -11,6 +11,7 @@ import {
   refreshDraftToPublished,
 } from "@/lib/applications/service";
 import { advanceApplication } from "@/lib/applications/transition";
+import { recordAudit } from "@/lib/audit/record";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import {
@@ -54,9 +55,10 @@ export async function startApplication(): Promise<
     }
 
     const id = crypto.randomUUID();
+    const reference = await nextReference();
     await db.insert(application).values({
       id,
-      reference: await nextReference(),
+      reference,
       applicantId: current.id,
       status: "draft",
       graph: published.graph,
@@ -75,6 +77,16 @@ export async function startApplication(): Promise<
       actorName: current.name,
       note: "Application started.",
       detail: {},
+    });
+
+    await recordAudit({
+      action: "application.created",
+      actor: current,
+      summary: `Started promotion application ${reference}.`,
+      targetType: "application",
+      targetId: id,
+      targetLabel: reference,
+      applicationId: id,
     });
 
     revalidatePath("/application");
@@ -125,6 +137,16 @@ export async function saveApplicationDraft(
       collectFiles(start.data.form, pruned).map((f) => f.id),
     );
 
+    await recordAudit({
+      action: "application.draft_saved",
+      actor: current,
+      summary: `Saved a draft of application ${app.reference}.`,
+      targetType: "application",
+      targetId: app.id,
+      targetLabel: app.reference,
+      applicationId: app.id,
+    });
+
     return ok();
   } catch (error) {
     return failFrom(error);
@@ -142,6 +164,16 @@ export async function clearApplicationDraft(): Promise<ActionResult> {
       .update(application)
       .set({ data: { ...app.data, [APPLICANT_NAMESPACE]: {} } })
       .where(eq(application.id, app.id));
+
+    await recordAudit({
+      action: "application.draft_discarded",
+      actor: current,
+      summary: `Cleared the answers on application ${app.reference}.`,
+      targetType: "application",
+      targetId: app.id,
+      targetLabel: app.reference,
+      applicationId: app.id,
+    });
 
     revalidatePath("/application");
     return ok();
@@ -188,6 +220,17 @@ export async function submitApplication(
     });
 
     if (!result.ok) return fail(result.error);
+
+    await recordAudit({
+      action: "application.submitted",
+      actor: current,
+      summary: `Submitted application ${app.reference}, now with ${result.destinationLabel}.`,
+      targetType: "application",
+      targetId: app.id,
+      targetLabel: app.reference,
+      applicationId: app.id,
+      detail: { status: result.status, destination: result.destinationLabel },
+    });
 
     revalidatePath("/application");
     revalidatePath("/dashboard");

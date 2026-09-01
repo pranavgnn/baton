@@ -169,6 +169,7 @@ export const DEFAULT_ROLES = [
       "workflow.manage",
       "templates.manage",
       "applications.viewAll",
+      "audit.view",
     ],
     isSystem: false,
   },

@@ -10,6 +10,7 @@ import {
   type ApplicationWithApplicant,
 } from "@/lib/applications/service";
 import { advanceApplication } from "@/lib/applications/transition";
+import { recordAudit } from "@/lib/audit/record";
 import { requirePermissionAction, type CurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { stageDraft } from "@/lib/db/schema";
@@ -84,6 +85,17 @@ export async function saveStageDraft(
       });
     }
 
+    await recordAudit({
+      action: "application.stage_draft_saved",
+      actor: current,
+      summary: `Saved review notes on ${loaded.app.reference} at ${loaded.node.data.label}.`,
+      targetType: "application",
+      targetId: applicationId,
+      targetLabel: loaded.app.reference,
+      applicationId,
+      detail: { stage: loaded.node.data.label },
+    });
+
     return ok();
   } catch (error) {
     return failFrom(error);
@@ -157,6 +169,22 @@ export async function completeStage(
     });
 
     if (!result.ok) return fail(result.error);
+
+    await recordAudit({
+      action: "application.reviewed",
+      actor: current,
+      summary: `Completed ${node.data.label} on ${app.reference} with outcome "${outcome.label}".`,
+      targetType: "application",
+      targetId: applicationId,
+      targetLabel: app.reference,
+      applicationId,
+      detail: {
+        stage: node.data.label,
+        outcome: outcome.label,
+        status: result.status,
+        destination: result.destinationLabel,
+      },
+    });
 
     // The stage is done; the per-reviewer scratch copy is no longer needed.
     await db

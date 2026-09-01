@@ -2,6 +2,8 @@
 
 import { and, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+
+import { recordAudit } from "@/lib/audit/record";
 import { z } from "zod";
 
 import {
@@ -51,7 +53,7 @@ export async function createTemplate(
   input: TemplateInput,
 ): Promise<ActionResult<{ id: string }>> {
   try {
-    await requirePermissionAction("templates.manage");
+    const current = await requirePermissionAction("templates.manage");
 
     const parsed = parseInput(templateInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
@@ -72,6 +74,15 @@ export async function createTemplate(
       bodyJson: (parsed.data.bodyJson as EmailTemplateDoc) ?? null,
     });
 
+    await recordAudit({
+      action: "template.created",
+      actor: current,
+      summary: `Created the email template "${parsed.data.name}".`,
+      targetType: "template",
+      targetId: id,
+      targetLabel: parsed.data.name,
+    });
+
     revalidatePath("/admin/templates");
     return ok({ id });
   } catch (error) {
@@ -84,7 +95,7 @@ export async function updateTemplate(
   input: TemplateInput,
 ): Promise<ActionResult> {
   try {
-    await requirePermissionAction("templates.manage");
+    const current = await requirePermissionAction("templates.manage");
 
     const parsed = parseInput(templateInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
@@ -111,6 +122,19 @@ export async function updateTemplate(
       })
       .where(eq(emailTemplate.id, id));
 
+    await recordAudit({
+      action: "template.updated",
+      actor: current,
+      summary: `Updated the email template "${parsed.data.name}".`,
+      targetType: "template",
+      targetId: id,
+      targetLabel: parsed.data.name,
+      detail: {
+        renamedFrom:
+          existing.name === parsed.data.name ? undefined : existing.name,
+      },
+    });
+
     revalidatePath("/admin/templates");
     return ok();
   } catch (error) {
@@ -120,7 +144,11 @@ export async function updateTemplate(
 
 export async function deleteTemplate(id: string): Promise<ActionResult> {
   try {
-    await requirePermissionAction("templates.manage");
+    const current = await requirePermissionAction("templates.manage");
+
+    const existing = await db.query.emailTemplate.findFirst({
+      where: eq(emailTemplate.id, id),
+    });
 
     const flow = await db.query.workflow.findFirst({
       where: eq(workflow.id, SINGLETON_WORKFLOW_ID),
@@ -138,6 +166,15 @@ export async function deleteTemplate(id: string): Promise<ActionResult> {
     }
 
     await db.delete(emailTemplate).where(eq(emailTemplate.id, id));
+
+    await recordAudit({
+      action: "template.deleted",
+      actor: current,
+      summary: `Deleted the email template "${existing?.name ?? id}".`,
+      targetType: "template",
+      targetId: id,
+      targetLabel: existing?.name,
+    });
 
     revalidatePath("/admin/templates");
     return ok();
@@ -180,6 +217,15 @@ export async function sendTestEmail(input: {
 
     if (!result.ok)
       return fail(`Could not send the test email: ${result.error}`);
+
+    await recordAudit({
+      action: "template.test_sent",
+      actor: current,
+      summary: `Sent a test email to ${current.email}.`,
+      targetType: "template",
+      detail: { subject: input.subject },
+    });
+
     return ok();
   } catch (error) {
     return failFrom(error);

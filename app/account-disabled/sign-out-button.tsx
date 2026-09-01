@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { signOut } from "@/lib/auth/client";
+import { signOutAndRecord } from "@/lib/audit/session";
 
 /**
  * The only way off this page.
@@ -20,7 +20,7 @@ export function SignOutButton() {
 
   async function handleSignOut() {
     setBusy(true);
-    await signOut();
+    await signOutAndRecord();
     router.push("/sign-in");
     router.refresh();
   }

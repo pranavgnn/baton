@@ -2,6 +2,8 @@
 
 import { and, count, desc, eq, ne } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+
+import { recordAudit } from "@/lib/audit/record";
 import { z } from "zod";
 
 import {
@@ -47,7 +49,7 @@ async function assertNameFree(name: string, excludeId?: string) {
 
 export async function createRole(input: RoleInput): Promise<ActionResult> {
   try {
-    await requirePermissionAction("roles.manage");
+    const current = await requirePermissionAction("roles.manage");
 
     const parsed = parseInput(roleInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
@@ -75,6 +77,15 @@ export async function createRole(input: RoleInput): Promise<ActionResult> {
       isSystem: false,
     });
 
+    await recordAudit({
+      action: "role.created",
+      actor: current,
+      summary: `Created the role "${parsed.data.name}".`,
+      targetType: "role",
+      targetLabel: parsed.data.name,
+      detail: { permissions: parsed.data.permissions },
+    });
+
     revalidatePath("/admin/roles");
     return ok();
   } catch (error) {
@@ -87,7 +98,7 @@ export async function updateRole(
   input: RoleInput,
 ): Promise<ActionResult> {
   try {
-    await requirePermissionAction("roles.manage");
+    const current = await requirePermissionAction("roles.manage");
 
     const parsed = parseInput(roleInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
@@ -116,6 +127,16 @@ export async function updateRole(
       })
       .where(eq(role.id, id));
 
+    await recordAudit({
+      action: "role.updated",
+      actor: current,
+      summary: `Updated the role "${parsed.data.name}".`,
+      targetType: "role",
+      targetId: id,
+      targetLabel: parsed.data.name,
+      detail: { permissions },
+    });
+
     revalidatePath("/admin/roles");
     revalidatePath("/admin/users");
     return ok();
@@ -133,7 +154,7 @@ export async function reorderRoles(
   orderedIds: string[],
 ): Promise<ActionResult> {
   try {
-    await requirePermissionAction("roles.manage");
+    const current = await requirePermissionAction("roles.manage");
 
     const existing = await db.select({ id: role.id }).from(role);
     const known = new Set(existing.map((row) => row.id));
@@ -152,6 +173,14 @@ export async function reorderRoles(
       }
     });
 
+    await recordAudit({
+      action: "role.reordered",
+      actor: current,
+      summary: "Changed the order of the roles, and with it the default role.",
+      targetType: "role",
+      detail: { order: orderedIds },
+    });
+
     revalidatePath("/admin/roles");
     revalidatePath("/admin/users");
     return ok();
@@ -162,7 +191,7 @@ export async function reorderRoles(
 
 export async function deleteRole(id: string): Promise<ActionResult> {
   try {
-    await requirePermissionAction("roles.manage");
+    const current = await requirePermissionAction("roles.manage");
 
     const existing = await db.query.role.findFirst({ where: eq(role.id, id) });
     if (!existing) return fail("That role no longer exists.");
@@ -217,6 +246,15 @@ export async function deleteRole(id: string): Promise<ActionResult> {
     }
 
     await db.delete(role).where(eq(role.id, id));
+
+    await recordAudit({
+      action: "role.deleted",
+      actor: current,
+      summary: `Deleted the role "${existing.name}".`,
+      targetType: "role",
+      targetId: id,
+      targetLabel: existing.name,
+    });
 
     revalidatePath("/admin/roles");
     return ok();

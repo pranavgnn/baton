@@ -29,6 +29,13 @@
       "when": 1788263842738,
       "tag": "0003_perpetual_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788286196357,
+      "tag": "0004_bouncy_selene",
+      "breakpoints": true
     }
   ]
 }

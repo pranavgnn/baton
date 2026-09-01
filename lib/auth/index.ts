@@ -1,8 +1,10 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
 import { eq } from "drizzle-orm";
 
+import { recordAudit } from "@/lib/audit/record";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { env } from "@/lib/env";
@@ -59,6 +61,21 @@ export const auth = betterAuth({
         url,
         expiresInHours: RESET_TOKEN_TTL_SECONDS / 3600,
       });
+
+      await recordAudit({
+        action: "auth.reset_requested",
+        actor: {
+          id: authUser.id,
+          name: authUser.name || authUser.email,
+          email: authUser.email,
+        },
+        summary: isActivated
+          ? `A password reset link was sent to ${authUser.email}.`
+          : `An activation link was sent to ${authUser.email}.`,
+        targetType: "user",
+        targetId: authUser.id,
+        targetLabel: authUser.email,
+      });
     },
     /**
      * Completing a reset is what activates a provisioned account, which is the
@@ -69,6 +86,19 @@ export const auth = betterAuth({
         .update(schema.user)
         .set({ activated: true, emailVerified: true })
         .where(eq(schema.user.id, authUser.id));
+
+      await recordAudit({
+        action: "auth.password_reset",
+        actor: {
+          id: authUser.id,
+          name: authUser.name || authUser.email,
+          email: authUser.email,
+        },
+        summary: `${authUser.email} set a new password from an emailed link.`,
+        targetType: "user",
+        targetId: authUser.id,
+        targetLabel: authUser.email,
+      });
     },
   },
 
@@ -100,6 +130,35 @@ export const auth = betterAuth({
 
   advanced: {
     database: { generateId: () => crypto.randomUUID() },
+  },
+
+  hooks: {
+    /**
+     * Sign-in is the one access event the portal never sees for itself: the
+     * browser talks straight to Better Auth. The new session is on the context
+     * once the endpoint has run, which is who to credit. Signing out and
+     * changing a password are recorded in `lib/audit/session.ts`, where there
+     * is still - or again - a session to identify.
+     */
+    after: createAuthMiddleware(async (ctx) => {
+      if (!ctx.path.startsWith("/sign-in")) return;
+
+      const session = ctx.context.newSession;
+      if (!session) return;
+
+      await recordAudit({
+        action: "auth.signed_in",
+        actor: {
+          id: session.user.id,
+          name: session.user.name || session.user.email,
+          email: session.user.email,
+        },
+        summary: `${session.user.name || session.user.email} signed in.`,
+        targetType: "user",
+        targetId: session.user.id,
+        targetLabel: session.user.email,
+      });
+    }),
   },
 
   plugins: [nextCookies()],

@@ -9,6 +9,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
     "workflow.manage",
     "forms.manage",
     "templates.manage",
+    "audit.view",
   ]);
 
   const tabs: AdminTab[] = [{ href: "/admin", label: "Overview" }];
@@ -23,6 +24,9 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   }
   if (canAny(current, ["roles.manage"])) {
     tabs.push({ href: "/admin/roles", label: "Roles" });
+  }
+  if (canAny(current, ["audit.view"])) {
+    tabs.push({ href: "/admin/audit", label: "Audit log" });
   }
 
   return (

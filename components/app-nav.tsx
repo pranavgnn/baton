@@ -35,7 +35,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet";
-import { signOut } from "@/lib/auth/client";
+import { signOutAndRecord } from "@/lib/audit/session";
 import { cn } from "@/lib/utils";
 
 export type NavLink = {
@@ -67,7 +67,7 @@ export function AppNav({ links, user }: AppNavProps) {
     pathname === href || pathname.startsWith(`${href}/`);
 
   async function handleSignOut() {
-    await signOut();
+    await signOutAndRecord();
     router.push("/sign-in");
     router.refresh();
   }

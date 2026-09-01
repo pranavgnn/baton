@@ -11,6 +11,7 @@ import {
   parseInput,
   type ActionResult,
 } from "@/lib/actions";
+import { recordAudit } from "@/lib/audit/record";
 import { grants } from "@/lib/auth/permissions";
 import {
   requireAnyPermissionAction,
@@ -106,6 +107,17 @@ export async function saveWorkflowDraft(
 
     const issues = validateGraph(parsed.data.graph, await validationContext());
 
+    await recordAudit({
+      action: "workflow.draft_saved",
+      actor: current,
+      summary: "Saved the workflow draft.",
+      targetType: "workflow",
+      detail: {
+        steps: parsed.data.graph.nodes.length,
+        problems: issues.filter((i) => i.severity === "error").length,
+      },
+    });
+
     revalidatePath("/admin/workflow");
     revalidatePath("/admin");
     return ok({ issues: issues.filter((i) => i.severity === "error").length });
@@ -173,6 +185,15 @@ export async function publishWorkflow(
       createdAt: publishedAt,
     });
 
+    await recordAudit({
+      action: "workflow.published",
+      actor: current,
+      summary: `Published workflow version ${version}.`,
+      targetType: "workflow",
+      targetLabel: `Version ${version}`,
+      detail: { version, memo: parsed.data.memo || null },
+    });
+
     revalidatePath("/admin/workflow");
     revalidatePath("/admin");
     revalidatePath("/application");
@@ -187,7 +208,7 @@ export async function revertWorkflowDraft(): Promise<
   ActionResult<{ graph: WorkflowGraph }>
 > {
   try {
-    await requirePermissionAction("workflow.manage");
+    const current = await requirePermissionAction("workflow.manage");
 
     const existing = await currentWorkflow();
     if (!existing?.publishedGraph) {
@@ -198,6 +219,14 @@ export async function revertWorkflowDraft(): Promise<
       .update(workflow)
       .set({ graph: existing.publishedGraph })
       .where(eq(workflow.id, SINGLETON_WORKFLOW_ID));
+
+    await recordAudit({
+      action: "workflow.reverted",
+      actor: current,
+      summary: `Discarded the draft and returned to published version ${existing.version}.`,
+      targetType: "workflow",
+      detail: { version: existing.version },
+    });
 
     revalidatePath("/admin/workflow");
     return ok({ graph: existing.publishedGraph });
@@ -214,7 +243,7 @@ export async function restoreWorkflowVersion(
   version: number,
 ): Promise<ActionResult<{ graph: WorkflowGraph }>> {
   try {
-    await requirePermissionAction("workflow.manage");
+    const current = await requirePermissionAction("workflow.manage");
 
     const revision = await db.query.workflowVersion.findFirst({
       where: and(
@@ -228,6 +257,15 @@ export async function restoreWorkflowVersion(
       .update(workflow)
       .set({ graph: revision.graph })
       .where(eq(workflow.id, SINGLETON_WORKFLOW_ID));
+
+    await recordAudit({
+      action: "workflow.version_restored",
+      actor: current,
+      summary: `Loaded version ${version} onto the canvas as the draft.`,
+      targetType: "workflow",
+      targetLabel: `Version ${version}`,
+      detail: { version },
+    });
 
     revalidatePath("/admin/workflow");
     return ok({ graph: revision.graph });
@@ -248,7 +286,7 @@ export async function deleteWorkflowVersion(
   version: number,
 ): Promise<ActionResult> {
   try {
-    await requirePermissionAction("workflow.manage");
+    const actor = await requirePermissionAction("workflow.manage");
 
     const [current, revision] = await Promise.all([
       currentWorkflow(),
@@ -277,6 +315,15 @@ export async function deleteWorkflowVersion(
           eq(workflowVersion.version, version),
         ),
       );
+
+    await recordAudit({
+      action: "workflow.version_deleted",
+      actor,
+      summary: `Deleted workflow version ${version} from the history.`,
+      targetType: "workflow",
+      targetLabel: `Version ${version}`,
+      detail: { version, memo: revision.memo },
+    });
 
     revalidatePath("/admin/workflow");
     return ok();
@@ -328,7 +375,7 @@ export async function setAcceptingApplications(
   accepting: boolean,
 ): Promise<ActionResult> {
   try {
-    await requirePermissionAction("workflow.manage");
+    const current = await requirePermissionAction("workflow.manage");
 
     const existing = await currentWorkflow();
     if (!existing) return fail("The workflow has not been created yet.");
@@ -340,6 +387,17 @@ export async function setAcceptingApplications(
       .update(workflow)
       .set({ acceptingApplications: accepting })
       .where(eq(workflow.id, SINGLETON_WORKFLOW_ID));
+
+    await recordAudit({
+      action: accepting
+        ? "workflow.applications_opened"
+        : "workflow.applications_closed",
+      actor: current,
+      summary: accepting
+        ? "Opened the portal to new applications."
+        : "Closed the portal to new applications.",
+      targetType: "workflow",
+    });
 
     revalidatePath("/admin/workflow");
     revalidatePath("/admin");

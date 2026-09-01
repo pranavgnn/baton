@@ -411,6 +411,53 @@ export const applicationFile = pgTable(
 );
 
 /* -------------------------------------------------------------------------- */
+/*  Audit log                                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Append-only record of everything anyone does in the portal.
+ *
+ * The actor is denormalised alongside the foreign key on purpose: an account
+ * can be removed from the whitelist, and the record of what it did must
+ * outlive it. For the same reason `applicationId` is a plain column - deleting
+ * an application must not take its history with it.
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: text("id").primaryKey(),
+    /** A key from `lib/audit/actions.ts`, e.g. `application.submitted`. */
+    action: text("action").notNull(),
+    actorId: text("actor_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    actorName: text("actor_name"),
+    actorEmail: text("actor_email"),
+    /** What was acted on: `user`, `role`, `application`, `workflow`, ... */
+    targetType: text("target_type"),
+    targetId: text("target_id"),
+    /** Human-readable name of the target as it was at the time. */
+    targetLabel: text("target_label"),
+    applicationId: text("application_id"),
+    /** One line describing the event, ready to show in the table. */
+    summary: text("summary").notNull(),
+    detail: jsonb("detail")
+      .$type<Record<string, unknown>>()
+      .notNull()
+      .default(sql`'{}'::jsonb`),
+    ipAddress: text("ip_address"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("audit_log_created_at_idx").on(table.createdAt),
+    index("audit_log_action_idx").on(table.action),
+    index("audit_log_actor_id_idx").on(table.actorId),
+    index("audit_log_application_id_idx").on(table.applicationId),
+  ],
+);
+
+/* -------------------------------------------------------------------------- */
 /*  Relations                                                                  */
 /* -------------------------------------------------------------------------- */
 
@@ -488,4 +535,5 @@ export type Application = typeof application.$inferSelect;
 export type ApplicationEvent = typeof applicationEvent.$inferSelect;
 export type ApplicationFile = typeof applicationFile.$inferSelect;
 export type StageDraft = typeof stageDraft.$inferSelect;
+export type AuditLog = typeof auditLog.$inferSelect;
 export type ApplicationStatus = (typeof applicationStatus.enumValues)[number];
