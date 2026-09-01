@@ -164,11 +164,13 @@ export const userRole = pgTable(
 /*  Workflow (single global definition)                                        */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The one workflow the portal runs. There is a single row, so it carries no
+ * name or description of its own - there is nothing to tell it apart from.
+ */
 export const workflow = pgTable("workflow", {
   /** Always `SINGLETON_WORKFLOW_ID` - the portal runs one common workflow. */
   id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
   /** Editable draft graph. */
   graph: jsonb("graph").$type<WorkflowGraph>().notNull(),
   /** Immutable copy applications are started against. Null until published. */
@@ -188,6 +190,38 @@ export const workflow = pgTable("workflow", {
     .$onUpdate(() => new Date())
     .notNull(),
 });
+
+/**
+ * Every published revision, newest version number highest. Restoring an old
+ * revision loads it back onto the canvas as the draft; it only goes live when
+ * an admin publishes again, which writes a further row here.
+ */
+export const workflowVersion = pgTable(
+  "workflow_version",
+  {
+    id: text("id").primaryKey(),
+    workflowId: text("workflow_id")
+      .notNull()
+      .references(() => workflow.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    graph: jsonb("graph").$type<WorkflowGraph>().notNull(),
+    /** Optional note the publisher left explaining the change. */
+    memo: text("memo"),
+    publishedBy: text("published_by").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    /** Kept alongside the id so history survives the account being removed. */
+    publishedByName: text("published_by_name"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("workflow_version_workflow_version_uidx").on(
+      table.workflowId,
+      table.version,
+    ),
+    index("workflow_version_created_at_idx").on(table.createdAt),
+  ],
+);
 
 /* -------------------------------------------------------------------------- */
 /*  Email templates                                                            */
@@ -440,6 +474,7 @@ export const applicationFileRelations = relations(
 export type User = typeof user.$inferSelect;
 export type Role = typeof role.$inferSelect;
 export type Workflow = typeof workflow.$inferSelect;
+export type WorkflowVersion = typeof workflowVersion.$inferSelect;
 export type EmailTemplate = typeof emailTemplate.$inferSelect;
 export type Application = typeof application.$inferSelect;
 export type ApplicationEvent = typeof applicationEvent.$inferSelect;

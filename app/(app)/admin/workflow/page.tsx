@@ -41,8 +41,6 @@ export default async function WorkflowPage() {
   return (
     <WorkflowBuilder
       initialGraph={flow?.graph ?? blankGraph()}
-      initialName={flow?.name ?? "Faculty Promotion"}
-      initialDescription={flow?.description ?? ""}
       publishedGraph={flow?.publishedGraph ?? null}
       version={flow?.version ?? 0}
       acceptingApplications={flow?.acceptingApplications ?? false}

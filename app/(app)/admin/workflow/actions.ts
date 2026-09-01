@@ -1,6 +1,6 @@
 "use server";
 
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
@@ -13,18 +13,25 @@ import {
 } from "@/lib/actions";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { emailTemplate, role, workflow } from "@/lib/db/schema";
+import {
+  emailTemplate,
+  role,
+  workflow,
+  workflowVersion,
+} from "@/lib/db/schema";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
 import { hasBlockingIssues, validateGraph } from "@/lib/workflow/graph";
 import { workflowGraphSchema, type WorkflowGraph } from "@/lib/workflow/types";
 
-const saveInput = z.object({
-  name: z.string().trim().min(2, "Give the workflow a name").max(120),
-  description: z.string().trim().max(500).optional().default(""),
-  graph: workflowGraphSchema,
-});
+const graphInput = z.object({ graph: workflowGraphSchema });
+export type SaveWorkflowInput = z.input<typeof graphInput>;
 
-export type SaveWorkflowInput = z.input<typeof saveInput>;
+const publishInput = z.object({
+  graph: workflowGraphSchema,
+  /** Free-text note describing the change; shown in the version history. */
+  memo: z.string().trim().max(500).optional().default(""),
+});
+export type PublishWorkflowInput = z.input<typeof publishInput>;
 
 async function validationContext() {
   const [roles, templates] = await Promise.all([
@@ -50,24 +57,18 @@ export async function saveWorkflowDraft(
   try {
     await requirePermissionAction("workflow.manage");
 
-    const parsed = parseInput(saveInput, input);
+    const parsed = parseInput(graphInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
 
     const existing = await currentWorkflow();
     if (existing) {
       await db
         .update(workflow)
-        .set({
-          name: parsed.data.name,
-          description: parsed.data.description || null,
-          graph: parsed.data.graph,
-        })
+        .set({ graph: parsed.data.graph })
         .where(eq(workflow.id, SINGLETON_WORKFLOW_ID));
     } else {
       await db.insert(workflow).values({
         id: SINGLETON_WORKFLOW_ID,
-        name: parsed.data.name,
-        description: parsed.data.description || null,
         graph: parsed.data.graph,
         publishedGraph: null,
         version: 0,
@@ -86,16 +87,17 @@ export async function saveWorkflowDraft(
 }
 
 /**
- * Promotes the draft to the published graph and bumps the version. In-flight
- * applications are unaffected: each keeps the snapshot it started with.
+ * Promotes the draft to the published graph, bumps the version and records the
+ * revision. In-flight applications are unaffected: each keeps the snapshot it
+ * started with.
  */
 export async function publishWorkflow(
-  input: SaveWorkflowInput,
+  input: PublishWorkflowInput,
 ): Promise<ActionResult<{ version: number }>> {
   try {
     const current = await requirePermissionAction("workflow.manage");
 
-    const parsed = parseInput(saveInput, input);
+    const parsed = parseInput(publishInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
 
     const issues = validateGraph(parsed.data.graph, await validationContext());
@@ -107,33 +109,41 @@ export async function publishWorkflow(
 
     const existing = await currentWorkflow();
     const version = (existing?.version ?? 0) + 1;
+    const publishedAt = new Date();
 
     if (existing) {
       await db
         .update(workflow)
         .set({
-          name: parsed.data.name,
-          description: parsed.data.description || null,
           graph: parsed.data.graph,
           publishedGraph: parsed.data.graph,
           version,
-          publishedAt: new Date(),
+          publishedAt,
           publishedBy: current.id,
         })
         .where(eq(workflow.id, SINGLETON_WORKFLOW_ID));
     } else {
       await db.insert(workflow).values({
         id: SINGLETON_WORKFLOW_ID,
-        name: parsed.data.name,
-        description: parsed.data.description || null,
         graph: parsed.data.graph,
         publishedGraph: parsed.data.graph,
         version,
-        publishedAt: new Date(),
+        publishedAt,
         publishedBy: current.id,
         acceptingApplications: true,
       });
     }
+
+    await db.insert(workflowVersion).values({
+      id: crypto.randomUUID(),
+      workflowId: SINGLETON_WORKFLOW_ID,
+      version,
+      graph: parsed.data.graph,
+      memo: parsed.data.memo || null,
+      publishedBy: current.id,
+      publishedByName: current.name,
+      createdAt: publishedAt,
+    });
 
     revalidatePath("/admin/workflow");
     revalidatePath("/admin");
@@ -163,6 +173,75 @@ export async function revertWorkflowDraft(): Promise<
 
     revalidatePath("/admin/workflow");
     return ok({ graph: existing.publishedGraph });
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+/**
+ * Loads an older revision back onto the canvas as the working draft. Nothing
+ * goes live until the admin publishes again, which records a new revision.
+ */
+export async function restoreWorkflowVersion(
+  version: number,
+): Promise<ActionResult<{ graph: WorkflowGraph }>> {
+  try {
+    await requirePermissionAction("workflow.manage");
+
+    const revision = await db.query.workflowVersion.findFirst({
+      where: and(
+        eq(workflowVersion.workflowId, SINGLETON_WORKFLOW_ID),
+        eq(workflowVersion.version, version),
+      ),
+    });
+    if (!revision) return fail("That revision no longer exists.");
+
+    await db
+      .update(workflow)
+      .set({ graph: revision.graph })
+      .where(eq(workflow.id, SINGLETON_WORKFLOW_ID));
+
+    revalidatePath("/admin/workflow");
+    return ok({ graph: revision.graph });
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+export type WorkflowRevision = {
+  version: number;
+  memo: string;
+  publishedBy: string;
+  createdAt: string;
+  nodeCount: number;
+  isLive: boolean;
+};
+
+export async function listWorkflowVersions(): Promise<
+  ActionResult<{ versions: WorkflowRevision[] }>
+> {
+  try {
+    await requirePermissionAction("workflow.manage");
+
+    const [current, rows] = await Promise.all([
+      currentWorkflow(),
+      db
+        .select()
+        .from(workflowVersion)
+        .where(eq(workflowVersion.workflowId, SINGLETON_WORKFLOW_ID))
+        .orderBy(desc(workflowVersion.version)),
+    ]);
+
+    return ok({
+      versions: rows.map((row) => ({
+        version: row.version,
+        memo: row.memo ?? "",
+        publishedBy: row.publishedByName ?? "Unknown",
+        createdAt: row.createdAt.toISOString(),
+        nodeCount: row.graph.nodes.length,
+        isLive: row.version === current?.version,
+      })),
+    });
   } catch (error) {
     return failFrom(error);
   }

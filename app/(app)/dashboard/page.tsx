@@ -67,7 +67,9 @@ export default async function DashboardPage() {
         <div>
           <h1 className="page-title">Welcome back, {current.name}</h1>
           <p className="page-subtitle">
-            {published ? published.name : "No workflow has been published yet."}
+            {published
+              ? "Promotion applications are configured and running."
+              : "No workflow has been published yet."}
           </p>
         </div>
       </div>

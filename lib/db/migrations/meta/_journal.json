@@ -15,6 +15,13 @@
       "when": 1788263025773,
       "tag": "0001_eminent_hitman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788263471082,
+      "tag": "0002_strange_vision",
+      "breakpoints": true
     }
   ]
 }

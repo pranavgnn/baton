@@ -59,7 +59,7 @@ export default async function ApplicationPage() {
       <div className="app-shell section-stack">
         <div className="page-header">
           <div>
-            <h1 className="page-title">{published.name}</h1>
+            <h1 className="page-title">Promotion application</h1>
             <p className="page-subtitle">
               {published.acceptingApplications
                 ? "Applications are open."
@@ -127,9 +127,7 @@ export default async function ApplicationPage() {
         <div className="page-header">
           <div>
             <h1 className="page-title">{start.data.label}</h1>
-            <p className="page-subtitle">
-              {open.reference} · {published.name}
-            </p>
+            <p className="page-subtitle">{open.reference}</p>
           </div>
           <StatusBadge status={open.status} />
         </div>
