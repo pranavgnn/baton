@@ -115,7 +115,7 @@ export function VersionHistory({
                     </span>
                     {revision.isLive ? <Badge>Live</Badge> : null}
                     <span className="ml-auto text-xs text-muted-foreground">
-                      {revision.nodeCount} nodes
+                      {revision.nodeCount} steps
                     </span>
                   </div>
 

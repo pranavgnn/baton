@@ -298,7 +298,7 @@ export function NodeInspector({
               </p>
             ) : node.kind === "start" ? (
               <p className="text-xs text-muted-foreground">
-                The submission node is the entry point and cannot be deleted.
+                The application starts here, so this step cannot be removed.
               </p>
             ) : (
               <Button
@@ -355,10 +355,10 @@ const KIND_LABEL: Record<WorkflowNode["kind"], string> = {
 };
 
 const KIND_HINT: Record<WorkflowNode["kind"], string> = {
-  start: "The form the applicant fills in. Exactly one per workflow.",
-  stage: "Halts the workflow until an authorised reviewer acts.",
-  email: "Sends a templated message, then continues automatically.",
-  end: "Terminates the workflow with a final status.",
+  start: "The form the applicant fills in. There is exactly one.",
+  stage: "The application waits here until the role responsible acts on it.",
+  email: "Sends a message and lets the application carry on.",
+  end: "Closes the application with a final outcome.",
 };
 
 function OutcomesEditor({

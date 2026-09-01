@@ -9,7 +9,7 @@ import {
   Mail,
   UserCheck,
 } from "lucide-react";
-import { memo } from "react";
+import { createContext, memo, useContext } from "react";
 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -22,15 +22,42 @@ import type {
 
 /**
  * React Flow requires node data to be an index signature, so each custom node
- * carries its domain data under a `payload` key alongside builder-only hints.
+ * carries its domain data under a `payload` key. It carries nothing else: a
+ * step's appearance also depends on things the graph as a whole decides, and
+ * folding those into `data` would hand every step a new object each time any
+ * of them changed - including on every frame of a drag.
  */
 export type BuilderNodeData<T> = {
   payload: T;
-  /** Resolved display strings the canvas needs but the domain data lacks. */
-  roleName?: string | null;
-  templateName?: string | null;
-  hasError?: boolean;
 };
+
+/**
+ * What the canvas knows that a single step does not: which steps validation
+ * has flagged, and the names behind the ids a step stores.
+ */
+export type NodeDecorations = {
+  errorNodeIds: Set<string>;
+  roleNameById: Map<string, string>;
+  templateNameById: Map<string, string>;
+};
+
+const NO_DECORATIONS: NodeDecorations = {
+  errorNodeIds: new Set(),
+  roleNameById: new Map(),
+  templateNameById: new Map(),
+};
+
+const DecorationContext = createContext<NodeDecorations>(NO_DECORATIONS);
+
+/**
+ * Supply a value memoised on its contents, not rebuilt per render: every step
+ * on the canvas reads it, so a fresh object re-renders all of them.
+ */
+export const NodeDecorationProvider = DecorationContext.Provider;
+
+function useDecorations(): NodeDecorations {
+  return useContext(DecorationContext);
+}
 
 export type StartFlowNode = Node<BuilderNodeData<StartNodeData>, "start">;
 export type StageFlowNode = Node<BuilderNodeData<StageNodeData>, "stage">;
@@ -69,9 +96,11 @@ function Shell({
 }
 
 export const StartNodeView = memo(function StartNodeView({
+  id,
   data,
   selected,
 }: NodeProps<StartFlowNode>) {
+  const { errorNodeIds } = useDecorations();
   const sectionCount = data.payload.form.sections.length;
   const fieldCount = data.payload.form.sections.reduce(
     (total, section) => total + section.fields.length,
@@ -82,7 +111,7 @@ export const StartNodeView = memo(function StartNodeView({
     <Shell
       accent="start"
       selected={selected}
-      hasError={data.hasError}
+      hasError={errorNodeIds.has(id)}
       testId="node-start"
     >
       <div className="flow-node-header">
@@ -115,16 +144,21 @@ export const StartNodeView = memo(function StartNodeView({
 });
 
 export const StageNodeView = memo(function StageNodeView({
+  id,
   data,
   selected,
 }: NodeProps<StageFlowNode>) {
+  const { errorNodeIds, roleNameById } = useDecorations();
   const outcomes = data.payload.outcomes;
+  const roleName = data.payload.roleId
+    ? (roleNameById.get(data.payload.roleId) ?? null)
+    : null;
 
   return (
     <Shell
       accent="stage"
       selected={selected}
-      hasError={data.hasError}
+      hasError={errorNodeIds.has(id)}
       testId={`node-stage-${data.payload.label}`}
     >
       <div className="flow-node-header">
@@ -133,8 +167,8 @@ export const StageNodeView = memo(function StageNodeView({
       </div>
       <div className="flow-node-body">
         <span className="flow-node-meta">
-          {data.roleName ? (
-            <>Assigned to {data.roleName}</>
+          {roleName ? (
+            <>Assigned to {roleName}</>
           ) : (
             <span className="flex items-center gap-1 text-destructive">
               <AlertTriangle className="size-3" />
@@ -173,21 +207,31 @@ export const StageNodeView = memo(function StageNodeView({
 });
 
 export const EmailNodeView = memo(function EmailNodeView({
+  id,
   data,
   selected,
 }: NodeProps<EmailFlowNode>) {
+  const { errorNodeIds, roleNameById, templateNameById } = useDecorations();
+
+  const templateName = data.payload.templateId
+    ? (templateNameById.get(data.payload.templateId) ?? null)
+    : null;
+  const recipientRole = data.payload.recipientRoleId
+    ? (roleNameById.get(data.payload.recipientRoleId) ?? null)
+    : null;
+
   const recipient =
     data.payload.recipientMode === "applicant"
       ? "the applicant"
       : data.payload.recipientMode === "role"
-        ? (data.roleName ?? "an unset role")
+        ? (recipientRole ?? "an unset role")
         : data.payload.recipientEmail || "an unset address";
 
   return (
     <Shell
       accent="email"
       selected={selected}
-      hasError={data.hasError}
+      hasError={errorNodeIds.has(id)}
       testId={`node-email-${data.payload.label}`}
     >
       <div className="flow-node-header">
@@ -196,8 +240,8 @@ export const EmailNodeView = memo(function EmailNodeView({
       </div>
       <div className="flow-node-body">
         <span className="flow-node-meta">
-          {data.templateName ? (
-            <>Sends &ldquo;{data.templateName}&rdquo;</>
+          {templateName ? (
+            <>Sends &ldquo;{templateName}&rdquo;</>
           ) : (
             <span className="flex items-center gap-1 text-destructive">
               <AlertTriangle className="size-3" />
@@ -223,9 +267,11 @@ export const EmailNodeView = memo(function EmailNodeView({
 });
 
 export const EndNodeView = memo(function EndNodeView({
+  id,
   data,
   selected,
 }: NodeProps<EndFlowNode>) {
+  const { errorNodeIds } = useDecorations();
   const Icon =
     data.payload.result === "approved" ? CircleCheckBig : CircleSlash;
 
@@ -233,7 +279,7 @@ export const EndNodeView = memo(function EndNodeView({
     <Shell
       accent="end"
       selected={selected}
-      hasError={data.hasError}
+      hasError={errorNodeIds.has(id)}
       testId={`node-end-${data.payload.label}`}
     >
       <div className="flow-node-header">

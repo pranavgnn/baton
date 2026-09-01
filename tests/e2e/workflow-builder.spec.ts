@@ -328,7 +328,7 @@ test.describe("form builder", () => {
     await page
       .getByRole("textbox", { name: "Label", exact: true })
       .fill("Research Grant Value");
-    await expect(page.getByRole("textbox", { name: "Data key" })).toHaveValue(
+    await expect(page.getByRole("textbox", { name: "Answer key" })).toHaveValue(
       "research_grant_value",
     );
   });
@@ -337,10 +337,10 @@ test.describe("form builder", () => {
     await openForm(page, "node-start");
 
     await page.getByTestId("field-toggle-full_name").click();
-    await page.getByRole("textbox", { name: "Data key" }).fill("employee_id");
+    await page.getByRole("textbox", { name: "Answer key" }).fill("employee_id");
 
     await expect(
-      page.getByText("Another field in this form already uses this key."),
+      page.getByText("Another question on this form already uses this key."),
     ).toBeVisible();
   });
 

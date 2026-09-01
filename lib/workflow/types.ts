@@ -73,7 +73,7 @@ export const formFieldSchema = z.object({
     .min(1, "Field key is required")
     .regex(
       /^[a-zA-Z_][a-zA-Z0-9_]*$/,
-      "Key must start with a letter or underscore and contain only letters, digits and underscores",
+      "Use letters, digits and underscores only, starting with a letter",
     ),
   type: fieldTypeSchema,
   label: z.string().min(1, "Label is required"),
