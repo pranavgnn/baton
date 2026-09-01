@@ -38,16 +38,30 @@ test.describe("a disabled account", () => {
 
     const page = await browser.newPage();
     try {
-      await page.goto("/sign-in");
-      await page.getByRole("textbox", { name: "Email" }).fill(TARGET.email);
-      await page
-        .getByRole("textbox", { name: "Password" })
-        .fill(TARGET.password);
-      await page.getByRole("button", { name: "Sign in" }).click();
+      // Better Auth rate-limits sign-in, and a retry of this test arrives well
+      // inside that window, so wait it out rather than weakening it.
+      for (let attempt = 0; attempt < 6; attempt += 1) {
+        await page.goto("/sign-in");
+        await page.getByRole("textbox", { name: "Email" }).fill(TARGET.email);
+        await page
+          .getByRole("textbox", { name: "Password" })
+          .fill(TARGET.password);
+        await page.getByRole("button", { name: "Sign in" }).click();
+
+        const landed = await page
+          .waitForURL(/\/account-disabled/, { timeout: 8_000 })
+          .then(() => true)
+          .catch(() => false);
+        if (landed) break;
+
+        await page.waitForTimeout(11_000);
+      }
 
       await expect(page).toHaveURL(/\/account-disabled/);
+      // By role, not by text: the notice and the paragraph under it share a
+      // wrapper, and a loose text match claims both.
       await expect(
-        page.getByText("Your account has been disabled"),
+        page.getByRole("heading", { name: "Your account has been disabled" }),
       ).toBeVisible();
 
       // The dead end: any other route lands back here while the session lives.
