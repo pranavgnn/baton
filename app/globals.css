@@ -107,6 +107,8 @@
   --shell-narrow-width: 42rem;
   --canvas-min-height: 24rem;
   --node-width: 17rem;
+  --progress-node-width: 14rem;
+  --progress-canvas-height: 26rem;
 
   /* Workflow node accents. */
   --node-start: oklch(0.55 0.14 152);
@@ -483,6 +485,50 @@
     @apply rounded bg-primary/10 px-1.5 py-0.5 font-mono text-xs text-primary;
   }
 
+  /* Application progress map ------------------------------------------ */
+  .progress-canvas {
+    @apply w-full overflow-hidden rounded-lg border bg-muted/40;
+    height: var(--progress-canvas-height);
+  }
+
+  .progress-node {
+    @apply rounded-lg border-2 bg-card text-card-foreground shadow-sm;
+    width: var(--progress-node-width);
+  }
+
+  .progress-node-header {
+    @apply flex items-center gap-2 rounded-t-sm px-3 py-2 text-sm font-semibold;
+  }
+
+  .progress-node-body {
+    @apply flex flex-col gap-1.5 px-3 pb-2.5;
+  }
+
+  .progress-node-upcoming {
+    @apply border-border opacity-70;
+  }
+  .progress-node-upcoming .progress-node-header {
+    @apply text-muted-foreground;
+  }
+
+  .progress-node-done {
+    border-color: var(--success);
+  }
+  .progress-node-done .progress-node-header {
+    background-color: color-mix(in oklch, var(--success) 14%, transparent);
+    color: var(--success);
+  }
+
+  .progress-node-current {
+    border-color: var(--info);
+    @apply ring-2 ring-offset-2 ring-offset-background;
+    --tw-ring-color: color-mix(in oklch, var(--info) 45%, transparent);
+  }
+  .progress-node-current .progress-node-header {
+    background-color: color-mix(in oklch, var(--info) 16%, transparent);
+    color: var(--info);
+  }
+
   /* Timeline ---------------------------------------------------------- */
   .timeline {
     @apply relative flex flex-col gap-5 pl-6;
@@ -602,4 +648,15 @@
   background-color: transparent;
   color: var(--muted-foreground);
   font-size: 0.5rem;
+}
+
+.progress-edge-travelled .react-flow__edge-path {
+  stroke: var(--success);
+  stroke-width: 2.5;
+}
+
+.progress-handle {
+  border: 2px solid var(--background);
+  background-color: var(--border);
+  opacity: 0;
 }

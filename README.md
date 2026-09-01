@@ -16,8 +16,17 @@ institute address (individual or a shared departmental mailbox such as
 an emailed link.
 
 **Roles are data, not code.** Admins create, rename and delete roles from the
-UI and grant each one capabilities from a fixed permission vocabulary. A
-seeded Super Admin holds everything so the portal can never lock itself out.
+UI and grant each one capabilities from a fixed permission vocabulary. Roles
+are ordered by dragging, and the one at the top is the default a user is given
+when an invite or a bulk import names none. A seeded Super Admin holds
+everything so the portal can never lock itself out.
+
+Editing forms is a separate permission from managing the workflow: someone can
+be trusted to change the questions on a step without being able to add, remove
+or rewire steps.
+
+**Users can be added in bulk**, as a CSV or a pasted list of addresses, with a
+preview showing per-row errors and duplicates before anything is written.
 
 **Visual workflow builder.** The process is a graph drawn on a canvas:
 
@@ -35,6 +44,12 @@ in the applicant's hands.
 An outcome may fan out to several nodes: exactly one carries the application
 forward, and any others must be email nodes, dispatched in parallel. Email
 never sits between two stages, so a slow mail server cannot delay a review.
+
+**Applicants see the whole process.** The tracking page draws the actual
+workflow graph, read-only: every step the application can pass through, the
+route it has taken highlighted, and a marker on where it sits now. Loops render
+as loops because it is the real graph rather than a flattened stepper. Email
+steps are left out - they are notifications, not places an application goes.
 
 **Multi-step form engine.** Each section of a node's form becomes one page of
 a wizard. A section must pass validation before the user can continue, drafts
@@ -154,8 +169,14 @@ E2E suite on every push and pull request
 **Applications snapshot the workflow.** When an application is created it
 stores a copy of the published graph. Admins can edit and republish the
 workflow at any time without changing the questions or the route of anything
-already in flight. Publishing bumps a version; only new applications pick it
-up.
+already in flight. Publishing bumps a version and records the revision, with
+the memo the publisher left; any revision can be restored onto the canvas as
+the draft.
+
+The one exception is a draft that has not been submitted: it has not entered
+the process yet, so it is brought onto the current published workflow when the
+applicant next opens it. Answers to questions that still exist are kept, and
+answers to questions that were removed are dropped.
 
 **Form data is namespaced.** An application's `data` column holds the
 applicant's answers under `applicant`, and every reviewer's answers under

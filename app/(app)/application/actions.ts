@@ -8,6 +8,7 @@ import {
   getOpenApplicationFor,
   getPublishedWorkflow,
   nextReference,
+  refreshDraftToPublished,
 } from "@/lib/applications/service";
 import { advanceApplication } from "@/lib/applications/transition";
 import { requirePermissionAction } from "@/lib/auth/session";
@@ -84,13 +85,17 @@ export async function startApplication(): Promise<
 }
 
 async function loadOwnDraft(userId: string) {
-  const app = await getOpenApplicationFor(userId);
-  if (!app) return { error: "You do not have an application in progress." };
-  if (app.applicantId !== userId) return { error: "Not your application." };
-  if (app.status !== "draft") {
+  const existing = await getOpenApplicationFor(userId);
+  if (!existing) {
+    return { error: "You do not have an application in progress." };
+  }
+  if (existing.applicantId !== userId)
+    return { error: "Not your application." };
+  if (existing.status !== "draft") {
     return { error: "This application has already been submitted." };
   }
-  return { app };
+  // Match the page: a draft is always worked on against the live workflow.
+  return { app: await refreshDraftToPublished(existing) };
 }
 
 export async function saveApplicationDraft(
