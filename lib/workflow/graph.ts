@@ -204,19 +204,19 @@ export function validateGraph(
   if (starts.length === 0) {
     issues.push({
       severity: "error",
-      message: "The workflow needs an Applicant Submission node.",
+      message: "The workflow needs an Applicant Submission step.",
     });
   } else if (starts.length > 1) {
     issues.push({
       severity: "error",
-      message: `Only one Applicant Submission node is allowed - found ${starts.length}.`,
+      message: `Only one Applicant Submission step is allowed - found ${starts.length}.`,
     });
   }
 
   if (endNodes(graph).length === 0) {
     issues.push({
       severity: "error",
-      message: "The workflow needs at least one End node.",
+      message: "The workflow needs at least one End step.",
     });
   }
 
@@ -230,7 +230,7 @@ export function validateGraph(
       issues.push({
         severity: "warning",
         nodeId: node.id,
-        message: `"${node.data.label}" cannot be reached from the submission node.`,
+        message: `"${node.data.label}" cannot be reached from the submission form.`,
       });
     }
 
@@ -244,7 +244,7 @@ export function validateGraph(
             issues.push({
               severity: "error",
               nodeId: node.id,
-              message: `"${node.data.label}" has two fields using the key "${field.key}".`,
+              message: `"${node.data.label}" has two questions using the key "${field.key}".`,
             });
           }
           keys.add(field.key);
@@ -379,7 +379,7 @@ export function validateGraph(
           issues.push({
             severity: "error",
             nodeId: node.id,
-            message: `"${node.data.label}" is an End node and cannot lead anywhere.`,
+            message: `"${node.data.label}" closes the application, so it cannot lead anywhere.`,
           });
         }
         break;
@@ -392,7 +392,8 @@ export function validateGraph(
     if (!nodeById(graph, edge.source) || !nodeById(graph, edge.target)) {
       issues.push({
         severity: "error",
-        message: "The workflow contains a connection to a deleted node.",
+        message:
+          "The workflow has a connection to a step that no longer exists.",
       });
       break;
     }

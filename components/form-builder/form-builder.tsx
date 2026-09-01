@@ -144,7 +144,7 @@ const FIELD_PALETTE: {
     label: "Checkbox",
     icon: CheckSquare,
     group: "Choice",
-    description: "Single boolean toggle checkbox",
+    description: "A single tick box",
   },
   {
     type: "file",

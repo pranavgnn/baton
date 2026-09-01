@@ -67,8 +67,8 @@ export default async function AdminOverviewPage() {
         <div>
           <h1 className="page-title">Administration</h1>
           <p className="page-subtitle">
-            Everything the promotion process needs is configured here - no code
-            changes required for a policy update.
+            Set up the promotion process, the people who run it and the messages
+            it sends.
           </p>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default async function AdminOverviewPage() {
               </CardTitle>
               <CardDescription>
                 {flow
-                  ? `${flow.graph.nodes.length} nodes, version ${flow.version}`
+                  ? `${flow.graph.nodes.length} steps · version ${flow.version}`
                   : "Not configured"}
               </CardDescription>
               <CardAction>

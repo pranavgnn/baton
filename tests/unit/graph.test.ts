@@ -106,7 +106,7 @@ describe("validateGraph", () => {
     const { graph, context } = buildGraph();
     graph.nodes = graph.nodes.filter((node) => node.kind !== "start");
     expect(validateGraph(graph, context).map((i) => i.message)).toContain(
-      "The workflow needs an Applicant Submission node.",
+      "The workflow needs an Applicant Submission step.",
     );
   });
 
@@ -114,7 +114,7 @@ describe("validateGraph", () => {
     const { graph, context } = buildGraph();
     graph.nodes.push({ ...graph.nodes[0], id: "start2" });
     expect(errorsOf(graph, context)).toContain(
-      "Only one Applicant Submission node is allowed - found 2.",
+      "Only one Applicant Submission step is allowed - found 2.",
     );
   });
 
@@ -123,7 +123,7 @@ describe("validateGraph", () => {
     graph.nodes = graph.nodes.filter((node) => node.kind !== "end");
     graph.edges = graph.edges.filter((edge) => !edge.target.startsWith("end_"));
     expect(errorsOf(graph, context)).toContain(
-      "The workflow needs at least one End node.",
+      "The workflow needs at least one End step.",
     );
   });
 
@@ -281,7 +281,7 @@ describe("validateGraph", () => {
       target: "start",
     });
     expect(errorsOf(graph, context)).toContain(
-      '"Approved" is an End node and cannot lead anywhere.',
+      '"Approved" closes the application, so it cannot lead anywhere.',
     );
   });
 
@@ -291,7 +291,7 @@ describe("validateGraph", () => {
     const section = start.data.form.sections[0];
     section.fields.push({ ...section.fields[0], id: "dup" });
     expect(errorsOf(graph, context)).toContain(
-      '"Applicant Submission" has two fields using the key "full_name".',
+      '"Applicant Submission" has two questions using the key "full_name".',
     );
   });
 
@@ -307,7 +307,7 @@ describe("validateGraph", () => {
     expect(issues).toContainEqual(
       expect.objectContaining({
         severity: "warning",
-        message: '"Orphan" cannot be reached from the submission node.',
+        message: '"Orphan" cannot be reached from the submission form.',
       }),
     );
     expect(hasBlockingIssues(issues)).toBe(false);

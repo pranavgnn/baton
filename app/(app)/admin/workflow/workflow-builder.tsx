@@ -7,7 +7,6 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
-  addEdge,
   applyNodeChanges,
   useReactFlow,
   type Connection,
@@ -49,7 +48,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { hasMoves, summariseNodeChanges } from "@/lib/workflow/canvas";
 import { createOutcome, emptyFormSchema, newId } from "@/lib/workflow/defaults";
 import { validateGraph, type GraphIssue } from "@/lib/workflow/graph";
 import {
@@ -64,7 +62,12 @@ import {
   saveWorkflowDraft,
   setAcceptingApplications,
 } from "./actions";
-import { NODE_TYPES, type BuilderNode } from "./nodes";
+import {
+  NODE_TYPES,
+  NodeDecorationProvider,
+  type BuilderNode,
+  type NodeDecorations,
+} from "./nodes";
 import {
   NodeInspector,
   type RoleOption,
@@ -91,40 +94,38 @@ export type WorkflowBuilderProps = {
 /*  Domain <-> React Flow conversion                                           */
 /* -------------------------------------------------------------------------- */
 
-function toFlowNodes(
-  nodes: WorkflowNode[],
-  roles: RoleOption[],
-  templates: TemplateOption[],
-  errorNodeIds: Set<string>,
-): BuilderNode[] {
-  return nodes.map((node) => {
-    const roleId =
-      node.kind === "stage"
-        ? node.data.roleId
-        : node.kind === "email" && node.data.recipientMode === "role"
-          ? node.data.recipientRoleId
-          : null;
+function toFlowNodes(nodes: WorkflowNode[]): BuilderNode[] {
+  return nodes.map(
+    (node) =>
+      ({
+        id: node.id,
+        type: node.kind,
+        position: node.position,
+        data: { payload: node.data },
+        // The submission form is the fixed entry point.
+        deletable: node.kind !== "start",
+      }) as BuilderNode,
+  );
+}
 
-    return {
-      id: node.id,
-      type: node.kind,
-      position: node.position,
-      data: {
-        payload: node.data,
-        roleName: roleId
-          ? (roles.find((role) => role.id === roleId)?.name ?? null)
-          : null,
-        templateName:
-          node.kind === "email" && node.data.templateId
-            ? (templates.find((t) => t.id === node.data.templateId)?.name ??
-              null)
-            : null,
-        hasError: errorNodeIds.has(node.id),
-      },
-      // The submission node is the fixed entry point.
-      deletable: node.kind !== "start",
-    } as BuilderNode;
-  });
+function toDomainNode(node: BuilderNode): WorkflowNode {
+  return {
+    id: node.id,
+    kind: node.type,
+    position: node.position,
+    data: node.data.payload,
+  } as WorkflowNode;
+}
+
+/**
+ * A graph in the shape the canvas hands back, so the saved and published
+ * copies can be compared against it field for field.
+ */
+function normalise(graph: WorkflowGraph): WorkflowGraph {
+  return {
+    nodes: toFlowNodes(graph.nodes).map(toDomainNode),
+    edges: graph.edges,
+  };
 }
 
 function toFlowEdges(edges: WorkflowEdge[], nodes: WorkflowNode[]): Edge[] {
@@ -161,6 +162,21 @@ export function WorkflowBuilder(props: WorkflowBuilderProps) {
   );
 }
 
+/** Everything a step needs to draw itself that its own data does not hold. */
+function Decorated({
+  decorations,
+  children,
+}: {
+  decorations: NodeDecorations;
+  children: React.ReactNode;
+}) {
+  return (
+    <NodeDecorationProvider value={decorations}>
+      {children}
+    </NodeDecorationProvider>
+  );
+}
+
 function WorkflowCanvas({
   initialGraph,
   canManageFlow,
@@ -173,16 +189,37 @@ function WorkflowCanvas({
   const { screenToFlowPosition } = useReactFlow();
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  const [graph, setGraph] = useState<WorkflowGraph>(initialGraph);
+  /**
+   * The canvas owns the steps.
+   *
+   * React Flow measures each one on mount and reports the size back as a
+   * change. Discarding those left every step unmeasured, which is exactly what
+   * "trying to drag a node that is not initialized" reports - the drag had no
+   * geometry to work from, so the step and its edges blinked out. Every change
+   * it emits is applied here, and the domain graph is derived from the result
+   * rather than kept alongside it, so the two cannot disagree.
+   */
+  const [flowNodes, setFlowNodes] = useState<BuilderNode[]>(() =>
+    toFlowNodes(initialGraph.nodes),
+  );
+  const [edges, setEdges] = useState<WorkflowEdge[]>(initialGraph.edges);
+
+  const graph = useMemo<WorkflowGraph>(
+    () => ({ nodes: flowNodes.map(toDomainNode), edges }),
+    [flowNodes, edges],
+  );
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [publishOpen, setPublishOpen] = useState(false);
   /** Bumped after a publish so the history sheet refetches. */
   const [historyToken, setHistoryToken] = useState(0);
   const [accepting, setAccepting] = useState(acceptingApplications);
   const [publishedVersion, setPublishedVersion] = useState(version);
-  const [savedGraph, setSavedGraph] = useState<WorkflowGraph>(initialGraph);
+  const [savedGraph, setSavedGraph] = useState<WorkflowGraph>(() =>
+    normalise(initialGraph),
+  );
   const [savedPublished, setSavedPublished] = useState<WorkflowGraph | null>(
-    publishedGraph,
+    () => (publishedGraph ? normalise(publishedGraph) : null),
   );
 
   const [isSaving, startSave] = useTransition();
@@ -206,14 +243,34 @@ function WorkflowCanvas({
     [issues],
   );
 
-  const errorNodeIds = useMemo(
+  /**
+   * Flagged steps as a plain string so the decorations below keep their
+   * identity across a drag, when validation re-runs on every frame but its
+   * verdict does not change.
+   */
+  const errorKey = useMemo(
     () =>
-      new Set(
-        errors
-          .map((issue) => issue.nodeId)
-          .filter((id): id is string => Boolean(id)),
-      ),
+      Array.from(
+        new Set(
+          errors
+            .map((issue) => issue.nodeId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      )
+        .sort()
+        .join("|"),
     [errors],
+  );
+
+  const decorations = useMemo<NodeDecorations>(
+    () => ({
+      errorNodeIds: new Set(errorKey ? errorKey.split("|") : []),
+      roleNameById: new Map(roles.map((role) => [role.id, role.name])),
+      templateNameById: new Map(
+        templates.map((template) => [template.id, template.name]),
+      ),
+    }),
+    [errorKey, roles, templates],
   );
 
   const dirty = useMemo(
@@ -226,88 +283,32 @@ function WorkflowCanvas({
     [graph, savedPublished],
   );
 
-  const derivedNodes = useMemo(
-    () => toFlowNodes(graph.nodes, roles, templates, errorNodeIds),
-    [graph.nodes, roles, templates, errorNodeIds],
-  );
   const flowEdges = useMemo(
-    () => toFlowEdges(graph.edges, graph.nodes),
-    [graph.edges, graph.nodes],
+    () => toFlowEdges(edges, graph.nodes),
+    [edges, graph.nodes],
   );
-
-  /**
-   * The node array React Flow actually draws.
-   *
-   * React Flow measures each node on mount and reports the size back as a
-   * change. Discarding those left every node unmeasured, which is exactly what
-   * "trying to drag a node that is not initialized" reports: the drag had no
-   * geometry to work from, so the node and its edges blinked out. Every change
-   * is applied here, and the domain graph below stays a separate concern.
-   */
-  const [canvasNodes, setCanvasNodes] = useState<BuilderNode[]>(derivedNodes);
-
-  /**
-   * Folds domain edits - a rename, a new validation error, a restored revision
-   * - back onto the canvas while carrying over the bookkeeping React Flow owns
-   * on each node, so a re-render never un-initialises one.
-   */
-  useEffect(() => {
-    setCanvasNodes((current) => {
-      const previous = new Map(current.map((node) => [node.id, node]));
-      return derivedNodes.map((node) => {
-        const prior = previous.get(node.id);
-        return prior
-          ? {
-              ...node,
-              measured: prior.measured,
-              selected: prior.selected,
-              dragging: prior.dragging,
-            }
-          : node;
-      });
-    });
-  }, [derivedNodes]);
 
   const selectedNode =
     graph.nodes.find((node) => node.id === selectedId) ?? null;
 
   /* -- Graph mutations ---------------------------------------------------- */
 
-  /**
-   * React Flow emits a change for every measurement and selection tick. Only
-   * moves and removals belong in the domain graph - reacting to the rest would
-   * hand back a fresh object on every frame and re-render forever.
-   */
   const onNodesChange = useCallback((changes: NodeChange<BuilderNode>[]) => {
-    // React Flow owns the live view of the canvas, measurements included.
-    setCanvasNodes((current) => applyNodeChanges(changes, current));
+    setFlowNodes((current) => applyNodeChanges(changes, current));
 
-    const { moves, removals, settled } = summariseNodeChanges(changes);
-    const moved = hasMoves({ moves, removals, settled });
-    const removed = new Set(removals);
+    const removed = new Set(
+      changes
+        .filter((change) => change.type === "remove")
+        .map((change) => change.id),
+    );
+    if (removed.size === 0) return;
 
-    // A move only reaches the domain graph once it has come to rest:
-    // committing every frame re-runs validation and rebuilds every node.
-    if (removed.size === 0 && !(moved && settled)) return;
-
-    setGraph((current) => {
-      const nodes = current.nodes
-        .filter((node) => !removed.has(node.id))
-        .map((node) => {
-          const position = moves[node.id];
-          return position ? { ...node, position } : node;
-        });
-
-      if (removed.size === 0) return { ...current, nodes };
-
-      // Dropping a node must drop the connections that referenced it.
-      return {
-        nodes,
-        edges: current.edges.filter(
-          (edge) => !removed.has(edge.source) && !removed.has(edge.target),
-        ),
-      };
-    });
+    // Dropping a step must drop the connections that referenced it.
+    setEdges((current) =>
+      current.filter(
+        (edge) => !removed.has(edge.source) && !removed.has(edge.target),
+      ),
+    );
   }, []);
 
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
@@ -318,71 +319,65 @@ function WorkflowCanvas({
     );
     if (removals.size === 0) return;
 
-    setGraph((current) => ({
-      ...current,
-      edges: current.edges.filter((edge) => !removals.has(edge.id)),
-    }));
+    setEdges((current) => current.filter((edge) => !removals.has(edge.id)));
   }, []);
 
-  const onConnect = useCallback((connection: Connection) => {
-    setGraph((current) => {
+  const onConnect = useCallback(
+    (connection: Connection) => {
       const handle = connection.sourceHandle ?? DEFAULT_SOURCE_HANDLE;
-      const target = current.nodes.find(
-        (node) => node.id === connection.target,
-      );
-      if (!target) return current;
+      const kindOf = (id: string) =>
+        flowNodes.find((node) => node.id === id)?.type;
+      if (!kindOf(connection.target)) return;
 
-      /**
-       * A handle may fan out to any number of email nodes, but only one step
-       * may carry the application forward - so wiring up a new continuation
-       * replaces the previous one, while email branches simply accumulate.
-       */
-      const keep = current.edges.filter((edge) => {
-        if (edge.source !== connection.source) return true;
-        if (edge.sourceHandle !== handle) return true;
-        // Never leave a duplicate of the edge being made.
-        if (edge.target === connection.target) return false;
-        if (target.kind === "email") return true;
-        const existing = current.nodes.find((node) => node.id === edge.target);
-        return existing?.kind === "email";
+      setEdges((current) => {
+        /**
+         * A handle may fan out to any number of email steps, but only one step
+         * may carry the application forward - so wiring up a new continuation
+         * replaces the previous one, while email branches simply accumulate.
+         */
+        const keep = current.filter((edge) => {
+          if (edge.source !== connection.source) return true;
+          if (edge.sourceHandle !== handle) return true;
+          // Never leave a duplicate of the connection being made.
+          if (edge.target === connection.target) return false;
+          if (kindOf(connection.target) === "email") return true;
+          return kindOf(edge.target) === "email";
+        });
+
+        return [
+          ...keep,
+          {
+            id: newId("edge"),
+            source: connection.source,
+            sourceHandle: handle,
+            target: connection.target,
+          },
+        ];
       });
-
-      const edges = addEdge(
-        { ...connection, sourceHandle: handle, id: newId("edge") },
-        toFlowEdges(keep, current.nodes),
-      );
-
-      return {
-        ...current,
-        edges: edges.map((edge) => ({
-          id: edge.id,
-          source: edge.source,
-          sourceHandle: edge.sourceHandle ?? DEFAULT_SOURCE_HANDLE,
-          target: edge.target,
-        })),
-      };
-    });
-  }, []);
+    },
+    [flowNodes],
+  );
 
   const updateNodeData = useCallback(
     (nodeId: string, data: WorkflowNode["data"]) => {
-      setGraph((current) => ({
-        ...current,
-        nodes: current.nodes.map((node) =>
-          node.id === nodeId ? ({ ...node, data } as WorkflowNode) : node,
+      setFlowNodes((current) =>
+        current.map((node) =>
+          node.id === nodeId
+            ? ({ ...node, data: { payload: data } } as BuilderNode)
+            : node,
         ),
-      }));
+      );
     },
     [],
   );
 
   const deleteNode = useCallback((nodeId: string) => {
-    setGraph((current) => ({
-      nodes: current.nodes.filter((node) => node.id !== nodeId),
-      edges: current.edges.filter(
+    setFlowNodes((current) => current.filter((node) => node.id !== nodeId));
+    setEdges((current) =>
+      current.filter(
         (edge) => edge.source !== nodeId && edge.target !== nodeId,
       ),
-    }));
+    );
     setSelectedId(null);
   }, []);
 
@@ -439,13 +434,20 @@ function WorkflowCanvas({
                 },
               };
 
-      setGraph((current) => ({ ...current, nodes: [...current.nodes, node] }));
+      setFlowNodes((current) => [...current, ...toFlowNodes([node])]);
       setSelectedId(id);
     },
     [screenToFlowPosition],
   );
 
   /* -- Persistence -------------------------------------------------------- */
+
+  /** Replaces the canvas outright: a revert, or a restored revision. */
+  function loadGraph(next: WorkflowGraph) {
+    setFlowNodes(toFlowNodes(next.nodes));
+    setEdges(next.edges);
+    setSavedGraph(normalise(next));
+  }
 
   function handleSave() {
     startSave(async () => {
@@ -481,8 +483,7 @@ function WorkflowCanvas({
 
   /** An older revision loaded back onto the canvas, not yet published. */
   function handleRestore(restored: WorkflowGraph, version: number) {
-    setGraph(restored);
-    setSavedGraph(restored);
+    loadGraph(restored);
     setSelectedId(null);
     toast.message(`Editing version ${version}`, {
       description: "Publish to make it the live workflow.",
@@ -493,8 +494,7 @@ function WorkflowCanvas({
     startRevert(async () => {
       const result = await revertWorkflowDraft();
       if (result.ok) {
-        setGraph(result.data.graph);
-        setSavedGraph(result.data.graph);
+        loadGraph(result.data.graph);
         setSelectedId(null);
         toast.success("Draft reset to the published version.");
       } else {
@@ -668,7 +668,7 @@ function WorkflowCanvas({
 
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <FileInput className="size-4" />
-                The submission node is fixed as the entry point.
+                Every application starts at the submission form.
               </div>
             </>
           ) : (
@@ -720,29 +720,31 @@ function WorkflowCanvas({
         </div>
 
         <div className="flow-canvas" ref={canvasRef}>
-          <ReactFlow
-            nodes={canvasNodes}
-            edges={flowEdges}
-            nodeTypes={NODE_TYPES}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodesConnectable={canManageFlow}
-            edgesReconnectable={canManageFlow}
-            nodesDraggable={canManageFlow}
-            elementsSelectable
-            onNodeClick={(_, node) => setSelectedId(node.id)}
-            onPaneClick={() => setSelectedId(null)}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
-            minZoom={0.2}
-            maxZoom={1.6}
-            deleteKeyCode={["Backspace", "Delete"]}
-          >
-            <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-            <Controls showInteractive={false} />
-            <MiniMap pannable zoomable />
-          </ReactFlow>
+          <Decorated decorations={decorations}>
+            <ReactFlow
+              nodes={flowNodes}
+              edges={flowEdges}
+              nodeTypes={NODE_TYPES}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={onConnect}
+              nodesConnectable={canManageFlow}
+              edgesReconnectable={canManageFlow}
+              nodesDraggable={canManageFlow}
+              elementsSelectable
+              onNodeClick={(_, node) => setSelectedId(node.id)}
+              onPaneClick={() => setSelectedId(null)}
+              fitView
+              fitViewOptions={{ padding: 0.2 }}
+              minZoom={0.2}
+              maxZoom={1.6}
+              deleteKeyCode={["Backspace", "Delete"]}
+            >
+              <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
+              <Controls showInteractive={false} />
+              <MiniMap pannable zoomable />
+            </ReactFlow>
+          </Decorated>
         </div>
       </div>
 

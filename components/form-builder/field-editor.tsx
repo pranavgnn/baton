@@ -153,7 +153,7 @@ export function FieldEditor({
 
             {isDisplay ? null : (
               <Field data-invalid={duplicateKey || invalidKey}>
-                <FieldLabel htmlFor={`${field.id}-key`}>Data key</FieldLabel>
+                <FieldLabel htmlFor={`${field.id}-key`}>Answer key</FieldLabel>
                 <Input
                   id={`${field.id}-key`}
                   value={field.key}
@@ -163,10 +163,10 @@ export function FieldEditor({
                 />
                 <FieldDescription>
                   {duplicateKey
-                    ? "Another field in this form already uses this key."
+                    ? "Another question on this form already uses this key."
                     : invalidKey
                       ? "Letters, digits and underscores only, starting with a letter."
-                      : "How the answer is stored. Changing it orphans existing data."}
+                      : "How this answer is filed. Change it and answers already given will no longer be matched to this question."}
                 </FieldDescription>
               </Field>
             )}
