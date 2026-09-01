@@ -1,3 +1,4 @@
+import { isFieldVisible } from "./conditions";
 import { isFileValue, valueColumns } from "./form";
 import {
   isDisplayField,
@@ -35,10 +36,14 @@ export function displayValue(field: AnyField, raw: unknown): DisplayValue {
     return {
       kind: "rows",
       rows: rows.map((row) => ({
-        cells: columns.map((column) => ({
-          field: column,
-          value: displayValue(column, row[column.key]),
-        })),
+        // A column a rule hid for this entry was never asked, so it is not
+        // reported back as unanswered.
+        cells: columns
+          .filter((column) => isFieldVisible(column, row))
+          .map((column) => ({
+            field: column,
+            value: displayValue(column, row[column.key]),
+          })),
       })),
     };
   }
@@ -114,6 +119,8 @@ export function buildPreview(
     description: section.description,
     rows: section.fields
       .filter((field) => !isDisplayField(field.type))
+      // Questions that did not apply are left out rather than shown blank.
+      .filter((field) => isFieldVisible(field, data ?? {}))
       .map((field) => ({
         field,
         value: displayValue(field, data?.[field.key]),

@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   FileCheck,
+  GitBranch,
   GripVertical,
   List,
   Plus,
@@ -27,10 +28,14 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { createField, newId } from "@/lib/workflow/defaults";
 import {
+  CONDITION_OPERATORS,
   FIELD_TYPES,
   hasChoices,
   isDisplayField,
+  isValuelessOperator,
   type ColumnField,
+  type ConditionGroup,
+  type ConditionOperator,
   type FieldOption,
   type FieldType,
   type FormField,
@@ -57,7 +62,7 @@ export function FieldEditor({
   siblingKeys: string[];
 }) {
   const [activeTab, setActiveTab] = useState<
-    "general" | "options" | "validation" | "columns"
+    "general" | "options" | "validation" | "columns" | "rules"
   >("general");
 
   const update = (patch: Partial<FormField>) =>
@@ -77,10 +82,14 @@ export function FieldEditor({
   const supportsChoices = hasChoices(field.type);
   const supportsValidation = isText || isNumber || isFile || isRepeating;
 
+  const ruleCount =
+    (field.visibleWhen?.rules.length ?? 0) +
+    (field.requiredWhen?.rules.length ?? 0);
+
   return (
     <div className="mt-3 flex flex-col gap-4 rounded-lg border bg-card/60 p-4 shadow-xs">
       {/* Settings Sub-Tabs Header (if field has options or validation) */}
-      {(supportsChoices || supportsValidation) && !isDisplay ? (
+      {!isDisplay ? (
         <div className="flex items-center gap-1.5 border-b pb-3">
           <button
             type="button"
@@ -128,6 +137,22 @@ export function FieldEditor({
               Columns ({(field.fields ?? []).length})
             </button>
           ) : null}
+
+          <button
+            type="button"
+            onClick={() => setActiveTab("rules")}
+            className={cn(
+              "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+              activeTab === "rules"
+                ? "bg-primary text-primary-foreground shadow-xs"
+                : "text-muted-foreground hover:bg-accent hover:text-foreground",
+            )}
+            data-testid={`${field.id}-rules-tab`}
+          >
+            <GitBranch className="size-3.5" />
+            When it applies
+            {ruleCount > 0 ? ` (${ruleCount})` : ""}
+          </button>
 
           {supportsValidation ? (
             <button
@@ -277,6 +302,28 @@ export function FieldEditor({
               />
             </Field>
           ) : null}
+        </div>
+      ) : null}
+
+      {/* Rules Tab */}
+      {activeTab === "rules" && !isDisplay ? (
+        <div className="flex flex-col gap-5" data-testid="rules-editor">
+          <ConditionEditor
+            id={`${field.id}-visible`}
+            title="Show this question only when"
+            hint="Leave empty to always show it. A hidden question is never asked and never required."
+            siblings={siblingKeys}
+            group={field.visibleWhen}
+            onChange={(visibleWhen) => update({ visibleWhen })}
+          />
+          <ConditionEditor
+            id={`${field.id}-required`}
+            title="Require an answer only when"
+            hint="Leave empty to use the Required tick box above."
+            siblings={siblingKeys}
+            group={field.requiredWhen}
+            onChange={(requiredWhen) => update({ requiredWhen })}
+          />
         </div>
       ) : null}
 
@@ -614,6 +661,180 @@ function ColumnsEditor({
       >
         <Plus className="size-4" />
         Add column
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * One set of rules: when to show a question, or when to insist on an answer.
+ *
+ * Rules may only reference the questions beside this one - the same form, or
+ * the same repeating entry - because that is the scope the answers are
+ * evaluated in when the form runs.
+ */
+function ConditionEditor({
+  id,
+  title,
+  hint,
+  siblings,
+  group,
+  onChange,
+}: {
+  id: string;
+  title: string;
+  hint: string;
+  siblings: string[];
+  group: ConditionGroup | null;
+  onChange: (group: ConditionGroup | null) => void;
+}) {
+  const rules = group?.rules ?? [];
+  const mode = group?.mode ?? "all";
+
+  function setRules(next: ConditionGroup["rules"]) {
+    onChange(next.length === 0 ? null : { mode, rules: next });
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border p-3" data-testid={id}>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium">{title}</span>
+        {rules.length > 1 ? (
+          <Select
+            value={mode}
+            onValueChange={(next) =>
+              onChange({ mode: next as ConditionGroup["mode"], rules })
+            }
+          >
+            <SelectTrigger className="w-36" aria-label={`${title} - match`}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">all of these</SelectItem>
+              <SelectItem value="any">any of these</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : null}
+      </div>
+
+      {rules.length === 0 ? (
+        <FieldDescription>{hint}</FieldDescription>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {rules.map((rule, index) => (
+            <li key={rule.id} className="flex flex-wrap items-center gap-2">
+              <Select
+                value={rule.field}
+                onValueChange={(value) =>
+                  setRules(
+                    rules.map((entry) =>
+                      entry.id === rule.id ? { ...entry, field: value } : entry,
+                    ),
+                  )
+                }
+              >
+                <SelectTrigger
+                  className="w-48"
+                  aria-label={`Rule ${index + 1} question`}
+                >
+                  <SelectValue placeholder="Choose a question" />
+                </SelectTrigger>
+                <SelectContent>
+                  {siblings.map((key) => (
+                    <SelectItem key={key} value={key}>
+                      {key}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select
+                value={rule.operator}
+                onValueChange={(value) =>
+                  setRules(
+                    rules.map((entry) =>
+                      entry.id === rule.id
+                        ? {
+                            ...entry,
+                            operator: value as ConditionOperator,
+                            value: isValuelessOperator(value)
+                              ? ""
+                              : entry.value,
+                          }
+                        : entry,
+                    ),
+                  )
+                }
+              >
+                <SelectTrigger
+                  className="w-44"
+                  aria-label={`Rule ${index + 1} test`}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {CONDITION_OPERATORS.map((operator) => (
+                    <SelectItem key={operator.key} value={operator.key}>
+                      {operator.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {isValuelessOperator(rule.operator) ? null : (
+                <Input
+                  className="w-40"
+                  value={rule.value}
+                  aria-label={`Rule ${index + 1} value`}
+                  onChange={(event) =>
+                    setRules(
+                      rules.map((entry) =>
+                        entry.id === rule.id
+                          ? { ...entry, value: event.target.value }
+                          : entry,
+                      ),
+                    )
+                  }
+                />
+              )}
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`Remove rule ${index + 1}`}
+                onClick={() =>
+                  setRules(rules.filter((entry) => entry.id !== rule.id))
+                }
+              >
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="self-start"
+        disabled={siblings.length === 0}
+        onClick={() =>
+          setRules([
+            ...rules,
+            {
+              id: newId("rule"),
+              field: siblings[0] ?? "",
+              operator: "equals",
+              value: "",
+            },
+          ])
+        }
+        data-testid={`${id}-add`}
+      >
+        <Plus className="size-4" />
+        Add a rule
       </Button>
     </div>
   );

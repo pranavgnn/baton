@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { hasConditions, isFieldRequired, isFieldVisible } from "./conditions";
 import {
   columnsOf,
   isDisplayField,
@@ -216,12 +217,12 @@ export function buildFieldSchema(field: AnyField): z.ZodTypeAny {
       const shape: Record<string, z.ZodTypeAny> = {};
       for (const column of columns) {
         if (isDisplayField(column.type)) continue;
-        shape[column.key] = buildFieldSchema(column);
+        shape[column.key] = schemaFor(column);
       }
 
       // Unknown keys are stripped rather than rejected: a column removed from
       // the group must not invalidate entries someone already saved.
-      const row = z.object(shape);
+      const row = withConditions(z.object(shape), columns);
       let rows = z.array(row);
 
       const min = v.minRows ?? (field.required ? 1 : 0);
@@ -306,24 +307,73 @@ export function valueColumns(field: AnyField): ColumnField[] {
   return columnsOf(field).filter((column) => !isDisplayField(column.type));
 }
 
+/**
+ * Applies the rules that depend on other answers.
+ *
+ * A conditional field is compiled as optional, because whether it is required
+ * cannot be known until the rest of the answers are in hand. This runs once
+ * the object has parsed, when they are: a field its rule hides is skipped
+ * entirely, and one its rule requires is checked here instead.
+ */
+function withConditions<T extends z.ZodObject>(
+  schema: T,
+  fields: AnyField[],
+): T {
+  const conditional = fields.filter(hasConditions);
+  if (conditional.length === 0) return schema;
+
+  // superRefine returns the same schema, so the object shape survives - which
+  // the wizard relies on to build one step's resolver out of the whole form.
+  return schema.superRefine((values, ctx) => {
+    const scope = values as Record<string, unknown>;
+
+    for (const field of conditional) {
+      if (!isFieldVisible(field, scope)) continue;
+      if (!isFieldRequired(field, scope)) continue;
+      if (!isEmptyValue(scope[field.key])) continue;
+
+      ctx.addIssue({
+        code: "custom",
+        path: [field.key],
+        message: `${field.label} is required`,
+      });
+    }
+  });
+}
+
+/**
+ * A field's schema as the form should enforce it.
+ *
+ * Anything conditional is compiled without its required flag; `withConditions`
+ * puts the requirement back once the surrounding answers are known.
+ */
+function schemaFor(field: AnyField): z.ZodTypeAny {
+  return buildFieldSchema(
+    hasConditions(field) ? { ...field, required: false } : field,
+  );
+}
+
 /** Zod object for a single wizard step - this is what gates "Next". */
 export function buildSectionSchema(section: FormSection) {
   const shape: Record<string, z.ZodTypeAny> = {};
-  for (const field of valueFields(section)) {
-    shape[field.key] = buildFieldSchema(field);
+  const fields = valueFields(section);
+  for (const field of fields) {
+    shape[field.key] = schemaFor(field);
   }
-  return z.object(shape);
+  return withConditions(z.object(shape), fields);
 }
 
 /** Zod object covering every section, used for the final submit check. */
 export function buildFormZodSchema(form: FormSchema) {
   const shape: Record<string, z.ZodTypeAny> = {};
+  const fields: AnyField[] = [];
   for (const section of form.sections) {
     for (const field of valueFields(section)) {
-      shape[field.key] = buildFieldSchema(field);
+      shape[field.key] = schemaFor(field);
+      fields.push(field);
     }
   }
-  return z.object(shape);
+  return withConditions(z.object(shape), fields);
 }
 
 export type FormValidationResult =

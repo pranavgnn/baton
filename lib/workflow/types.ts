@@ -78,6 +78,55 @@ export const fieldValidationSchema = z.object({
 });
 export type FieldValidation = z.infer<typeof fieldValidationSchema>;
 
+export const CONDITION_OPERATORS = [
+  { key: "equals", label: "is" },
+  { key: "notEquals", label: "is not" },
+  { key: "isFilled", label: "has been answered", valueless: true },
+  { key: "isEmpty", label: "has been left blank", valueless: true },
+  { key: "isChecked", label: "is ticked", valueless: true },
+  { key: "isNotChecked", label: "is not ticked", valueless: true },
+  { key: "greaterThan", label: "is more than" },
+  { key: "lessThan", label: "is less than" },
+] as const;
+
+export const conditionOperatorSchema = z.enum([
+  "equals",
+  "notEquals",
+  "isFilled",
+  "isEmpty",
+  "isChecked",
+  "isNotChecked",
+  "greaterThan",
+  "lessThan",
+]);
+export type ConditionOperator = z.infer<typeof conditionOperatorSchema>;
+
+/** True when the operator needs nothing to compare against. */
+export function isValuelessOperator(operator: string): boolean {
+  return CONDITION_OPERATORS.some(
+    (entry) => entry.key === operator && "valueless" in entry,
+  );
+}
+
+/**
+ * One test against another answer in the same scope: a field of the same form,
+ * or a sibling column of the same entry.
+ */
+export const conditionRuleSchema = z.object({
+  id: z.string().min(1),
+  /** Key of the answer being tested. */
+  field: z.string().min(1),
+  operator: conditionOperatorSchema,
+  value: z.string().default(""),
+});
+export type ConditionRule = z.infer<typeof conditionRuleSchema>;
+
+export const conditionGroupSchema = z.object({
+  mode: z.enum(["all", "any"]).default("all"),
+  rules: z.array(conditionRuleSchema).default([]),
+});
+export type ConditionGroup = z.infer<typeof conditionGroupSchema>;
+
 /**
  * One column of a repeating group.
  *
@@ -105,6 +154,10 @@ export const columnFieldSchema = z.object({
   validation: fieldValidationSchema.default({}),
   /** Half-width fields sit two-per-row on desktop. */
   width: z.enum(["full", "half"]).default("full"),
+  /** Shown only while this holds. Null means always. */
+  visibleWhen: conditionGroupSchema.nullable().default(null),
+  /** Required only while this holds. Null falls back to `required`. */
+  requiredWhen: conditionGroupSchema.nullable().default(null),
 });
 export type ColumnField = z.infer<typeof columnFieldSchema>;
 
