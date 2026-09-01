@@ -1,9 +1,19 @@
 "use client";
 
-import { History, Loader2, RotateCcw } from "lucide-react";
+import { History, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -17,6 +27,7 @@ import {
 } from "@/components/ui/sheet";
 import type { WorkflowGraph } from "@/lib/workflow/types";
 import {
+  deleteWorkflowVersion,
   listWorkflowVersions,
   restoreWorkflowVersion,
   type WorkflowRevision,
@@ -40,6 +51,9 @@ export function VersionHistory({
   const [open, setOpen] = useState(false);
   const [versions, setVersions] = useState<WorkflowRevision[] | null>(null);
   const [restoring, setRestoring] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<WorkflowRevision | null>(
+    null,
+  );
   const [isPending, startTransition] = useTransition();
 
   const load = useCallback(() => {
@@ -65,6 +79,22 @@ export function VersionHistory({
         toast.success(
           `Version ${version} loaded onto the canvas. Publish to make it live.`,
         );
+      } else {
+        toast.error(result.error);
+      }
+    });
+  }
+
+  function handleDelete(revision: WorkflowRevision) {
+    startTransition(async () => {
+      const result = await deleteWorkflowVersion(revision.version);
+      setPendingDelete(null);
+      if (result.ok) {
+        setVersions(
+          (current) =>
+            current?.filter((row) => row.version !== revision.version) ?? null,
+        );
+        toast.success(`Version ${revision.version} deleted.`);
       } else {
         toast.error(result.error);
       }
@@ -133,21 +163,32 @@ export function VersionHistory({
                   </p>
 
                   {revision.isLive ? null : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="self-start"
-                      disabled={isPending}
-                      onClick={() => handleRestore(revision.version)}
-                      data-testid={`restore-${revision.version}`}
-                    >
-                      {restoring === revision.version ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <RotateCcw className="size-4" />
-                      )}
-                      Restore to canvas
-                    </Button>
+                    <div className="toolbar">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => handleRestore(revision.version)}
+                        data-testid={`restore-${revision.version}`}
+                      >
+                        {restoring === revision.version ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <RotateCcw className="size-4" />
+                        )}
+                        Restore to canvas
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => setPendingDelete(revision)}
+                        data-testid={`delete-version-${revision.version}`}
+                      >
+                        <Trash2 className="size-4" />
+                        Delete
+                      </Button>
+                    </div>
                   )}
                 </li>
               ))
@@ -155,6 +196,37 @@ export function VersionHistory({
           </ol>
         </ScrollArea>
       </SheetContent>
+
+      <AlertDialog
+        open={Boolean(pendingDelete)}
+        onOpenChange={(next) => !next && setPendingDelete(null)}
+      >
+        <AlertDialogContent data-testid="delete-version-dialog">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Delete version {pendingDelete?.version}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              It disappears from this history and can no longer be restored.
+              Applications already running keep their own copy of the process,
+              so none of them are affected.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(event) => {
+                event.preventDefault();
+                if (pendingDelete) handleDelete(pendingDelete);
+              }}
+              disabled={isPending}
+              data-testid="confirm-delete-version"
+            >
+              Delete version
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Sheet>
   );
 }
