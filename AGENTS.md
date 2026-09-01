@@ -42,7 +42,32 @@ through `lib/workflow/form.ts` so the rules cannot drift.
 **Never mutate a published workflow in place for a running application.**
 Applications carry their own graph snapshot. If you add a field to the graph
 shape, update `workflowGraphSchema` in `lib/workflow/types.ts` and make the
-change tolerant of old snapshots.
+change tolerant of old snapshots. The one exception is a draft: it has not
+started moving, so `refreshDraftToPublished` re-snapshots it against the
+current published version and prunes answers whose questions have gone.
+
+**Email steps run alongside the flow, never in front of it.** An outcome may
+fan out to several targets provided at most one of them continues the
+application — the rest must be email nodes. `lib/workflow/engine.ts` resolves
+the continuation and hands the emails to Kafka (`lib/mail/queue.ts`), which
+`scripts/email-worker.ts` consumes. Publishing a job never throws and never
+blocks a transition: a broker that is down records an `email_failed` event and
+the application still advances.
+
+**Editing questions is not the same permission as rewiring the flow.**
+`forms.manage` may change a stage's form; `workflow.manage` may add, remove or
+reconnect nodes. `saveWorkflowDraft` compares `structureSignature` before and
+after to tell the two apart, so any new structural field belongs in that
+signature or it becomes editable by the wrong role.
+
+**Publishing is versioned.** Every publish writes a `workflowVersion` row with
+its memo, and restoring one loads it into the draft — it does not go live until
+someone publishes again.
+
+**Long lists paginate on the client.** `usePagination` in
+`components/ui/list-pagination.tsx` slices an already-loaded array, which keeps
+search instant at institute scale. It is the seam to move server-side if a list
+ever outgrows a single query.
 
 ## Layout
 
@@ -52,6 +77,8 @@ change tolerant of old snapshots.
 | `lib/applications/`         | Queries and the transition runtime (DB writes, email dispatch, timeline).                                                      |
 | `lib/auth/`                 | Better Auth config, session helpers, permission vocabulary, provisioning.                                                      |
 | `lib/mail/`                 | `template.ts` is pure text (tested); `render.ts` and `layout.tsx` add the React shell.                                         |
+| `lib/mail/job.ts`           | The pure Kafka job contract, split from `queue.ts` so tests need no env.                                                       |
+| `lib/users/import.ts`       | Pure CSV and address-list parsing for the bulk user import.                                                                    |
 | `components/form-runtime/`  | Renders admin-defined forms for applicants and reviewers.                                                                      |
 | `components/form-builder/`  | The dnd-kit editor admins use to define those forms.                                                                           |
 | `app/(app)/admin/workflow/` | React Flow canvas, custom nodes, node inspector.                                                                               |
@@ -68,3 +95,6 @@ generated, so a clean checkout cannot typecheck without it.
 For anything touching the workflow engine, forms, uploads or email, also run
 the end-to-end suite: `pnpm e2e:setup && pnpm test:e2e`. It resets the local
 database, so do not point it at data you care about.
+
+Email only arrives once `scripts/email-worker.ts` is running (`pnpm worker`)
+against the Kafka service in `compose.yaml`.
