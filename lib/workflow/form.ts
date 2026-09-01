@@ -1,12 +1,18 @@
 import { z } from "zod";
 
 import {
+  columnsOf,
   isDisplayField,
+  isRowArray,
+  type AnyField,
+  type ColumnField,
   type FileValue,
   type FormField,
   type FormSchema,
   type FormSection,
   type FormValue,
+  type RowValue,
+  type ScalarValue,
   type SectionData,
 } from "./types";
 
@@ -34,7 +40,7 @@ export function isEmptyValue(value: unknown): boolean {
   return false;
 }
 
-export function buildFieldSchema(field: FormField): z.ZodTypeAny {
+export function buildFieldSchema(field: AnyField): z.ZodTypeAny {
   const v = field.validation ?? {};
   const requiredMessage = `${field.label} is required`;
 
@@ -205,6 +211,38 @@ export function buildFieldSchema(field: FormField): z.ZodTypeAny {
         : optional(single);
     }
 
+    case "repeater": {
+      const columns = columnsOf(field);
+      const shape: Record<string, z.ZodTypeAny> = {};
+      for (const column of columns) {
+        if (isDisplayField(column.type)) continue;
+        shape[column.key] = buildFieldSchema(column);
+      }
+
+      // Unknown keys are stripped rather than rejected: a column removed from
+      // the group must not invalidate entries someone already saved.
+      const row = z.object(shape);
+      let rows = z.array(row);
+
+      const min = v.minRows ?? (field.required ? 1 : 0);
+      if (min > 0) {
+        rows = rows.min(
+          min,
+          min === 1
+            ? `${field.label} needs at least one entry`
+            : `${field.label} needs at least ${min} entries`,
+        );
+      }
+      if (v.maxRows != null) {
+        rows = rows.max(
+          v.maxRows,
+          `${field.label} accepts at most ${v.maxRows} entries`,
+        );
+      }
+
+      return z.preprocess((value) => (isRowArray(value) ? value : []), rows);
+    }
+
     case "heading":
     case "paragraph":
       return z.any().optional();
@@ -261,6 +299,11 @@ function matchesAccept(file: FileValue, accepted: string[]): boolean {
 
 export function valueFields(section: FormSection): FormField[] {
   return section.fields.filter((field) => !isDisplayField(field.type));
+}
+
+/** The columns of a repeating group that actually hold an answer. */
+export function valueColumns(field: AnyField): ColumnField[] {
+  return columnsOf(field).filter((column) => !isDisplayField(column.type));
 }
 
 /** Zod object for a single wizard step - this is what gates "Next". */
@@ -321,7 +364,7 @@ export function validateSection(
 /*  Defaults                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export function emptyValueFor(field: FormField): FormValue {
+export function emptyValueFor(field: AnyField): FormValue {
   switch (field.type) {
     case "multiselect":
       return [];
@@ -331,9 +374,24 @@ export function emptyValueFor(field: FormField): FormValue {
       return "" as unknown as FormValue;
     case "file":
       return (field.validation?.maxFiles ?? 1) > 1 ? [] : null;
+    case "repeater":
+      // A required group opens with one blank entry, so the applicant is asked
+      // to fill something in rather than to work out that they must add a row.
+      return field.required || (field.validation?.minRows ?? 0) > 0
+        ? [emptyRow(field)]
+        : [];
     default:
       return "";
   }
+}
+
+/** One blank entry of a repeating group, with every column at its default. */
+export function emptyRow(field: AnyField): RowValue {
+  const row: RowValue = {};
+  for (const column of valueColumns(field)) {
+    row[column.key] = emptyValueFor(column) as ScalarValue;
+  }
+  return row;
 }
 
 /**
@@ -348,6 +406,19 @@ export function buildDefaultValues(
   for (const section of form.sections) {
     for (const field of valueFields(section)) {
       const savedValue = saved?.[field.key];
+
+      if (field.type === "repeater") {
+        // Each saved entry is filled out against the columns as they are now,
+        // so a column added since the draft was written appears blank rather
+        // than missing - which react-hook-form would treat as uncontrolled.
+        const rows = isRowArray(savedValue) ? savedValue : [];
+        values[field.key] =
+          rows.length > 0
+            ? rows.map((row) => ({ ...emptyRow(field), ...row }))
+            : (emptyValueFor(field) as FormValue);
+        continue;
+      }
+
       values[field.key] =
         savedValue === undefined || savedValue === null
           ? emptyValueFor(field)
@@ -368,11 +439,39 @@ export function pruneToSchema(
       valueFields(section).map((field) => field.key),
     ),
   );
+  const byKey = new Map(
+    form.sections.flatMap((section) =>
+      valueFields(section).map((field) => [field.key, field] as const),
+    ),
+  );
+
   const result: SectionData = {};
   for (const [key, value] of Object.entries(data)) {
-    if (keys.has(key)) result[key] = value as FormValue;
+    if (!keys.has(key)) continue;
+
+    const field = byKey.get(key);
+    if (field?.type === "repeater") {
+      result[key] = pruneRows(field, value);
+      continue;
+    }
+
+    result[key] = value as FormValue;
   }
   return result;
+}
+
+/** Drops answers to columns the group no longer has. */
+function pruneRows(field: AnyField, value: unknown): RowValue[] {
+  if (!isRowArray(value)) return [];
+  const columns = new Set(valueColumns(field).map((column) => column.key));
+
+  return value.map((row) => {
+    const kept: RowValue = {};
+    for (const [key, entry] of Object.entries(row)) {
+      if (columns.has(key)) kept[key] = entry;
+    }
+    return kept;
+  });
 }
 
 export function allFields(form: FormSchema): FormField[] {
@@ -393,19 +492,40 @@ export function collectFiles(
 ): FileValue[] {
   if (!data) return [];
   const files: FileValue[] = [];
+
   for (const field of allFields(form)) {
-    if (field.type !== "file") continue;
-    const value = data[field.key];
-    if (!value) continue;
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (isFileValue(entry)) files.push(entry);
+    if (field.type === "repeater") {
+      // Uploads inside a repeating group are attached to the application the
+      // same as any other: missing them here would leave them unreferenced.
+      const rows = data[field.key];
+      if (!isRowArray(rows)) continue;
+      // Narrowing a union of array types leaves the element type a union too,
+      // so the entry is named for what `isRowArray` just established.
+      for (const row of rows as RowValue[]) {
+        for (const column of valueColumns(field)) {
+          if (column.type !== "file") continue;
+          collectFrom(row[column.key], files);
+        }
       }
-    } else if (isFileValue(value)) {
-      files.push(value);
+      continue;
     }
+
+    if (field.type !== "file") continue;
+    collectFrom(data[field.key], files);
   }
+
   return files;
+}
+
+function collectFrom(value: unknown, into: FileValue[]) {
+  if (!value) return;
+  if (Array.isArray(value)) {
+    for (const entry of value) {
+      if (isFileValue(entry)) into.push(entry);
+    }
+  } else if (isFileValue(value)) {
+    into.push(value);
+  }
 }
 
 export function isFileValue(value: unknown): value is FileValue {

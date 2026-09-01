@@ -248,6 +248,41 @@ export function validateGraph(
             });
           }
           keys.add(field.key);
+
+          if (field.type !== "repeater") continue;
+
+          // A group's columns are stored inside its own entries, so they share
+          // a namespace with each other but not with the form around them.
+          const columns = field.fields ?? [];
+          if (columns.length === 0) {
+            issues.push({
+              severity: "error",
+              nodeId: node.id,
+              message: `"${field.label}" is a repeating group with no columns.`,
+            });
+          }
+
+          const columnKeys = new Set<string>();
+          for (const column of columns) {
+            if (column.type === "heading" || column.type === "paragraph") {
+              continue;
+            }
+            if (column.type === "repeater") {
+              issues.push({
+                severity: "error",
+                nodeId: node.id,
+                message: `"${column.label}" cannot be a repeating group inside "${field.label}".`,
+              });
+            }
+            if (columnKeys.has(column.key)) {
+              issues.push({
+                severity: "error",
+                nodeId: node.id,
+                message: `"${field.label}" has two columns using the key "${column.key}".`,
+              });
+            }
+            columnKeys.add(column.key);
+          }
         }
       }
       seenKeysByNode.set(node.id, keys);

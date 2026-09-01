@@ -269,7 +269,7 @@ export function FormWizard({
             ) : null}
           </CardHeader>
           <CardContent>
-            <div className="grid gap-5 sm:grid-cols-2">
+            <div className="field-grid">
               {currentSection.fields.map((field) => (
                 <FieldRenderer
                   key={field.id}

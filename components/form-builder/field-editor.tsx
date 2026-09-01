@@ -1,10 +1,13 @@
 "use client";
 
 import {
+  ChevronDown,
+  ChevronUp,
   FileCheck,
   GripVertical,
   List,
   Plus,
+  Rows3,
   SlidersHorizontal,
   Trash2,
 } from "lucide-react";
@@ -22,11 +25,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { newId } from "@/lib/workflow/defaults";
+import { createField, newId } from "@/lib/workflow/defaults";
 import {
+  FIELD_TYPES,
   hasChoices,
   isDisplayField,
+  type ColumnField,
   type FieldOption,
+  type FieldType,
   type FormField,
 } from "@/lib/workflow/types";
 import { cn } from "@/lib/utils";
@@ -51,7 +57,7 @@ export function FieldEditor({
   siblingKeys: string[];
 }) {
   const [activeTab, setActiveTab] = useState<
-    "general" | "options" | "validation"
+    "general" | "options" | "validation" | "columns"
   >("general");
 
   const update = (patch: Partial<FormField>) =>
@@ -67,8 +73,9 @@ export function FieldEditor({
   const isFile = field.type === "file";
   const isText = field.type === "text" || field.type === "textarea";
   const isNumber = field.type === "number";
+  const isRepeating = field.type === "repeater";
   const supportsChoices = hasChoices(field.type);
-  const supportsValidation = isText || isNumber || isFile;
+  const supportsValidation = isText || isNumber || isFile || isRepeating;
 
   return (
     <div className="mt-3 flex flex-col gap-4 rounded-lg border bg-card/60 p-4 shadow-xs">
@@ -102,6 +109,23 @@ export function FieldEditor({
             >
               <List className="size-3.5" />
               Options ({field.options.length})
+            </button>
+          ) : null}
+
+          {isRepeating ? (
+            <button
+              type="button"
+              onClick={() => setActiveTab("columns")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                activeTab === "columns"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-muted-foreground hover:bg-accent hover:text-foreground",
+              )}
+              data-testid={`${field.id}-columns-tab`}
+            >
+              <Rows3 className="size-3.5" />
+              Columns ({(field.fields ?? []).length})
             </button>
           ) : null}
 
@@ -256,6 +280,14 @@ export function FieldEditor({
         </div>
       ) : null}
 
+      {/* Columns Tab */}
+      {activeTab === "columns" && isRepeating ? (
+        <ColumnsEditor
+          columns={field.fields ?? []}
+          onChange={(fields) => update({ fields })}
+        />
+      ) : null}
+
       {/* Choices Tab */}
       {activeTab === "options" && supportsChoices && !isDisplay ? (
         <OptionsEditor
@@ -267,6 +299,23 @@ export function FieldEditor({
       {/* Validation Tab */}
       {activeTab === "validation" && supportsValidation && !isDisplay ? (
         <div className="flex flex-col gap-4">
+          {isRepeating ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <NumberField
+                id={`${field.id}-min-rows`}
+                label="Fewest entries"
+                value={field.validation.minRows}
+                onChange={(minRows) => updateValidation({ minRows })}
+              />
+              <NumberField
+                id={`${field.id}-max-rows`}
+                label="Most entries"
+                value={field.validation.maxRows}
+                onChange={(maxRows) => updateValidation({ maxRows })}
+              />
+            </div>
+          ) : null}
+
           {isText ? (
             <div className="grid gap-4 sm:grid-cols-2">
               <NumberField
@@ -398,6 +447,175 @@ function NumberField({
         }}
       />
     </Field>
+  );
+}
+
+/**
+ * The columns of a repeating group.
+ *
+ * Each column is edited with the same editor as any other field, so a column
+ * keeps its own type, options and validation - a year is a number with a
+ * range, a grade is a dropdown. Only its `fields` are dropped on the way back,
+ * because a group cannot contain another group.
+ */
+function ColumnsEditor({
+  columns,
+  onChange,
+}: {
+  columns: ColumnField[];
+  onChange: (columns: ColumnField[]) => void;
+}) {
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const COLUMN_TYPES = FIELD_TYPES.filter(
+    (type) => type !== "repeater" && !isDisplayField(type),
+  );
+
+  function update(id: string, next: FormField) {
+    // A column is a field without columns of its own.
+    const column: ColumnField = { ...next };
+    delete (column as Partial<FormField>).fields;
+    onChange(columns.map((entry) => (entry.id === id ? column : entry)));
+  }
+
+  function move(index: number, by: number) {
+    const next = [...columns];
+    const target = index + by;
+    if (target < 0 || target >= next.length) return;
+    [next[index], next[target]] = [next[target]!, next[index]!];
+    onChange(next);
+  }
+
+  function add() {
+    const taken = new Set(columns.map((column) => column.key));
+    let key = `column_${columns.length + 1}`;
+    let n = columns.length + 1;
+    while (taken.has(key)) key = `column_${++n}`;
+
+    onChange([
+      ...columns,
+      createField({ type: "text", label: `Column ${columns.length + 1}`, key }),
+    ]);
+  }
+
+  return (
+    <div className="flex flex-col gap-3" data-testid="columns-editor">
+      {columns.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          A repeating group needs at least one column before it can be
+          published.
+        </p>
+      ) : null}
+
+      {columns.map((column, index) => {
+        const open = openId === column.id;
+        const siblingKeys = columns
+          .filter((entry) => entry.id !== column.id)
+          .map((entry) => entry.key);
+
+        return (
+          <div
+            key={column.id}
+            className="rounded-lg border bg-background"
+            data-testid={`column-${column.key}`}
+          >
+            <div className="flex items-center gap-2 p-2.5">
+              <GripVertical className="size-4 shrink-0 text-muted-foreground/60" />
+              <button
+                type="button"
+                className="min-w-0 flex-1 text-left text-sm font-medium"
+                onClick={() => setOpenId(open ? null : column.id)}
+                data-testid={`column-toggle-${column.key}`}
+              >
+                <span className="truncate">{column.label}</span>
+                <span className="ml-2 font-mono text-xs text-muted-foreground">
+                  {column.key}
+                </span>
+              </button>
+
+              <Select
+                value={column.type}
+                onValueChange={(type) =>
+                  update(column.id, {
+                    ...column,
+                    fields: [],
+                    type: type as FieldType,
+                  })
+                }
+              >
+                <SelectTrigger
+                  className="w-40"
+                  aria-label={`Type of ${column.label}`}
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COLUMN_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={index === 0}
+                onClick={() => move(index, -1)}
+                aria-label={`Move ${column.label} up`}
+              >
+                <ChevronUp className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                disabled={index === columns.length - 1}
+                onClick={() => move(index, 1)}
+                aria-label={`Move ${column.label} down`}
+              >
+                <ChevronDown className="size-4" />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() =>
+                  onChange(columns.filter((entry) => entry.id !== column.id))
+                }
+                aria-label={`Delete ${column.label}`}
+              >
+                <Trash2 className="size-4 text-destructive" />
+              </Button>
+            </div>
+
+            {open ? (
+              <div className="border-t p-2.5">
+                <FieldEditor
+                  field={{ ...column, fields: [] }}
+                  onChange={(next) => update(column.id, next)}
+                  siblingKeys={siblingKeys}
+                />
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="self-start"
+        onClick={add}
+        data-testid="add-column"
+      >
+        <Plus className="size-4" />
+        Add column
+      </Button>
+    </div>
   );
 }
 

@@ -16,6 +16,7 @@ export const FIELD_TYPES = [
   "multiselect",
   "checkbox",
   "file",
+  "repeater",
   "heading",
   "paragraph",
 ] as const;
@@ -43,6 +44,15 @@ export function hasChoices(type: FieldType) {
   return CHOICE_FIELD_TYPES.includes(type);
 }
 
+/**
+ * A repeating group: a set of columns the applicant fills in once per entry,
+ * as many times as they need. The paper forms are full of them - every
+ * qualification, every previous appointment, every conference attended.
+ */
+export function isRepeater(type: FieldType) {
+  return type === "repeater";
+}
+
 export const fieldOptionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1, "Option label is required"),
@@ -62,10 +72,21 @@ export const fieldValidationSchema = z.object({
   maxFileSizeMb: z.number().positive().max(100).nullable().optional(),
   acceptedFileTypes: z.array(z.string()).nullable().optional(),
   maxFiles: z.number().int().positive().max(20).nullable().optional(),
+  /** Repeating groups only. */
+  minRows: z.number().int().nonnegative().max(100).nullable().optional(),
+  maxRows: z.number().int().positive().max(100).nullable().optional(),
 });
 export type FieldValidation = z.infer<typeof fieldValidationSchema>;
 
-export const formFieldSchema = z.object({
+/**
+ * One column of a repeating group.
+ *
+ * Identical to a field in every respect but one: it has no `fields` of its own,
+ * because a repeating group cannot contain another. Nesting them would make an
+ * answer arbitrarily deep, which neither the storage shape nor anybody reading
+ * a printed application would thank us for.
+ */
+export const columnFieldSchema = z.object({
   id: z.string().min(1),
   /** Stable machine key used inside the application data document. */
   key: z
@@ -85,7 +106,24 @@ export const formFieldSchema = z.object({
   /** Half-width fields sit two-per-row on desktop. */
   width: z.enum(["full", "half"]).default("full"),
 });
+export type ColumnField = z.infer<typeof columnFieldSchema>;
+
+export const formFieldSchema = columnFieldSchema.extend({
+  /** Columns of a repeating group. Empty for every other field type. */
+  fields: z.array(columnFieldSchema).default([]),
+});
 export type FormField = z.infer<typeof formFieldSchema>;
+
+/**
+ * Whatever the renderer, the compiler and the preview are handed: a field of a
+ * section, or one column of a repeating group.
+ */
+export type AnyField = ColumnField & { fields?: ColumnField[] };
+
+/** The columns of a repeating group, or nothing for any other field. */
+export function columnsOf(field: AnyField): ColumnField[] {
+  return field.type === "repeater" ? (field.fields ?? []) : [];
+}
 
 export const formSectionSchema = z.object({
   id: z.string().min(1),
@@ -234,8 +272,14 @@ export type WorkflowGraph = z.infer<typeof workflowGraphSchema>;
 /** Namespace holding the applicant's own submission. */
 export const APPLICANT_NAMESPACE = "applicant";
 
-export type FormValue =
+/** Everything a single input can hold. */
+export type ScalarValue =
   string | number | boolean | string[] | FileValue | FileValue[] | null;
+
+/** One entry of a repeating group: its columns, keyed by column key. */
+export type RowValue = Record<string, ScalarValue>;
+
+export type FormValue = ScalarValue | RowValue[];
 
 export type FileValue = {
   id: string;
@@ -246,6 +290,26 @@ export type FileValue = {
 };
 
 export type SectionData = Record<string, FormValue>;
+
+/**
+ * True for the array of entries a repeating group stores.
+ *
+ * Told apart from the other arrays a field can hold - a multi-select's strings
+ * and a file field's uploads - by what is inside it, since an empty array is
+ * ambiguous and belongs to whichever field asked for it.
+ */
+export function isRowArray(value: unknown): value is RowValue[] {
+  return (
+    Array.isArray(value) &&
+    value.every(
+      (entry) =>
+        typeof entry === "object" &&
+        entry !== null &&
+        !Array.isArray(entry) &&
+        !("contentType" in entry),
+    )
+  );
+}
 
 /**
  * `applicant` holds the submission node payload; every other key is a stage

@@ -19,14 +19,21 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { FileValue, FormField } from "@/lib/workflow/types";
+import type { AnyField, FileValue } from "@/lib/workflow/types";
 import { cn } from "@/lib/utils";
 import { FileField } from "./file-field";
+import { RepeaterField } from "./repeater-field";
 
 export type FieldRendererProps = {
-  field: FormField;
+  field: AnyField;
   control: Control<FieldValues>;
   disabled?: boolean;
+  /**
+   * Where the answer lives in the form, when that is not simply the field's
+   * key: a column of a repeating group is addressed as
+   * `qualifications.0.year`, so its errors land on the input that caused them.
+   */
+  name?: string;
 };
 
 /**
@@ -37,7 +44,10 @@ export function FieldRenderer({
   field,
   control,
   disabled,
+  name,
 }: FieldRendererProps) {
+  const path = name ?? field.key;
+
   if (field.type === "heading") {
     return (
       <h3 className="col-span-full text-base font-semibold first:mt-0">
@@ -54,12 +64,36 @@ export function FieldRenderer({
     );
   }
 
-  const inputId = `field-${field.key}`;
+  const inputId = `field-${path}`;
+
+  if (field.type === "repeater") {
+    return (
+      <Field className="col-span-full" data-testid={`field-${path}`}>
+        <FieldLabel htmlFor={inputId}>
+          {field.label}
+          {field.required ? (
+            <span aria-hidden className="text-destructive">
+              *
+            </span>
+          ) : null}
+        </FieldLabel>
+        {field.description ? (
+          <FieldDescription>{field.description}</FieldDescription>
+        ) : null}
+        <RepeaterField
+          field={field}
+          control={control}
+          name={path}
+          disabled={disabled}
+        />
+      </Field>
+    );
+  }
 
   return (
     <Controller
       control={control}
-      name={field.key}
+      name={path}
       render={({ field: rhf, fieldState }) => {
         const invalid = Boolean(fieldState.error);
 
@@ -69,7 +103,7 @@ export function FieldRenderer({
             className={cn(
               field.width === "half" ? "sm:col-span-1" : "col-span-full",
             )}
-            data-testid={`field-${field.key}`}
+            data-testid={`field-${path}`}
           >
             {field.type === "checkbox" ? null : (
               <FieldLabel htmlFor={inputId}>
