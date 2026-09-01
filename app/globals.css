@@ -107,7 +107,7 @@
   --shell-narrow-width: 42rem;
   --canvas-min-height: 24rem;
   --node-width: 17rem;
-  --progress-node-width: 14rem;
+  --progress-node-width: 15rem;
   --progress-canvas-height: 26rem;
 
   /* Workflow node accents. */
@@ -253,6 +253,38 @@
 
   .stat-value {
     @apply text-3xl font-semibold tabular-nums;
+  }
+
+  /* Key/value strip: a handful of facts laid along the width of a card
+     rather than stacked down one side of it. */
+  .fact-row {
+    @apply grid gap-4 sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .fact {
+    @apply flex flex-col gap-0.5;
+  }
+
+  .fact-label {
+    @apply text-xs font-medium tracking-wide text-muted-foreground uppercase;
+  }
+
+  .fact-value {
+    @apply text-sm font-medium;
+  }
+
+  /* Rows of records that read across the page: each cell takes the space its
+     content needs, and the trailing action is pushed to the end. */
+  .record-list {
+    @apply flex flex-col gap-2;
+  }
+
+  .record-row {
+    @apply flex flex-wrap items-center gap-x-4 gap-y-1 rounded-md border p-3;
+  }
+
+  .record-row > :last-child {
+    @apply ml-auto;
   }
 
   .pagination-bar {
@@ -502,6 +534,11 @@
 
   .progress-node-body {
     @apply flex flex-col gap-1.5 px-3 pb-2.5;
+  }
+
+  /* Arrival and departure, stacked under the badges. */
+  .progress-node-dates {
+    @apply flex flex-col gap-0.5 text-xs leading-tight text-muted-foreground tabular-nums;
   }
 
   .progress-node-upcoming {
