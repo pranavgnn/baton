@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { closeOverlays, expectToast, storageStatePath } from "./helpers";
 
@@ -34,30 +34,25 @@ test.describe("role priority", () => {
   test("saves a reordered list", async ({ page }) => {
     await page.goto("/admin/roles");
     await page.getByTestId("open-role-priority").click();
-
-    // Keyboard reordering is the accessible path dnd-kit provides.
-    await page.getByRole("button", { name: "Reorder Faculty" }).focus();
-    await page.keyboard.press("Space");
-    await page.keyboard.press("ArrowDown");
-    await page.keyboard.press("Space");
+    await dragRole(page, "Faculty", 1);
 
     await page.getByTestId("save-priority").click();
     await expectToast(page, "Role priority saved.");
 
     await page.reload();
+    // The default badge follows the top of the list, wherever that now is.
     await expect(
       page.getByTestId("role-card-Faculty").getByText("Default"),
     ).toHaveCount(0);
+    await expect(
+      page.getByTestId("role-card-Head of Department").getByText("Default"),
+    ).toBeVisible();
   });
 
   test("restores Faculty to the top", async ({ page }) => {
     await page.goto("/admin/roles");
     await page.getByTestId("open-role-priority").click();
-
-    await page.getByRole("button", { name: "Reorder Faculty" }).focus();
-    await page.keyboard.press("Space");
-    await page.keyboard.press("ArrowUp");
-    await page.keyboard.press("Space");
+    await dragRole(page, "Faculty", -1);
 
     await page.getByTestId("save-priority").click();
     await expectToast(page, "Role priority saved.");
@@ -68,6 +63,37 @@ test.describe("role priority", () => {
     ).toBeVisible();
   });
 });
+
+/**
+ * Drags a role `places` rows down the priority dialog (negative moves it up).
+ *
+ * dnd-kit's pointer sensor needs a real gesture: a press, a move past its 4px
+ * activation distance, then the travel in steps so the sortable list can
+ * measure and shift as the pointer passes each row.
+ */
+async function dragRole(page: Page, name: string, places: number) {
+  const handle = page.getByRole("button", { name: `Reorder ${name}` });
+  const row = page.getByTestId(`priority-${name}`);
+
+  const from = (await handle.boundingBox())!;
+  const height = (await row.boundingBox())!.height;
+  const startX = from.x + from.width / 2;
+  const startY = from.y + from.height / 2;
+
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX, startY + 8);
+
+  const distance = height * places;
+  for (let step = 1; step <= 10; step++) {
+    await page.mouse.move(startX, startY + (distance * step) / 10);
+  }
+
+  await page.mouse.up();
+  await expect(
+    page.getByTestId("priority-list").locator("li").first(),
+  ).toBeVisible();
+}
 
 test.describe("bulk user import", () => {
   const IMPORTED = "bulk.one@manipal.edu";

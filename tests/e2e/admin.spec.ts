@@ -189,6 +189,17 @@ test.describe("email templates", () => {
   test("creates a template with hydrated placeholders", async ({ page }) => {
     await page.goto("/admin/templates");
 
+    // A retry re-runs the whole serial file, and the name is unique: clear a
+    // leftover first so the retry fails on the real problem, not on the name.
+    const existing = page.getByTestId(`template-${NEW_TEMPLATE}`);
+    if (await existing.isVisible()) {
+      await page
+        .getByRole("button", { name: `Delete ${NEW_TEMPLATE}` })
+        .click();
+      await page.getByRole("button", { name: "Delete template" }).click();
+      await expectToast(page, "Template deleted.");
+    }
+
     await page.getByTestId("new-template").click();
     await page
       .getByRole("textbox", { name: "Template name" })
