@@ -271,7 +271,11 @@ export const applicationEventType = pgEnum("application_event_type", [
   "created",
   "submitted",
   "stage_completed",
+  // Email is delivered asynchronously: the transition records the hand-off to
+  // the queue, and the worker records what became of it.
+  "email_queued",
   "email_sent",
+  "email_failed",
   "completed",
   "withdrawn",
   "reopened",

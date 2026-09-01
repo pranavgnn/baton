@@ -516,7 +516,7 @@ export function defaultWorkflowGraph({
       {
         id: ids.ackEmail,
         kind: "email",
-        position: { x: 340, y: 200 },
+        position: { x: 340, y: 380 },
         data: {
           label: "Acknowledge Submission",
           description: "Confirms receipt to the applicant.",
@@ -545,7 +545,7 @@ export function defaultWorkflowGraph({
       {
         id: ids.returnEmail,
         kind: "email",
-        position: { x: 680, y: 480 },
+        position: { x: 680, y: 420 },
         data: {
           label: "Notify Applicant of Changes",
           description: "Tells the applicant their application came back.",
@@ -558,7 +558,7 @@ export function defaultWorkflowGraph({
       {
         id: ids.deanEmail,
         kind: "email",
-        position: { x: 1020, y: 60 },
+        position: { x: 1020, y: -120 },
         data: {
           label: "Notify Dean",
           description: "Alerts the Dean that a file is waiting.",
@@ -571,7 +571,7 @@ export function defaultWorkflowGraph({
       {
         id: ids.dean,
         kind: "stage",
-        position: { x: 1360, y: 60 },
+        position: { x: 1020, y: 60 },
         data: {
           label: "Dean Review",
           description: "Final academic decision.",
@@ -583,7 +583,7 @@ export function defaultWorkflowGraph({
       {
         id: ids.approvedEmail,
         kind: "email",
-        position: { x: 1700, y: -60 },
+        position: { x: 1360, y: -120 },
         data: {
           label: "Send Approval Letter",
           description: "",
@@ -596,7 +596,7 @@ export function defaultWorkflowGraph({
       {
         id: ids.rejectedEmail,
         kind: "email",
-        position: { x: 1700, y: 300 },
+        position: { x: 1360, y: 420 },
         data: {
           label: "Send Outcome Letter",
           description: "",
@@ -609,82 +609,98 @@ export function defaultWorkflowGraph({
       {
         id: ids.approvedEnd,
         kind: "end",
-        position: { x: 2040, y: -60 },
+        position: { x: 1400, y: 60 },
         data: { label: "Approved", description: "", result: "approved" },
       },
       {
         id: ids.rejectedEnd,
         kind: "end",
-        position: { x: 2040, y: 300 },
+        position: { x: 1400, y: 240 },
         data: { label: "Rejected", description: "", result: "rejected" },
       },
     ],
     edges: [
+      // Submission continues to the HOD; the acknowledgement is sent
+      // alongside it rather than in front of it.
+      {
+        id: "edge_start_hod",
+        source: ids.start,
+        sourceHandle: "out",
+        target: ids.hod,
+      },
       {
         id: "edge_start_ack",
         source: ids.start,
         sourceHandle: "out",
         target: ids.ackEmail,
       },
-      {
-        id: "edge_ack_hod",
-        source: ids.ackEmail,
-        sourceHandle: "out",
-        target: ids.hod,
-      },
+
+      // Recommend: on to the Dean, notifying that role in parallel.
       {
         id: "edge_hod_recommend",
         source: ids.hod,
         sourceHandle: hodOutcomes.recommend.id,
+        target: ids.dean,
+      },
+      {
+        id: "edge_hod_recommend_email",
+        source: ids.hod,
+        sourceHandle: hodOutcomes.recommend.id,
         target: ids.deanEmail,
       },
+
+      // Send back: the application returns to the applicant, who is told why.
       {
         id: "edge_hod_sendback",
         source: ids.hod,
         sourceHandle: hodOutcomes.sendBack.id,
+        target: ids.start,
+      },
+      {
+        id: "edge_hod_sendback_email",
+        source: ids.hod,
+        sourceHandle: hodOutcomes.sendBack.id,
         target: ids.returnEmail,
       },
+
+      // Not recommended: closed, with the outcome letter sent in parallel.
       {
         id: "edge_hod_reject",
         source: ids.hod,
         sourceHandle: hodOutcomes.reject.id,
+        target: ids.rejectedEnd,
+      },
+      {
+        id: "edge_hod_reject_email",
+        source: ids.hod,
+        sourceHandle: hodOutcomes.reject.id,
         target: ids.rejectedEmail,
       },
-      {
-        id: "edge_return_start",
-        source: ids.returnEmail,
-        sourceHandle: "out",
-        target: ids.start,
-      },
-      {
-        id: "edge_deanemail_dean",
-        source: ids.deanEmail,
-        sourceHandle: "out",
-        target: ids.dean,
-      },
+
       {
         id: "edge_dean_approve",
         source: ids.dean,
         sourceHandle: deanOutcomes.approve.id,
+        target: ids.approvedEnd,
+      },
+      {
+        id: "edge_dean_approve_email",
+        source: ids.dean,
+        sourceHandle: deanOutcomes.approve.id,
         target: ids.approvedEmail,
       },
+
       {
         id: "edge_dean_reject",
         source: ids.dean,
         sourceHandle: deanOutcomes.reject.id,
-        target: ids.rejectedEmail,
-      },
-      {
-        id: "edge_approved_end",
-        source: ids.approvedEmail,
-        sourceHandle: "out",
-        target: ids.approvedEnd,
-      },
-      {
-        id: "edge_rejected_end",
-        source: ids.rejectedEmail,
-        sourceHandle: "out",
         target: ids.rejectedEnd,
+      },
+      {
+        id: "edge_dean_reject_email",
+        source: ids.dean,
+        sourceHandle: deanOutcomes.reject.id,
+        target: ids.rejectedEmail,
       },
     ],
   };

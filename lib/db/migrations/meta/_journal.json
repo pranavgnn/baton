@@ -8,6 +8,13 @@
       "when": 1788177465329,
       "tag": "0000_large_shocker",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788263025773,
+      "tag": "0001_eminent_hitman",
+      "breakpoints": true
     }
   ]
 }

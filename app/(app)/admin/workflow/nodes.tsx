@@ -207,19 +207,15 @@ export const EmailNodeView = memo(function EmailNodeView({
         </span>
         <span className="flow-node-meta">To {recipient}</span>
         <Badge variant="outline" className="self-start">
-          Automatic
+          Sent in the background
         </Badge>
       </div>
+      {/* No source handle: delivery is asynchronous, so an email node runs
+          alongside the step that continues rather than in front of it. */}
       <Handle
         type="target"
         position={Position.Left}
         id="in"
-        className="flow-handle"
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="out"
         className="flow-handle"
       />
     </Shell>

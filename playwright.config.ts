@@ -39,7 +39,9 @@ export default defineConfig({
   ],
 
   webServer: {
-    command: `pnpm build && pnpm start --port ${PORT}`,
+    // The worker rides along: email is delivered off the request path, so
+    // without a consumer nothing would ever reach the mail sink.
+    command: `pnpm build && concurrently --kill-others --success first --names app,worker "pnpm start --port ${PORT}" "pnpm worker"`,
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
