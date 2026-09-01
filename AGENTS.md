@@ -64,10 +64,43 @@ signature or it becomes editable by the wrong role.
 its memo, and restoring one loads it into the draft — it does not go live until
 someone publishes again.
 
+**Every action writes an audit entry.** `recordAudit` in `lib/audit/record.ts`
+is called from the action that performed the work, never from a shared wrapper:
+what makes an entry worth reading is the sentence describing what happened, and
+only the action knows that. It never throws - losing the record of a password
+change is bad, refusing the change because of it is worse. New actions belong
+in the vocabulary in `lib/audit/actions.ts`, which is what the admin filter
+offers; the column is plain text, so adding one needs no migration.
+
+**Sign-out and password changes go through `lib/audit/session.ts`.** Better
+Auth handles both over its own endpoints, and by the time a sign-out has
+happened there is no session left to say whose it was. The actor is resolved
+server-side in either case, so the browser never asserts who it is. Sign-in is
+recorded from Better Auth's own `after` hook, where the new session is on the
+context.
+
 **Long lists paginate on the client.** `usePagination` in
 `components/ui/list-pagination.tsx` slices an already-loaded array, which keeps
 search instant at institute scale. It is the seam to move server-side if a list
-ever outgrows a single query.
+ever outgrows a single query. The audit log already has: it paginates and
+filters in the query, because it is the one table that grows without bound.
+
+**The canvas owns the steps.** `workflow-builder.tsx` keeps React Flow's node
+array as the only copy and derives the domain graph from it. Anything a step
+needs that its own data does not hold - the names behind its role and template
+ids, whether validation flagged it - reaches the node components through the
+context in `nodes.tsx`, memoised on its contents. Putting those back into node
+`data` hands every step a new object whenever any of them changes, which is
+what made the canvas flicker; dropping React Flow's own changes on the floor is
+what made it report nodes as uninitialised.
+
+**The seeded process is STN 023 R5, not an example.** `lib/workflow/defaults.ts`
+carries the institute's real form and route: six review stages, the
+seventeen-item research checklist, and one role per signing authority. It is a
+starting point an admin may edit, but it is what a fresh install runs, so
+changing it changes what the institute sees on day one. Two things the form
+engine cannot yet express are worked around there and flagged in place:
+repeating tables, and fields the paper form makes conditional.
 
 ## Layout
 
@@ -79,6 +112,7 @@ ever outgrows a single query.
 | `lib/mail/`                 | `template.ts` is pure text (tested); `render.ts` and `layout.tsx` add the React shell.                                         |
 | `lib/mail/job.ts`           | The pure Kafka job contract, split from `queue.ts` so tests need no env.                                                       |
 | `lib/users/import.ts`       | Pure CSV and address-list parsing for the bulk user import.                                                                    |
+| `lib/audit/`                | Audit vocabulary, the recorder, the filtered query and the CSV export. `csv.ts` and `actions.ts` are pure and unit-tested.     |
 | `components/form-runtime/`  | Renders admin-defined forms for applicants and reviewers.                                                                      |
 | `components/form-builder/`  | The dnd-kit editor admins use to define those forms.                                                                           |
 | `app/(app)/admin/workflow/` | React Flow canvas, custom nodes, node inspector.                                                                               |
