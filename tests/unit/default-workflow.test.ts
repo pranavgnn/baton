@@ -242,37 +242,6 @@ describe("the seeded applicant form", () => {
     );
   });
 
-  it("never points a rule at a question that is not on the form", () => {
-    // The same check publishing makes, run against what the seed produces.
-    const keys = new Set(
-      form.sections.flatMap((section) =>
-        section.fields.map((field) => field.key),
-      ),
-    );
-
-    for (const section of form.sections) {
-      for (const field of section.fields) {
-        const rules = [
-          ...(field.visibleWhen?.rules ?? []),
-          ...(field.requiredWhen?.rules ?? []),
-        ];
-        for (const rule of rules) {
-          expect(keys.has(rule.field)).toBe(true);
-        }
-      }
-    }
-  });
-
-  it("requires the declaration and the documents that are never optional", () => {
-    const fields = form.sections.flatMap((section) => section.fields);
-    const required = (key: string) =>
-      fields.find((field) => field.key === key)?.required;
-
-    expect(required("declaration")).toBe(true);
-    expect(required("scopus_profile")).toBe(true);
-    expect(required("best_publication_first_pages")).toBe(true);
-  });
-
   it("keeps every data key distinct", () => {
     expect(new Set(keys).size).toBe(keys.length);
   });

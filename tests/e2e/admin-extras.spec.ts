@@ -6,23 +6,18 @@ test.describe.configure({ mode: "serial", retries: 0 });
 test.use({ storageState: storageStatePath("superAdmin") });
 
 test.describe("role priority", () => {
-  test("shows the top role as the default", async ({ page }) => {
+  test("lists roles in priority order with the default marked", async ({
+    page,
+  }) => {
     await page.goto("/admin/roles");
 
     // The seed puts Employee first, so it is what an unnamed user is given.
     await expect(
       page.getByTestId("role-card-Employee").getByText("Default"),
     ).toBeVisible();
-  });
 
-  test("lists roles in priority order with the default marked", async ({
-    page,
-  }) => {
-    await page.goto("/admin/roles");
     await page.getByTestId("open-role-priority").click();
-
-    const dialog = page.getByTestId("role-priority-dialog");
-    await expect(dialog).toBeVisible();
+    await expect(page.getByTestId("role-priority-dialog")).toBeVisible();
 
     const rows = page.getByTestId("priority-list").locator("li");
     await expect(rows.first()).toContainText("Employee");
@@ -31,7 +26,9 @@ test.describe("role priority", () => {
     await closeOverlays(page);
   });
 
-  test("saves a reordered list", async ({ page }) => {
+  test("saves a reordered list, and the default follows it", async ({
+    page,
+  }) => {
     await page.goto("/admin/roles");
     await page.getByTestId("open-role-priority").click();
     await dragRole(page, "Employee", 1);
@@ -47,13 +44,10 @@ test.describe("role priority", () => {
     await expect(
       page.getByTestId("role-card-HOD").getByText("Default"),
     ).toBeVisible();
-  });
 
-  test("restores Employee to the top", async ({ page }) => {
-    await page.goto("/admin/roles");
+    // And back, which is both the other direction and the tidy-up.
     await page.getByTestId("open-role-priority").click();
     await dragRole(page, "Employee", -1);
-
     await page.getByTestId("save-priority").click();
     await expectToast(page, "Role priority saved.");
 
@@ -218,32 +212,20 @@ test.describe("action menus", () => {
 });
 
 test.describe("pagination", () => {
-  test("offers page controls on the user list", async ({ page }) => {
-    await page.goto("/admin/users");
-
-    const pagination = page.getByTestId("pagination");
-    await expect(pagination).toBeVisible();
-    await expect(page.getByTestId("page-indicator")).toContainText("1 /");
+  test("offers page controls on every long list", async ({ page }) => {
+    for (const route of ["/admin/users", "/admin/roles", "/admin/templates"]) {
+      await page.goto(route);
+      await expect(page.getByTestId("pagination")).toBeVisible();
+    }
 
     // One page of results, so there is nowhere to go.
-    await expect(page.getByTestId("page-previous")).toBeDisabled();
-  });
-
-  test("splits the list when the page size is reduced", async ({ page }) => {
     await page.goto("/admin/users");
+    await expect(page.getByTestId("page-indicator")).toContainText("1 /");
+    await expect(page.getByTestId("page-previous")).toBeDisabled();
 
     await page.getByRole("combobox", { name: "Rows per page" }).click();
     await page.getByRole("option", { name: "10 per page" }).click();
-
     await expect(page.getByTestId("page-indicator")).toBeVisible();
-  });
-
-  test("appears on the roles and templates lists too", async ({ page }) => {
-    await page.goto("/admin/roles");
-    await expect(page.getByTestId("pagination")).toBeVisible();
-
-    await page.goto("/admin/templates");
-    await expect(page.getByTestId("pagination")).toBeVisible();
   });
 });
 

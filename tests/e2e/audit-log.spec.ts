@@ -36,7 +36,9 @@ test.describe("audit log", () => {
     await expect(page.getByTestId("audit-table")).toContainText("Signed in");
   });
 
-  test("filters by action, and says so in the URL", async ({ page }) => {
+  test("filters by action, and keeps the filter in the URL", async ({
+    page,
+  }) => {
     await page.goto("/admin/audit");
 
     await page.getByTestId("audit-action-filter").click();
@@ -47,11 +49,10 @@ test.describe("audit log", () => {
     await expect(page.getByTestId("audit-table")).not.toContainText(
       "Signed in",
     );
-  });
 
-  test("keeps a filtered view on reload", async ({ page }) => {
-    await page.goto("/admin/audit?actions=role.created");
-
+    // The URL is the whole state, so the view survives a reload and can be
+    // sent to a colleague.
+    await page.reload();
     await expect(page.getByTestId("audit-table")).toContainText("Role created");
     await expect(page.getByTestId("audit-clear-filters")).toBeVisible();
   });

@@ -5,14 +5,13 @@ import { ACCOUNTS, signOut, storageStatePath } from "./helpers";
 test.describe("unauthenticated access", () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test("redirects an anonymous visitor to sign in", async ({ page }) => {
-    await page.goto("/dashboard");
-    await expect(page).toHaveURL(/\/sign-in/);
-  });
-
-  test("redirects the admin area to sign in as well", async ({ page }) => {
-    await page.goto("/admin/workflow");
-    await expect(page).toHaveURL(/\/sign-in/);
+  test("redirects every signed-in area to the sign-in page", async ({
+    page,
+  }) => {
+    for (const route of ["/dashboard", "/admin/workflow", "/reviews"]) {
+      await page.goto(route);
+      await expect(page).toHaveURL(/\/sign-in/);
+    }
   });
 
   test("rejects wrong credentials without saying which part failed", async ({
@@ -36,17 +35,20 @@ test.describe("unauthenticated access", () => {
     await expect(page.getByText("Check your inbox")).toBeVisible();
   });
 
-  test("shows a recovery path for an invalid reset link", async ({ page }) => {
-    await page.goto("/reset-password?error=INVALID_TOKEN");
-    await expect(page.getByText("Link not valid")).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Request a new link" }),
-    ).toBeVisible();
-  });
-
-  test("rejects a reset link with no token at all", async ({ page }) => {
-    await page.goto("/reset-password");
-    await expect(page.getByText("Link not valid")).toBeVisible();
+  test("offers a recovery path for a reset link that cannot be used", async ({
+    page,
+  }) => {
+    // Rejected outright, and arrived at with nothing to reject.
+    for (const route of [
+      "/reset-password?error=INVALID_TOKEN",
+      "/reset-password",
+    ]) {
+      await page.goto(route);
+      await expect(page.getByText("Link not valid")).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Request a new link" }),
+      ).toBeVisible();
+    }
   });
 });
 
@@ -65,25 +67,15 @@ test.describe("applicant permissions", () => {
     await expect(page.getByRole("link", { name: "Reviews" })).toHaveCount(0);
   });
 
-  test("is blocked from the admin area", async ({ page }) => {
-    await page.goto("/admin/roles");
-    await expect(
-      page.getByText("You do not have access to this page"),
-    ).toBeVisible();
-  });
-
-  test("is blocked from the review queue", async ({ page }) => {
-    await page.goto("/reviews");
-    await expect(
-      page.getByText("You do not have access to this page"),
-    ).toBeVisible();
-  });
-
-  test("is blocked from the all-applications list", async ({ page }) => {
-    await page.goto("/applications");
-    await expect(
-      page.getByText("You do not have access to this page"),
-    ).toBeVisible();
+  test("is blocked from everything their role does not cover", async ({
+    page,
+  }) => {
+    for (const route of ["/admin/roles", "/reviews", "/applications"]) {
+      await page.goto(route);
+      await expect(
+        page.getByText("You do not have access to this page"),
+      ).toBeVisible();
+    }
   });
 
   test("can sign out", async ({ page }) => {

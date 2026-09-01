@@ -88,7 +88,7 @@ describe("buildProgressGraph", () => {
     expect(travelled).not.toContain("stage_hod->end_rejected");
   });
 
-  it("counts a revisit when a send-back loops the application round", () => {
+  it("reports the latest visit when a send-back loops it round", () => {
     const { graph, outcomes } = buildGraph();
     const progress = buildProgressGraph({
       graph,
@@ -109,7 +109,15 @@ describe("buildProgressGraph", () => {
     const start = progress.steps.find((step) => step.nodeId === "start")!;
     expect(start.visits).toBe(2);
     expect(start.state).toBe("done");
-    expect(stateOf(progress, "stage_hod")).toBe("current");
+    // The second time round, not the first.
+    expect(start.enteredAt).toBe("2026-03-05T13:00:00.000Z");
+    expect(start.completedAt).toBe("2026-03-06T14:00:00.000Z");
+
+    const stage = progress.steps.find((step) => step.nodeId === "stage_hod")!;
+    expect(stage.state).toBe("current");
+    expect(stage.enteredAt).toBe("2026-03-06T14:00:00.000Z");
+    // Left once already, but it is back here now.
+    expect(stage.completedAt).toBeNull();
   });
 
   it("keeps the loop connection in the graph so it renders as a loop", () => {
@@ -227,35 +235,6 @@ describe("buildProgressGraph", () => {
     const stage = progress.steps.find((step) => step.nodeId === "stage_hod")!;
 
     expect(stage.enteredAt).toBe("2026-03-01T09:00:00.000Z");
-    expect(stage.completedAt).toBeNull();
-  });
-
-  it("reports the latest visit when a send-back loops it round", () => {
-    const { graph, outcomes } = buildGraph();
-    const progress = buildProgressGraph({
-      graph,
-      travelled: [
-        { nodeId: "start", handleId: "out", at: "2026-03-01T09:00:00.000Z" },
-        {
-          nodeId: "stage_hod",
-          handleId: outcomes.sendBack.id,
-          at: "2026-03-02T09:00:00.000Z",
-        },
-        { nodeId: "start", handleId: "out", at: "2026-03-03T09:00:00.000Z" },
-      ],
-      startedAt: STARTED_AT,
-      currentNodeId: "stage_hod",
-      roleName,
-    });
-
-    const start = progress.steps.find((step) => step.nodeId === "start")!;
-    // The second time round, not the first.
-    expect(start.enteredAt).toBe("2026-03-02T09:00:00.000Z");
-    expect(start.completedAt).toBe("2026-03-03T09:00:00.000Z");
-
-    const stage = progress.steps.find((step) => step.nodeId === "stage_hod")!;
-    expect(stage.enteredAt).toBe("2026-03-03T09:00:00.000Z");
-    // Left once already, but it is back here now.
     expect(stage.completedAt).toBeNull();
   });
 });
