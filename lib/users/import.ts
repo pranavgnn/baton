@@ -1,8 +1,21 @@
 import { z } from "zod";
 
+import {
+  parseUserDate,
+  parseUserType,
+  USER_FIELDS,
+  type UserFieldKey,
+} from "./profile";
+
 /**
  * Parsing for bulk user import. Pure and separately tested: a bad import is
  * tedious to undo, so the parsing rules are worth pinning down.
+ *
+ * A file is read in two steps - split into a table, then read through a
+ * mapping of portal field to column - so an institute's own spreadsheet can be
+ * imported as it stands. The header is only ever used to *guess* that mapping;
+ * a file whose columns are named nothing in particular, or named nothing at
+ * all, is mapped by hand and imports just the same.
  */
 
 export type ImportRow = {
@@ -13,6 +26,14 @@ export type ImportRow = {
   employeeId: string;
   school: string;
   designation: string;
+  institution: string;
+  userType: string;
+  dateOfBirth: string;
+  dateOfJoining: string;
+  dateOfLastPromotion: string;
+  phone: string;
+  personalEmail: string;
+  address: string;
   /** Role names exactly as written; resolved to ids on the server. */
   roles: string[];
 };
@@ -24,18 +45,20 @@ export type ParsedImport = {
   issues: ImportIssue[];
 };
 
-export const IMPORT_COLUMNS = [
-  "email",
-  "name",
-  "employee_id",
-  "school",
-  "designation",
-  "roles",
-] as const;
+/** Field key to zero-based column index. A field left out is not imported. */
+export type ColumnMapping = Partial<Record<UserFieldKey, number>>;
 
-export const CSV_TEMPLATE = `${IMPORT_COLUMNS.join(",")}
-a.person@manipal.edu,A Person,MIT-2201,School of Computer Engineering,Professor,Dean
-another.person@manipal.edu,Another Person,MIT-4471,School of Electrical Engineering,Assistant Professor,
+export type CsvTable = {
+  /** The first line when it is a header, otherwise generated column names. */
+  header: string[];
+  rows: { line: number; cells: string[] }[];
+};
+
+export const IMPORT_COLUMNS = USER_FIELDS.map((field) => field.csv);
+
+export const CSV_TEMPLATE = `email,name,employee_id,school,designation,user_type,date_of_joining,roles
+a.person@manipal.edu,A Person,MIT-2201,School of Computer Engineering,Professor,regular,01/06/2017,Dean
+another.person@manipal.edu,Another Person,MIT-4471,School of Electrical Engineering,Assistant Professor,contract,15/07/2021,
 `;
 
 const emailSchema = z.email();
@@ -78,6 +101,88 @@ export function splitCsvLine(line: string): string[] {
   return cells.map((value) => value.trim());
 }
 
+/**
+ * Splits the text into a header and its rows.
+ *
+ * With `hasHeader` false the first line is data and the columns are named for
+ * their position, which is what a file exported without a header needs.
+ */
+export function parseCsvTable(text: string, hasHeader = true): CsvTable {
+  const lines = text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+
+  if (lines.length === 0) return { header: [], rows: [] };
+
+  const body = hasHeader ? lines.slice(1) : lines;
+  const width = Math.max(
+    ...lines.map((line) => splitCsvLine(line).length),
+    hasHeader ? 0 : 1,
+  );
+
+  const header = hasHeader
+    ? splitCsvLine(lines[0])
+    : Array.from({ length: width }, (_, index) => `Column ${index + 1}`);
+
+  return {
+    header,
+    rows: body.map((line, offset) => ({
+      // Line numbers count the header, and are 1-based.
+      line: offset + (hasHeader ? 2 : 1),
+      cells: splitCsvLine(line),
+    })),
+  };
+}
+
+function normalise(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_")
+    .replace(/[^\w]/g, "");
+}
+
+/**
+ * The mapping a header suggests.
+ *
+ * Matched on the column name and on the field's own label, so both
+ * `employee_id` and `Employee code` land on the same field. Whatever it gets
+ * wrong, the admin corrects before anything is written.
+ */
+export function guessMapping(header: string[]): ColumnMapping {
+  const mapping: ColumnMapping = {};
+  const taken = new Set<number>();
+
+  for (const field of USER_FIELDS) {
+    const candidates = [field.csv, field.label, field.key].map(normalise);
+    const index = header.findIndex(
+      (column, position) =>
+        !taken.has(position) && candidates.includes(normalise(column)),
+    );
+    if (index >= 0) {
+      mapping[field.key] = index;
+      taken.add(index);
+    }
+  }
+
+  return mapping;
+}
+
+const BLANK: Omit<ImportRow, "line" | "email" | "roles"> = {
+  name: "",
+  employeeId: "",
+  school: "",
+  designation: "",
+  institution: "",
+  userType: "",
+  dateOfBirth: "",
+  dateOfJoining: "",
+  dateOfLastPromotion: "",
+  phone: "",
+  personalEmail: "",
+  address: "",
+};
+
 function nameFromEmail(email: string): string {
   const local = email.split("@")[0] ?? email;
   return local
@@ -87,42 +192,102 @@ function nameFromEmail(email: string): string {
     .join(" ");
 }
 
-function collect(
-  candidates: { line: number; email: string; rest: Partial<ImportRow> }[],
+/**
+ * Reads the table through the mapping.
+ *
+ * A row is only ever skipped over its address; every other value that cannot
+ * be read - a date in no recognisable form, an employment type that is not one
+ * - is reported and left blank, so one bad cell does not cost the account.
+ */
+export function buildImportRows(
+  table: CsvTable,
+  mapping: ColumnMapping,
 ): ParsedImport {
   const rows: ImportRow[] = [];
   const issues: ImportIssue[] = [];
   const seen = new Set<string>();
 
-  for (const candidate of candidates) {
-    const email = candidate.email.trim().toLowerCase();
+  const emailIndex = mapping.email;
+  if (emailIndex === undefined) {
+    return {
+      rows: [],
+      issues: [
+        { line: 0, message: "Choose which column holds the email address." },
+      ],
+    };
+  }
+
+  for (const row of table.rows) {
+    const at = (key: UserFieldKey) => {
+      const index = mapping[key];
+      return index === undefined ? "" : (row.cells[index] ?? "").trim();
+    };
+
+    const email = at("email").toLowerCase();
     if (!email) continue;
 
     if (!emailSchema.safeParse(email).success) {
       issues.push({
-        line: candidate.line,
-        message: `"${candidate.email}" is not a valid email address.`,
+        line: row.line,
+        message: `"${email}" is not a valid email address.`,
       });
       continue;
     }
-
     if (seen.has(email)) {
       issues.push({
-        line: candidate.line,
+        line: row.line,
         message: `${email} appears more than once in this file.`,
       });
       continue;
     }
     seen.add(email);
 
+    const date = (key: UserFieldKey, label: string) => {
+      const written = at(key);
+      if (!written) return "";
+      const parsed = parseUserDate(written);
+      if (!parsed) {
+        issues.push({
+          line: row.line,
+          message: `${label} "${written}" is not a date the portal can read. Use DD/MM/YYYY.`,
+        });
+        return "";
+      }
+      return parsed;
+    };
+
+    const writtenType = at("userType");
+    const userType = writtenType ? parseUserType(writtenType) : null;
+    if (writtenType && !userType) {
+      issues.push({
+        line: row.line,
+        message: `"${writtenType}" is not an employment type. Use regular, contract or probation.`,
+      });
+    }
+
     rows.push({
-      line: candidate.line,
+      ...BLANK,
+      line: row.line,
       email,
-      name: candidate.rest.name?.trim() || nameFromEmail(email),
-      employeeId: candidate.rest.employeeId?.trim() ?? "",
-      school: candidate.rest.school?.trim() ?? "",
-      designation: candidate.rest.designation?.trim() ?? "",
-      roles: candidate.rest.roles ?? [],
+      name: at("name") || nameFromEmail(email),
+      employeeId: at("employeeId"),
+      school: at("school"),
+      designation: at("designation"),
+      institution: at("institution"),
+      userType: userType ?? "",
+      dateOfBirth: date("dateOfBirth", "Date of birth"),
+      dateOfJoining: date("dateOfJoining", "Date of joining"),
+      dateOfLastPromotion: date(
+        "dateOfLastPromotion",
+        "Date of last promotion",
+      ),
+      phone: at("phone"),
+      personalEmail: at("personalEmail"),
+      address: at("address"),
+      roles: at("roles")
+        .split(/[;|]/)
+        .map((role) => role.trim())
+        .filter(Boolean),
     });
   }
 
@@ -130,61 +295,29 @@ function collect(
 }
 
 /**
- * Parses a CSV. The header is matched by name so column order does not matter,
- * and only `email` is required.
+ * Parses a CSV whose header names its columns - the straightforward case, and
+ * what the pasted example produces.
  */
 export function parseUserCsv(text: string): ParsedImport {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-
-  if (lines.length === 0) {
+  const table = parseCsvTable(text);
+  if (table.header.length === 0) {
     return { rows: [], issues: [{ line: 0, message: "The file is empty." }] };
   }
 
-  const header = splitCsvLine(lines[0]).map((cell) =>
-    cell.toLowerCase().replace(/\s+/g, "_"),
-  );
-  const emailIndex = header.indexOf("email");
-
-  if (emailIndex < 0) {
+  const mapping = guessMapping(table.header);
+  if (mapping.email === undefined) {
     return {
       rows: [],
       issues: [
         {
           line: 1,
-          message: `The header row needs an "email" column. Found: ${header.join(", ") || "nothing"}.`,
+          message: `The header row needs an "email" column. Found: ${table.header.join(", ") || "nothing"}.`,
         },
       ],
     };
   }
 
-  const at = (cells: string[], column: string) => {
-    const index = header.indexOf(column);
-    return index >= 0 ? (cells[index] ?? "") : "";
-  };
-
-  const candidates = lines.slice(1).map((line, offset) => {
-    const cells = splitCsvLine(line);
-    return {
-      // +2: one for the header, one to make it 1-based.
-      line: offset + 2,
-      email: cells[emailIndex] ?? "",
-      rest: {
-        name: at(cells, "name"),
-        employeeId: at(cells, "employee_id"),
-        school: at(cells, "school"),
-        designation: at(cells, "designation"),
-        roles: at(cells, "roles")
-          .split(/[;|]/)
-          .map((role) => role.trim())
-          .filter(Boolean),
-      },
-    };
-  });
-
-  return collect(candidates);
+  return buildImportRows(table, mapping);
 }
 
 /**
@@ -192,20 +325,44 @@ export function parseUserCsv(text: string): ParsedImport {
  * the `Name <address>` form that mail clients produce.
  */
 export function parseEmailList(text: string): ParsedImport {
-  const candidates = text
+  const rows: ImportRow[] = [];
+  const issues: ImportIssue[] = [];
+  const seen = new Set<string>();
+
+  const entries = text
     .split(/[\r\n,]+/)
     .map((line, index) => ({ raw: line.trim(), line: index + 1 }))
-    .filter((entry) => entry.raw.length > 0)
-    .map((entry) => {
-      const angled = entry.raw.match(/^(.*?)<([^>]+)>$/);
-      return angled
-        ? {
-            line: entry.line,
-            email: angled[2],
-            rest: { name: angled[1].replace(/["']/g, "").trim() },
-          }
-        : { line: entry.line, email: entry.raw, rest: {} };
-    });
+    .filter((entry) => entry.raw.length > 0);
 
-  return collect(candidates);
+  for (const entry of entries) {
+    const angled = entry.raw.match(/^(.*?)<([^>]+)>$/);
+    const email = (angled ? angled[2] : entry.raw).trim().toLowerCase();
+    const written = angled ? angled[1].replace(/["']/g, "").trim() : "";
+
+    if (!emailSchema.safeParse(email).success) {
+      issues.push({
+        line: entry.line,
+        message: `"${entry.raw}" is not a valid email address.`,
+      });
+      continue;
+    }
+    if (seen.has(email)) {
+      issues.push({
+        line: entry.line,
+        message: `${email} appears more than once in this list.`,
+      });
+      continue;
+    }
+    seen.add(email);
+
+    rows.push({
+      ...BLANK,
+      line: entry.line,
+      email,
+      name: written || nameFromEmail(email),
+      roles: [],
+    });
+  }
+
+  return { rows, issues };
 }

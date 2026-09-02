@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { user } from "@/lib/db/schema";
+import type { UserType } from "@/lib/users/profile";
 
 /**
  * The portal has no public sign-up: accounts are provisioned by admins and the
@@ -17,6 +18,15 @@ export type ProvisionUserInput = {
   employeeId?: string | null;
   schoolId?: string | null;
   designation?: string | null;
+  institution?: string | null;
+  userType?: UserType | null;
+  /** ISO days. */
+  dateOfBirth?: string | null;
+  dateOfJoining?: string | null;
+  dateOfLastPromotion?: string | null;
+  phone?: string | null;
+  personalEmail?: string | null;
+  address?: string | null;
   /** Only supplied by the seed script; invitees choose their own. */
   password?: string;
   activated?: boolean;
@@ -45,6 +55,14 @@ export async function provisionUser(
       employeeId: input.employeeId ?? null,
       schoolId: input.schoolId ?? null,
       designation: input.designation ?? null,
+      institution: input.institution ?? null,
+      userType: input.userType ?? null,
+      dateOfBirth: input.dateOfBirth ?? null,
+      dateOfJoining: input.dateOfJoining ?? null,
+      dateOfLastPromotion: input.dateOfLastPromotion ?? null,
+      phone: input.phone ?? null,
+      personalEmail: input.personalEmail ?? null,
+      address: input.address ?? null,
       activated: input.activated ?? false,
       disabled: false,
     },

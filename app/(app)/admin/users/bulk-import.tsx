@@ -1,7 +1,7 @@
 "use client";
 
 import { AlertTriangle, Loader2, Upload, Users } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -19,6 +19,13 @@ import {
 import { FieldDescription, FieldLabel } from "@/components/ui/field";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -29,15 +36,25 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  buildImportRows,
   CSV_TEMPLATE,
-  IMPORT_COLUMNS,
+  guessMapping,
+  parseCsvTable,
   parseEmailList,
-  parseUserCsv,
+  type ColumnMapping,
   type ParsedImport,
 } from "@/lib/users/import";
+import {
+  userTypeLabel,
+  USER_FIELD_LIST,
+  type UserFieldKey,
+} from "@/lib/users/profile";
 import { bulkImportUsers } from "./actions";
 
 const EMPTY: ParsedImport = { rows: [], issues: [] };
+
+/** Radix forbids an empty item value, so "ignore this field" carries one. */
+const NOT_IMPORTED = "__none__";
 
 export function BulkImportDialog({
   open,
@@ -52,40 +69,57 @@ export function BulkImportDialog({
   const [csvText, setCsvText] = useState("");
   const [listText, setListText] = useState("");
   const [mode, setMode] = useState<"csv" | "list">("csv");
+  const [hasHeader, setHasHeader] = useState(true);
   const [sendInvites, setSendInvites] = useState(true);
   const [isImporting, startImport] = useTransition();
 
-  const parsed =
+  /**
+   * Which column feeds which field.
+   *
+   * Guessed from the header when a file arrives and then owned by the admin:
+   * an institute's own export names its columns whatever it names them, and
+   * correcting the guess must not mean editing the file.
+   */
+  const [mapping, setMapping] = useState<ColumnMapping>({});
+
+  const table = useMemo(
+    () => (csvText ? parseCsvTable(csvText, hasHeader) : null),
+    [csvText, hasHeader],
+  );
+
+  const parsed: ParsedImport =
     mode === "csv"
-      ? csvText
-        ? parseUserCsv(csvText)
+      ? table
+        ? buildImportRows(table, mapping)
         : EMPTY
       : listText
         ? parseEmailList(listText)
         : EMPTY;
 
+  function readCsv(text: string, header = hasHeader) {
+    setCsvText(text);
+    const next = parseCsvTable(text, header);
+    setMapping(header ? guessMapping(next.header) : {});
+  }
+
   function reset() {
     setCsvText("");
     setListText("");
+    setMapping({});
+    setHasHeader(true);
     if (fileRef.current) fileRef.current.value = "";
   }
 
   async function handleFile(file: File | undefined) {
     if (!file) return;
-    setCsvText(await file.text());
+    readCsv(await file.text());
   }
 
   function handleImport() {
     startImport(async () => {
       const result = await bulkImportUsers({
-        rows: parsed.rows.map((row) => ({
-          email: row.email,
-          name: row.name,
-          employeeId: row.employeeId,
-          school: row.school,
-          designation: row.designation,
-          roles: row.roles,
-        })),
+        // The line number is for reporting here, not for the server.
+        rows: parsed.rows.map((row) => ({ ...row, line: undefined })),
         sendInvites,
       });
 
@@ -155,17 +189,15 @@ export function BulkImportDialog({
                 data-testid="import-file"
               />
               <FieldDescription>
-                Columns: {IMPORT_COLUMNS.join(", ")}. Only{" "}
-                <code className="template-var">email</code> is required, order
-                does not matter, and several roles can be separated with{" "}
-                <code className="template-var">;</code>.
+                Any columns, in any order: you say which is which below. Only
+                the email address is needed.
               </FieldDescription>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 className="self-start"
-                onClick={() => setCsvText(CSV_TEMPLATE)}
+                onClick={() => readCsv(CSV_TEMPLATE, true)}
                 data-testid="load-csv-example"
               >
                 Load an example
@@ -180,10 +212,118 @@ export function BulkImportDialog({
                 value={csvText}
                 className="font-mono text-xs"
                 placeholder={CSV_TEMPLATE}
-                onChange={(event) => setCsvText(event.target.value)}
+                onChange={(event) => readCsv(event.target.value)}
                 data-testid="import-csv"
               />
             </div>
+
+            {table ? (
+              <div className="form-stack" data-testid="import-mapping">
+                <label className="flex items-center gap-2.5 text-sm">
+                  <Checkbox
+                    checked={hasHeader}
+                    data-testid="import-has-header"
+                    onCheckedChange={(checked) => {
+                      const next = checked === true;
+                      setHasHeader(next);
+                      readCsv(csvText, next);
+                    }}
+                  />
+                  The first line names the columns
+                </label>
+
+                <div>
+                  <FieldLabel>Which column is which</FieldLabel>
+                  <FieldDescription>
+                    Anything left as &ldquo;Not imported&rdquo; is ignored,
+                    whether or not the file has a column for it.
+                  </FieldDescription>
+                </div>
+
+                <ScrollArea className="h-56 rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-56">Portal field</TableHead>
+                        <TableHead>Column in your file</TableHead>
+                        <TableHead className="w-40">First row</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {USER_FIELD_LIST.map((field) => {
+                        const index = mapping[field.key as UserFieldKey];
+                        const sample =
+                          index === undefined
+                            ? ""
+                            : (table.rows[0]?.cells[index] ?? "");
+
+                        return (
+                          <TableRow key={field.key}>
+                            <TableCell>
+                              <div className="flex flex-col">
+                                <span className="text-sm font-medium">
+                                  {field.label}
+                                  {field.required ? " *" : ""}
+                                </span>
+                                {field.hint ? (
+                                  <span className="text-xs text-muted-foreground">
+                                    {field.hint}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Select
+                                value={
+                                  index === undefined
+                                    ? NOT_IMPORTED
+                                    : String(index)
+                                }
+                                onValueChange={(value) =>
+                                  setMapping((current) => {
+                                    const next = { ...current };
+                                    if (value === NOT_IMPORTED) {
+                                      delete next[field.key as UserFieldKey];
+                                    } else {
+                                      next[field.key as UserFieldKey] =
+                                        Number(value);
+                                    }
+                                    return next;
+                                  })
+                                }
+                              >
+                                <SelectTrigger
+                                  data-testid={`map-${field.key}`}
+                                  className="w-full"
+                                >
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value={NOT_IMPORTED}>
+                                    Not imported
+                                  </SelectItem>
+                                  {table.header.map((column, position) => (
+                                    <SelectItem
+                                      key={position}
+                                      value={String(position)}
+                                    >
+                                      {column || `Column ${position + 1}`}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="truncate font-mono text-xs text-muted-foreground">
+                              {sample || "-"}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="list" className="form-stack pt-4">
@@ -245,7 +385,9 @@ export function BulkImportDialog({
                   <TableRow>
                     <TableHead>Email</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Department</TableHead>
+                    <TableHead>School</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Joined</TableHead>
                     <TableHead>Roles</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -258,6 +400,12 @@ export function BulkImportDialog({
                       <TableCell className="text-sm">{row.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {row.school || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {userTypeLabel(row.userType)}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {row.dateOfJoining || "-"}
                       </TableCell>
                       <TableCell>
                         <span className="flex flex-wrap gap-1">

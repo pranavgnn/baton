@@ -15,6 +15,8 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
+import { USER_TYPES, userTypeLabel, type UserType } from "@/lib/users/profile";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,6 +53,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import {
   Select,
@@ -85,6 +88,15 @@ export type UserRow = {
   schoolId: string;
   schoolName: string;
   designation: string;
+  institution: string;
+  userType: string;
+  /** ISO days, as `<input type="date">` wants them. */
+  dateOfBirth: string;
+  dateOfJoining: string;
+  dateOfLastPromotion: string;
+  phone: string;
+  personalEmail: string;
+  address: string;
   activated: boolean;
   disabled: boolean;
   createdAt: string;
@@ -96,6 +108,8 @@ export type SchoolOption = { id: string; name: string };
 
 /** Shown in the school select when someone belongs to no school yet. */
 const NO_SCHOOL = "__none__";
+/** Radix forbids an empty item value, so "not recorded" carries a sentinel. */
+const NO_USER_TYPE = "__unset__";
 
 export function UsersManager({
   users,
@@ -178,7 +192,8 @@ export function UsersManager({
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Roles</TableHead>
-                  <TableHead>Department</TableHead>
+                  <TableHead>School</TableHead>
+                  <TableHead className="w-28">Type</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-12" />
                 </TableRow>
@@ -186,7 +201,7 @@ export function UsersManager({
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5}>
+                    <TableCell colSpan={6}>
                       <div className="empty-state border-0">
                         No users match that search.
                       </div>
@@ -220,6 +235,9 @@ export function UsersManager({
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {item.schoolName || "-"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {userTypeLabel(item.userType)}
                       </TableCell>
                       <TableCell>
                         {item.disabled ? (
@@ -402,6 +420,18 @@ function UserEditor({
   const [employeeId, setEmployeeId] = useState(user?.employeeId ?? "");
   const [schoolId, setSchoolId] = useState(user?.schoolId || NO_SCHOOL);
   const [designation, setDesignation] = useState(user?.designation ?? "");
+  const [profile, setProfile] = useState({
+    institution: user?.institution ?? "",
+    userType: user?.userType ?? "",
+    dateOfBirth: user?.dateOfBirth ?? "",
+    dateOfJoining: user?.dateOfJoining ?? "",
+    dateOfLastPromotion: user?.dateOfLastPromotion ?? "",
+    phone: user?.phone ?? "",
+    personalEmail: user?.personalEmail ?? "",
+    address: user?.address ?? "",
+  });
+  const setField = (key: keyof typeof profile) => (value: string) =>
+    setProfile((current) => ({ ...current, [key]: value }));
   const [roleIds, setRoleIds] = useState<string[]>(
     user?.roles.map((role) => role.id) ?? [],
   );
@@ -417,6 +447,8 @@ function UserEditor({
         employeeId,
         schoolId: schoolId === NO_SCHOOL ? "" : schoolId,
         designation,
+        ...profile,
+        userType: profile.userType as "" | UserType,
         roleIds,
       };
       const result = user
@@ -508,12 +540,121 @@ function UserEditor({
             </Field>
           </div>
 
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="user-designation">Designation</FieldLabel>
+              <Input
+                id="user-designation"
+                value={designation}
+                onChange={(event) => setDesignation(event.target.value)}
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="user-type">Employment type</FieldLabel>
+              <Select
+                value={profile.userType || NO_USER_TYPE}
+                onValueChange={(value) =>
+                  setField("userType")(value === NO_USER_TYPE ? "" : value)
+                }
+              >
+                <SelectTrigger id="user-type" data-testid="user-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_USER_TYPE}>Not recorded</SelectItem>
+                  {USER_TYPES.map((type) => (
+                    <SelectItem key={type.key} value={type.key}>
+                      {type.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </Field>
+          </div>
+
           <Field>
-            <FieldLabel htmlFor="user-designation">Designation</FieldLabel>
+            <FieldLabel htmlFor="user-institution">Institution</FieldLabel>
             <Input
-              id="user-designation"
-              value={designation}
-              onChange={(event) => setDesignation(event.target.value)}
+              id="user-institution"
+              value={profile.institution}
+              placeholder="Manipal Institute of Technology"
+              onChange={(event) => setField("institution")(event.target.value)}
+            />
+          </Field>
+
+          {/* The particulars the promotion form would otherwise ask them to
+              copy out of their own service record. */}
+          <div className="grid gap-5 sm:grid-cols-3">
+            <Field>
+              <FieldLabel htmlFor="user-dob">Date of birth</FieldLabel>
+              <Input
+                id="user-dob"
+                type="date"
+                value={profile.dateOfBirth}
+                data-testid="user-date-of-birth"
+                onChange={(event) =>
+                  setField("dateOfBirth")(event.target.value)
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="user-doj">Date of joining</FieldLabel>
+              <Input
+                id="user-doj"
+                type="date"
+                value={profile.dateOfJoining}
+                data-testid="user-date-of-joining"
+                onChange={(event) =>
+                  setField("dateOfJoining")(event.target.value)
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor="user-dolp">Last promotion</FieldLabel>
+              <Input
+                id="user-dolp"
+                type="date"
+                value={profile.dateOfLastPromotion}
+                onChange={(event) =>
+                  setField("dateOfLastPromotion")(event.target.value)
+                }
+              />
+            </Field>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field>
+              <FieldLabel htmlFor="user-phone">Contact number</FieldLabel>
+              <Input
+                id="user-phone"
+                value={profile.phone}
+                onChange={(event) => setField("phone")(event.target.value)}
+              />
+            </Field>
+            <Field data-invalid={Boolean(fieldErrors.personalEmail)}>
+              <FieldLabel htmlFor="user-personal-email">
+                Personal email
+              </FieldLabel>
+              <Input
+                id="user-personal-email"
+                type="email"
+                value={profile.personalEmail}
+                aria-invalid={Boolean(fieldErrors.personalEmail)}
+                onChange={(event) =>
+                  setField("personalEmail")(event.target.value)
+                }
+              />
+              <FieldError errors={[{ message: fieldErrors.personalEmail }]} />
+            </Field>
+          </div>
+
+          <Field>
+            <FieldLabel htmlFor="user-address">Postal address</FieldLabel>
+            <Textarea
+              id="user-address"
+              rows={2}
+              value={profile.address}
+              onChange={(event) => setField("address")(event.target.value)}
             />
           </Field>
 

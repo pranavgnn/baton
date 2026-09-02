@@ -110,6 +110,19 @@ export const auth = betterAuth({
       employeeId: { type: "string", required: false, input: false },
       schoolId: { type: "string", required: false, input: false },
       designation: { type: "string", required: false, input: false },
+      /*
+       * The particulars in `lib/users/profile.ts`. Declared here because
+       * provisioning goes through Better Auth's own adapter, which drops any
+       * column it has not been told about. None is writable from the browser.
+       */
+      institution: { type: "string", required: false, input: false },
+      userType: { type: "string", required: false, input: false },
+      dateOfBirth: { type: "string", required: false, input: false },
+      dateOfJoining: { type: "string", required: false, input: false },
+      dateOfLastPromotion: { type: "string", required: false, input: false },
+      phone: { type: "string", required: false, input: false },
+      personalEmail: { type: "string", required: false, input: false },
+      address: { type: "string", required: false, input: false },
       activated: {
         type: "boolean",
         required: false,

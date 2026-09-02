@@ -1,6 +1,7 @@
 import { relations, sql } from "drizzle-orm";
 import {
   boolean,
+  date,
   index,
   integer,
   jsonb,
@@ -21,6 +22,7 @@ import type {
 } from "@/lib/workflow/types";
 import type { RolePermission } from "@/lib/auth/permissions";
 import type { RoleDesignation, RoleGrantSource } from "@/lib/auth/designations";
+import type { UserType } from "@/lib/users/profile";
 
 /* -------------------------------------------------------------------------- */
 /*  Better Auth core tables                                                    */
@@ -50,6 +52,25 @@ export const user = pgTable("user", {
     onDelete: "set null",
   }),
   designation: text("designation"),
+  /** The institution they belong to; the same for nearly everyone. */
+  institution: text("institution"),
+  /**
+   * Regular, contract or probation - the vocabulary in `lib/users/profile.ts`.
+   * Nullable because an account imported before anyone said which is not
+   * secretly a regular appointment.
+   */
+  userType: text("user_type").$type<UserType>(),
+  /*
+   * The particulars the promotion form asks for. Held here so an application
+   * can fill them in for the applicant rather than asking them to copy their
+   * own service record out of a letter. Dates are days, not instants.
+   */
+  dateOfBirth: date("date_of_birth"),
+  dateOfJoining: date("date_of_joining"),
+  dateOfLastPromotion: date("date_of_last_promotion"),
+  phone: text("phone"),
+  personalEmail: text("personal_email"),
+  address: text("address"),
   /** False until the invitee completes the password-reset activation flow. */
   activated: boolean("activated").default(false).notNull(),
   /** Admins disable access without deleting history. */

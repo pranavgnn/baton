@@ -177,6 +177,50 @@ test.describe("user administration", () => {
     await expect(page.getByTestId(`user-${INVITEE}`)).toHaveCount(0);
   });
 
+  test("records the particulars the promotion form asks for", async ({
+    page,
+  }) => {
+    await page.goto("/admin/users");
+    await page
+      .getByRole("textbox", { name: "Search users" })
+      .fill("employee@manipal.edu");
+    await page
+      .getByTestId("user-employee@manipal.edu")
+      .getByRole("button", { name: /Actions for/ })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Edit details and roles" })
+      .click();
+
+    // Seeded from the demo service record, and editable here.
+    await expect(page.getByTestId("user-date-of-joining")).toHaveValue(
+      "2017-06-01",
+    );
+    await page.getByTestId("user-date-of-birth").fill("1984-02-12");
+    await page.getByTestId("user-type").click();
+    await page.getByRole("option", { name: "Contract" }).click();
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expectToast(page, "User updated.");
+
+    await expect(page.getByTestId("user-employee@manipal.edu")).toContainText(
+      "Contract",
+    );
+
+    // Put it back: the lifecycle spec runs against this account.
+    await page
+      .getByTestId("user-employee@manipal.edu")
+      .getByRole("button", { name: /Actions for/ })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Edit details and roles" })
+      .click();
+    await page.getByTestId("user-date-of-birth").fill("1984-02-11");
+    await page.getByTestId("user-type").click();
+    await page.getByRole("option", { name: "Regular" }).click();
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expectToast(page, "User updated.");
+  });
+
   test("filters the user list", async ({ page }) => {
     await page.goto("/admin/users");
 
