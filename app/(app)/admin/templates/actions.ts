@@ -204,7 +204,6 @@ export async function sendTestEmail(input: {
         last_outcome: "Recommend",
         actor_name: current.name,
         submitted_at: new Date().toLocaleString("en-IN"),
-        portal_url: "http://localhost:3000/dashboard",
         application_url: "http://localhost:3000/applications/sample",
       },
     });
