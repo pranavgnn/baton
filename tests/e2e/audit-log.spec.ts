@@ -130,8 +130,8 @@ test.describe("audit log", () => {
     await page.goto("/admin/roles");
 
     await page
-      .getByTestId("role-card-Audited Role")
-      .getByRole("button", { name: "Delete" })
+      .getByTestId("role-Audited Role")
+      .getByRole("button", { name: "Delete Audited Role" })
       .click();
     await page.getByRole("button", { name: "Delete role" }).click();
     await expectToast(page, 'Deleted "Audited Role".');

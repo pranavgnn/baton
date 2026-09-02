@@ -13,7 +13,7 @@ test.describe("role priority", () => {
 
     // The seed puts Employee first, so it is what an unnamed user is given.
     await expect(
-      page.getByTestId("role-card-Employee").getByText("Default"),
+      page.getByTestId("role-Employee").getByText("Default"),
     ).toBeVisible();
 
     await page.getByTestId("open-role-priority").click();
@@ -31,10 +31,10 @@ test.describe("role priority", () => {
     await page.reload();
     // The default badge follows the top of the list, wherever that now is.
     await expect(
-      page.getByTestId("role-card-Employee").getByText("Default"),
+      page.getByTestId("role-Employee").getByText("Default"),
     ).toHaveCount(0);
     await expect(
-      page.getByTestId("role-card-Dean").getByText("Default"),
+      page.getByTestId("role-Dean").getByText("Default"),
     ).toBeVisible();
 
     // And back, which is both the other direction and the tidy-up.
@@ -45,7 +45,7 @@ test.describe("role priority", () => {
 
     await page.reload();
     await expect(
-      page.getByTestId("role-card-Employee").getByText("Default"),
+      page.getByTestId("role-Employee").getByText("Default"),
     ).toBeVisible();
   });
 });

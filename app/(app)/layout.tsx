@@ -1,4 +1,5 @@
 import { AppNav, type NavLink } from "@/components/app-nav";
+import { ImpersonationBanner } from "@/components/impersonation-banner";
 import { can, canAny, requireUser } from "@/lib/auth/session";
 
 export default async function AppLayout({ children }: LayoutProps<"/">) {
@@ -39,6 +40,12 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      {current.impersonatedBy ? (
+        <ImpersonationBanner
+          viewing={{ name: current.name, email: current.email }}
+          admin={{ name: current.impersonatedBy.name }}
+        />
+      ) : null}
       <AppNav
         links={links}
         user={{
@@ -46,6 +53,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           email: current.email,
           roles: current.roles.map((role) => role.name),
         }}
+        impersonating={Boolean(current.impersonatedBy)}
       />
       <main className="flex min-h-0 flex-1 flex-col">{children}</main>
     </div>

@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 
 import { provisionUser } from "@/lib/auth/provision";
 import { syncDesignatedRoles } from "@/lib/schools/sync";
+import { syncAdminFlags } from "@/lib/auth/admin-flag";
 import { db } from "@/lib/db";
 import {
   role,
@@ -166,6 +167,7 @@ async function main() {
   // The dean and associate dean roles follow the postings just made, exactly
   // as they do when an admin sets them from the schools page.
   await syncDesignatedRoles();
+  await syncAdminFlags();
 
   console.log(`\nAll demo accounts use the password: ${DEMO_PASSWORD}\n`);
 }

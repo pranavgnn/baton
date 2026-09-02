@@ -265,6 +265,12 @@
     @apply flex flex-wrap items-center gap-2;
   }
 
+  /* A standing reminder that the session is somebody else's. Warning-coloured
+     and full width because it must not be mistaken for ordinary chrome. */
+  .impersonation-banner {
+    @apply sticky top-0 z-50 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-warning px-4 py-2 text-center text-sm text-warning-foreground;
+  }
+
   .empty-state {
     @apply flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground;
   }

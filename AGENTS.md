@@ -108,6 +108,23 @@ change is bad, refusing the change because of it is worse. New actions belong
 in the vocabulary in `lib/audit/actions.ts`, which is what the admin filter
 offers; the column is plain text, so adding one needs no migration.
 
+**Impersonation swaps the session, and is Better Auth's.** The admin plugin's
+`impersonateUser` creates a real session for the other person, so every query,
+queue and permission check downstream sees them without knowing anything about
+impersonation. Two things the plugin has no opinion on are the portal's:
+`user.role` - the only thing it reads to decide who may impersonate - is
+derived from `users.manage` by `lib/auth/admin-flag.ts` and is never a source
+of truth (the roles a person holds are the rows in `user_role`); and
+`refuseImpersonation` in `lib/auth/impersonation.ts` refuses anyone who
+administers the portal in ways the actor does not, so impersonation cannot
+become a way to borrow a permission. Adopting the plugin also exposes its other
+endpoints (ban, set-role, remove-user) to whoever holds `users.manage`; the
+portal ignores its `banned` columns and disables access with `disabled`.
+
+Both halves are audited, and every action taken while impersonating records the
+administrator behind it - `recordAudit` reads `impersonatedBy` off the actor it
+is handed, so no call site has to remember.
+
 **Sign-out and password changes go through `lib/audit/session.ts`.** Better
 Auth handles both over its own endpoints, and by the time a sign-out has
 happened there is no session left to say whose it was. The actor is resolved

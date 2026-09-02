@@ -54,6 +54,19 @@ export const user = pgTable("user", {
   activated: boolean("activated").default(false).notNull(),
   /** Admins disable access without deleting history. */
   disabled: boolean("disabled").default(false).notNull(),
+
+  /*
+   * Better Auth's admin plugin owns the four columns below. Only `role`
+   * carries any meaning here, and only one: whether this account may act as
+   * another. It is derived from the portal's own permissions by
+   * `syncAdminFlags` and must never be edited by hand - the roles a person
+   * actually holds live in `user_role`. The ban columns exist because the
+   * plugin's schema declares them; the portal disables access with `disabled`.
+   */
+  role: text("role").default("user"),
+  banned: boolean("banned").default(false),
+  banReason: text("ban_reason"),
+  banExpires: timestamp("ban_expires"),
 });
 
 export const session = pgTable(
@@ -72,6 +85,11 @@ export const session = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
+    /**
+     * Set by Better Auth's admin plugin while this session belongs to somebody
+     * an administrator is acting as: the administrator's own user id.
+     */
+    impersonatedBy: text("impersonated_by"),
   },
   (table) => [index("session_user_id_idx").on(table.userId)],
 );

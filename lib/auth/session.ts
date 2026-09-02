@@ -35,15 +35,15 @@ export type CurrentUser = {
   roleIds: string[];
   permissions: string[];
   isSuperAdmin: boolean;
+  /**
+   * Set while an administrator is acting as this person: who they really are.
+   * Null in the ordinary case, which is every case but that one.
+   */
+  impersonatedBy: { id: string; name: string; email: string } | null;
 };
 
-/**
- * Deduplicated per request so a page and its nested layouts share one lookup.
- */
-export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session?.user) return null;
-
+/** Everything a session needs to know about one account. */
+async function loadUser(id: string): Promise<CurrentUser | null> {
   const rows = await db
     .select({
       id: user.id,
@@ -63,7 +63,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     .leftJoin(school, eq(school.id, user.schoolId))
     .leftJoin(userRole, eq(userRole.userId, user.id))
     .leftJoin(role, eq(role.id, userRole.roleId))
-    .where(eq(user.id, session.user.id));
+    .where(eq(user.id, id));
 
   const first = rows[0];
   if (!first) return null;
@@ -95,8 +95,48 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     roleIds: roles.map((r) => r.id),
     permissions,
     isSuperAdmin: permissions.includes(SUPER_ADMIN_PERMISSION),
+    impersonatedBy: null,
+  };
+}
+
+/**
+ * Whoever is signed in, or the person an administrator is currently acting as.
+ *
+ * Deduplicated per request so a page and its nested layouts share one lookup.
+ */
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session?.user) return null;
+
+  const current = await loadUser(session.user.id);
+  if (!current) return null;
+
+  // The session itself says whose it is: the admin plugin swaps the session
+  // rather than dressing one up, so everything downstream sees the
+  // impersonated person without knowing anything about impersonation.
+  const behindIt = session.session.impersonatedBy;
+  if (!behindIt) return current;
+
+  const real = await loadUser(behindIt);
+  if (!real) return current;
+
+  return {
+    ...current,
+    impersonatedBy: { id: real.id, name: real.name, email: real.email },
   };
 });
+
+/**
+ * The administrator behind the session, ignoring who they are acting as.
+ *
+ * Used where the answer must be about the person at the keyboard: ending an
+ * impersonation, and recording who really did something.
+ */
+export async function getRealUser(): Promise<CurrentUser | null> {
+  const current = await getCurrentUser();
+  if (!current?.impersonatedBy) return current;
+  return loadUser(current.impersonatedBy.id);
+}
 
 /** Redirects unauthenticated visitors to the sign-in page. */
 export async function requireUser(): Promise<CurrentUser> {

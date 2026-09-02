@@ -2,6 +2,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { createAuthMiddleware } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
+import { admin } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 
 import { recordAudit } from "@/lib/audit/record";
@@ -12,6 +13,8 @@ import {
   sendAccountInviteEmail,
   sendPasswordResetEmail,
 } from "@/lib/mail/system";
+
+import { ADMIN_ROLE, NON_ADMIN_ROLE } from "@/lib/auth/admin-flag";
 
 const RESET_TOKEN_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
@@ -161,7 +164,24 @@ export const auth = betterAuth({
     }),
   },
 
-  plugins: [nextCookies()],
+  plugins: [
+    /**
+     * Impersonation, and nothing else the plugin offers.
+     *
+     * It swaps the session itself rather than dressing one up, so every query,
+     * queue and permission check downstream sees the impersonated person
+     * without knowing anything about impersonation. Who counts as an admin is
+     * `user.role`, which the portal derives from its own permissions in
+     * `lib/auth/admin-flag.ts` - the roles that matter are still the ones in
+     * `user_role`.
+     */
+    admin({
+      adminRoles: [ADMIN_ROLE],
+      defaultRole: NON_ADMIN_ROLE,
+      impersonationSessionDuration: 60 * 60,
+    }),
+    nextCookies(),
+  ],
 });
 
 export type Auth = typeof auth;

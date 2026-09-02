@@ -26,6 +26,7 @@ import {
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { application, role, userRole, workflow } from "@/lib/db/schema";
+import { syncAdminFlags } from "@/lib/auth/admin-flag";
 import { releaseSchoolGrants, syncDesignatedRoles } from "@/lib/schools/sync";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
 import { stageNodes } from "@/lib/workflow/graph";
@@ -173,6 +174,10 @@ export async function updateRole(
         designation,
       })
       .where(eq(role.id, id));
+
+    // Granting or withdrawing `users.manage` changes who may act as another
+    // user, for every holder of this role at once.
+    await syncAdminFlags();
 
     if (existing.designation !== designation) {
       // Whatever this role was auto-granted for no longer applies; the
