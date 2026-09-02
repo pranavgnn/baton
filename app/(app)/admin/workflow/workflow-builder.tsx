@@ -407,6 +407,7 @@ function WorkflowCanvas({
                   createOutcome("Approve", "positive"),
                   createOutcome("Reject", "negative"),
                 ],
+                nominatesNext: false,
               },
             }
           : kind === "email"
@@ -736,7 +737,7 @@ function WorkflowCanvas({
               onPaneClick={() => setSelectedId(null)}
               fitView
               fitViewOptions={{ padding: 0.2 }}
-              minZoom={0.2}
+              minZoom={0.05}
               maxZoom={1.6}
               deleteKeyCode={["Backspace", "Delete"]}
             >

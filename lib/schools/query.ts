@@ -1,10 +1,10 @@
 import "server-only";
 
-import { asc, eq, ilike, or, sql } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, or, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 
 import { db } from "@/lib/db";
-import { school, schoolAssociateDean, user } from "@/lib/db/schema";
+import { school, schoolAssociateDean, user, userRole } from "@/lib/db/schema";
 
 export type SchoolPerson = { id: string; name: string; email: string };
 
@@ -123,4 +123,19 @@ export async function associateDeansOfSchool(
     .innerJoin(user, eq(user.id, schoolAssociateDean.userId))
     .where(eq(schoolAssociateDean.schoolId, schoolId))
     .orderBy(asc(user.name));
+}
+
+/** Which of these people hold the given role. */
+export async function usersHoldingRole(
+  roleId: string,
+  userIds: string[],
+): Promise<Set<string>> {
+  if (userIds.length === 0) return new Set();
+
+  const rows = await db
+    .select({ userId: userRole.userId })
+    .from(userRole)
+    .where(and(eq(userRole.roleId, roleId), inArray(userRole.userId, userIds)));
+
+  return new Set(rows.map((row) => row.userId));
 }

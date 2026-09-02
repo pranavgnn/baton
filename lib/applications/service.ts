@@ -238,6 +238,13 @@ export async function getReviewQueue(
     if (!node.data.roleId || !current.roleIds.includes(node.data.roleId)) {
       continue;
     }
+    // Held for one person: the rest of the role should not see it at all.
+    if (
+      row.application.assignedToId &&
+      row.application.assignedToId !== current.id
+    ) {
+      continue;
+    }
 
     queue.push({
       ...row.application,
@@ -257,18 +264,26 @@ export async function getReviewQueue(
 
 /** True when the viewer may act on the application's current stage. */
 export function canActOnCurrentStage(
-  app: Pick<Application, "graph" | "currentNodeId" | "status">,
+  app: Pick<
+    Application,
+    "graph" | "currentNodeId" | "status" | "assignedToId" | "assignedToId"
+  >,
   current: CurrentUser,
 ): boolean {
   if (app.status !== "in_progress") return false;
   const node = nodeById(app.graph, app.currentNodeId);
   if (!node || node.kind !== "stage" || !node.data.roleId) return false;
-  return current.roleIds.includes(node.data.roleId);
+  if (!current.roleIds.includes(node.data.roleId)) return false;
+  // A stage nominated to one person is theirs alone until they act.
+  return !app.assignedToId || app.assignedToId === current.id;
 }
 
 /** Read access: owner, any assigned reviewer, or a global viewer. */
 export function canViewApplication(
-  app: Pick<Application, "applicantId" | "graph" | "currentNodeId" | "status">,
+  app: Pick<
+    Application,
+    "applicantId" | "graph" | "currentNodeId" | "status" | "assignedToId"
+  >,
   current: CurrentUser,
 ): boolean {
   if (app.applicantId === current.id) return true;

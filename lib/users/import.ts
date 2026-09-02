@@ -34,8 +34,8 @@ export const IMPORT_COLUMNS = [
 ] as const;
 
 export const CSV_TEMPLATE = `${IMPORT_COLUMNS.join(",")}
-r.kamath@manipal.edu,Prof. Ravi Kamath,MIT-2201,Computer Science & Engineering,Professor & Head,Head of Department
-a.rao@manipal.edu,Dr. Anita Rao,MIT-4471,Computer Science & Engineering,Assistant Professor,
+a.person@manipal.edu,A Person,MIT-2201,School of Computer Engineering,Professor,Dean
+another.person@manipal.edu,Another Person,MIT-4471,School of Electrical Engineering,Assistant Professor,
 `;
 
 const emailSchema = z.email();

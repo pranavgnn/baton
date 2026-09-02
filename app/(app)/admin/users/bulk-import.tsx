@@ -197,7 +197,7 @@ export function BulkImportDialog({
                 value={listText}
                 className="font-mono text-xs"
                 placeholder={
-                  "a.rao@manipal.edu\nProf. Ravi Kamath <r.kamath@manipal.edu>"
+                  "a.person@manipal.edu\nAnother Person <another.person@manipal.edu>"
                 }
                 onChange={(event) => setListText(event.target.value)}
                 data-testid="import-list"

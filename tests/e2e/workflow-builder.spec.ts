@@ -18,8 +18,8 @@ async function openBuilder(page: Page) {
  * notifications that ride alongside each hand-off. Declared here so a change
  * to the seeded workflow fails in one obvious place.
  */
-const NODE_COUNT = 27;
-const EDGE_COUNT = 26;
+const NODE_COUNT = 30;
+const EDGE_COUNT = 29;
 
 const nodes = (page: Page) => page.locator(".react-flow__node");
 const edges = (page: Page) => page.locator(".react-flow__edge");
@@ -50,7 +50,8 @@ test.describe("workflow builder canvas", () => {
 
     await expect(page.getByTestId("node-start")).toBeVisible();
     for (const stage of [
-      "HOD Recommendation",
+      "Dean Recommendation",
+      "Associate Dean Review",
       "HR Initial Review",
       "R&C Research Evaluation",
       "FD&W Formal Evaluation",
@@ -71,6 +72,7 @@ test.describe("workflow builder canvas", () => {
     page,
   }) => {
     for (const label of [
+      "Send to associate dean",
       "Forward to HR",
       "Forward to R&C",
       "Forward to FD&W",
@@ -263,7 +265,7 @@ test.describe("workflow builder canvas", () => {
     // The seed publishes version 1 with a memo of its own.
     await expect(page.getByTestId("version-1")).toBeVisible();
     await expect(page.getByTestId("version-1")).toContainText(
-      "Initial process: submission, HOD, HR, R&C, FD&W, HR final and the Director.",
+      "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director.",
     );
 
     await closeOverlays(page);

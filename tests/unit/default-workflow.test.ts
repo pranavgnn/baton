@@ -68,9 +68,12 @@ describe("the seeded workflow", () => {
     expect(hasBlockingIssues(validateGraph(build(), context))).toBe(false);
   });
 
-  it("runs the six review stages in the order the process defines", () => {
-    expect(next("node_submission")).toBe("node_stage_hod");
-    expect(next("node_stage_hod", "Forward to HR")).toBe(
+  it("runs the review stages in the order the process defines", () => {
+    expect(next("node_submission")).toBe("node_stage_dean");
+    expect(next("node_stage_dean", "Send to associate dean")).toBe(
+      "node_stage_associate_dean",
+    );
+    expect(next("node_stage_associate_dean", "Forward to HR")).toBe(
       "node_stage_hr_initial",
     );
     expect(next("node_stage_hr_initial", "Forward to R&C")).toBe(
@@ -89,11 +92,12 @@ describe("the seeded workflow", () => {
     expect(next("node_stage_director", "Reject")).toBe("node_end_rejected");
   });
 
-  it("gives the four intermediate stages no way to close the file", () => {
+  it("gives the intermediate stages no way to close the file", () => {
     // R&C and FD&W may record an ineligibility, but it travels with the
     // application rather than stopping it: HR and the Director decide.
     for (const id of [
-      "node_stage_hod",
+      "node_stage_dean",
+      "node_stage_associate_dean",
       "node_stage_hr_initial",
       "node_stage_rc",
       "node_stage_fdw",
@@ -102,8 +106,27 @@ describe("the seeded workflow", () => {
     }
   });
 
+  it("makes the dean name the associate dean who reviews it next", () => {
+    // The one stage that hands the file to a person rather than to a role.
+    expect(stage("node_stage_dean").data.nominatesNext).toBe(true);
+
+    for (const id of [
+      "node_stage_associate_dean",
+      "node_stage_hr_initial",
+      "node_stage_rc",
+      "node_stage_fdw",
+      "node_stage_hr_final",
+      "node_stage_director",
+    ]) {
+      expect(stage(id).data.nominatesNext).toBe(false);
+    }
+  });
+
   it("assigns each stage to the role that owns it", () => {
-    expect(stage("node_stage_hod").data.roleId).toBe(roleIdByName["HOD"]);
+    expect(stage("node_stage_dean").data.roleId).toBe(roleIdByName["Dean"]);
+    expect(stage("node_stage_associate_dean").data.roleId).toBe(
+      roleIdByName["Associate Dean"],
+    );
     expect(stage("node_stage_hr_initial").data.roleId).toBe(
       roleIdByName["HR Officer"],
     );
