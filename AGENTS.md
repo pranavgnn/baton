@@ -40,6 +40,17 @@ application since the page rendered.
 re-validates the whole form against the node's schema on submit. Both go
 through `lib/workflow/form.ts` so the rules cannot drift.
 
+**A form fills in what the portal already knows.** `lib/users/profile.ts` is
+the single vocabulary of what an account holds - the CSV importer maps onto it,
+user management edits it, and a form field names one of its keys in `prefill`
+to take its answer from it. A prefilled field is read-only _when the account
+has a value_ and an ordinary question when it does not, so an incomplete
+service record never leaves someone unable to submit. A number field may
+instead carry a `formula` over the answers beside it (`lib/workflow/calc.ts`, a
+tiny expression language). Both are applied in the browser and again in the
+action before validation, so a total the browser was talked into is recomputed
+and a locked answer is written from the account.
+
 **A field may repeat, and it may depend on its neighbours.** A repeating group
 carries its own columns and stores an array of entries; each column is an
 ordinary field, so it keeps its own type and validation. Groups do not nest.

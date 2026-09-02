@@ -179,9 +179,12 @@ export function FieldRenderer({
 
             {renderControl()}
 
+            {/* Three words rather than a sentence: it appears under every
+                particular on the first page, and the section already explains
+                where they come from. */}
             {locked ? (
               <FieldDescription data-testid={`prefilled-${path}`}>
-                Taken from your account. Ask an administrator if it is wrong.
+                From your account
               </FieldDescription>
             ) : null}
             {field.description && field.type !== "checkbox" ? (

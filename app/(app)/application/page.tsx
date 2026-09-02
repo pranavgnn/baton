@@ -140,7 +140,7 @@ export default async function ApplicationPage() {
     const returned = timeline.some((event) => event.type === "reopened");
 
     return (
-      <div className="app-shell section-stack">
+      <div className="app-shell-wide section-stack">
         <div className="page-header">
           <div>
             <h1 className="page-title">{start.data.label}</h1>
