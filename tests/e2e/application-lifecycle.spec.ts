@@ -762,6 +762,44 @@ test.describe("9. the outcome is visible to everyone entitled to it", () => {
     });
   });
 
+  test.describe("to a reviewer who signed it off", () => {
+    test.use({ storageState: storageStatePath("dean") });
+
+    test("keeps every decision they took, after the queue has emptied", async ({
+      page,
+    }) => {
+      await page.goto("/reviews");
+      await expect(
+        page.getByText("Nothing is waiting on you right now."),
+      ).toBeVisible();
+
+      // The dean acted twice on this application: once to delegate it and
+      // once to decide it, so both are theirs to look back at.
+      await page.getByTestId("open-review-history").click();
+
+      const rows = page.getByRole("row");
+      await expect(rows.filter({ hasText: "Dean Delegation" })).toHaveCount(1);
+      await expect(rows.filter({ hasText: "Dean Approval" })).toHaveCount(1);
+      await expect(page.getByTestId("pagination")).toContainText("2 reviews");
+
+      // And from there back into the application itself.
+      await rows
+        .filter({ hasText: "Dean Approval" })
+        .getByRole("link", { name: "View" })
+        .click();
+      await expect(
+        page.getByText("Approved. The candidate meets"),
+      ).toBeVisible();
+    });
+
+    test("shows them on the dashboard too", async ({ page }) => {
+      await page.goto("/dashboard");
+      const reviewed = page.getByTestId("reviewed-by-you");
+      await expect(reviewed).toContainText("Dean Approval: Approve");
+      await expect(reviewed).toContainText(APPLICANT);
+    });
+  });
+
   test.describe("to an overseer", () => {
     test.use({ storageState: storageStatePath("director") });
 

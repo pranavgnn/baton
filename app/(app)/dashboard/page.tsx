@@ -2,6 +2,7 @@ import {
   ArrowRight,
   CalendarClock,
   ClipboardList,
+  History,
   KeyRound,
   Mail,
   Settings,
@@ -28,6 +29,8 @@ import {
   getPublishedWorkflow,
   getReviewQueue,
   listApplicationsFor,
+  listReviewsBy,
+  type CompletedReview,
 } from "@/lib/applications/service";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { nodeById } from "@/lib/workflow/graph";
@@ -50,12 +53,13 @@ export default async function DashboardPage() {
     "templates.manage",
   ]);
 
-  const [published, openApplication, myApplications, queue, counts] =
+  const [published, openApplication, myApplications, queue, reviewed, counts] =
     await Promise.all([
       getPublishedWorkflow(),
       isApplicant ? getOpenApplicationFor(current.id) : Promise.resolve(null),
       isApplicant ? listApplicationsFor(current.id) : Promise.resolve([]),
       isReviewer ? getReviewQueue(current) : Promise.resolve([]),
+      isReviewer ? listReviewsBy(current.id) : Promise.resolve([]),
       isOverseer || isAdmin
         ? countApplicationsByStatus()
         : Promise.resolve(null),
@@ -105,7 +109,12 @@ export default async function DashboardPage() {
         />
       ) : null}
 
-      {isReviewer ? <ReviewPanel queue={queue} /> : null}
+      {isReviewer ? (
+        <>
+          <ReviewPanel queue={queue} />
+          <ReviewedPanel reviewed={reviewed} />
+        </>
+      ) : null}
 
       {isAdmin ? <AdminPanel current={current} /> : null}
     </div>
@@ -321,6 +330,63 @@ function ReviewPanel({
             ))}
           </ul>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The other half of a reviewer's dashboard: what they have already decided.
+ * The queue answers "what is waiting"; this answers "what did I say", which a
+ * queue can never answer because working through it is what empties it.
+ */
+function ReviewedPanel({ reviewed }: { reviewed: CompletedReview[] }) {
+  if (reviewed.length === 0) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <History className="size-4" />
+          Reviewed by you
+        </CardTitle>
+        <CardDescription>
+          {reviewed.length} decision{reviewed.length === 1 ? "" : "s"} recorded,
+          most recent first.
+        </CardDescription>
+        <CardAction>
+          <Button asChild variant="outline">
+            <Link href="/reviews/history">
+              See all your reviews
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <ul className="record-list" data-testid="reviewed-by-you">
+          {reviewed.slice(0, 5).map((review) => (
+            <li key={review.eventId} className="record-row">
+              <span className="text-sm font-medium">
+                {review.applicantName}
+              </span>
+              <span className="font-mono text-sm text-muted-foreground">
+                {review.reference}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {review.stageLabel}
+                {review.outcomeLabel ? `: ${review.outcomeLabel}` : ""}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {formatDate(review.reviewedAt)}
+              </span>
+              <StatusBadge status={review.status} />
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/reviews/${review.applicationId}`}>View</Link>
+              </Button>
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   );
