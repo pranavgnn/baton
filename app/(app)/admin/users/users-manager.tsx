@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Eye,
   Loader2,
   MailCheck,
   MoreHorizontal,
@@ -10,6 +11,7 @@ import {
   Upload,
   UserPlus,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
@@ -67,6 +69,7 @@ import {
 } from "@/components/ui/table";
 import {
   deleteUser,
+  impersonateUser,
   inviteUser,
   resendInvite,
   setUserDisabled,
@@ -112,6 +115,7 @@ export function UsersManager({
   const [inviting, setInviting] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<UserRow | null>(null);
   const [isBusy, startBusy] = useTransition();
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -253,6 +257,32 @@ export function UsersManager({
                               {item.activated
                                 ? "Send password reset"
                                 : "Resend activation link"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              disabled={
+                                item.id === currentUserId || item.disabled
+                              }
+                              data-testid={`impersonate-${item.email}`}
+                              onClick={() =>
+                                startBusy(async () => {
+                                  const result = await impersonateUser(item.id);
+                                  if (!result.ok) {
+                                    toast.error(result.error);
+                                    return;
+                                  }
+                                  toast.success(
+                                    `You are now viewing as ${item.name}.`,
+                                  );
+                                  // The session changed underneath the page:
+                                  // it has to be re-fetched, and the admin
+                                  // area is no longer theirs to sit on.
+                                  router.push("/dashboard");
+                                  router.refresh();
+                                })
+                              }
+                            >
+                              <Eye className="size-4" />
+                              View as this user
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem

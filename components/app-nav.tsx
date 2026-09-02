@@ -55,9 +55,16 @@ const ICONS: Record<NavLink["icon"], ComponentType<{ className?: string }>> = {
 export type AppNavProps = {
   links: NavLink[];
   user: { name: string; email: string; roles: string[] };
+  /**
+   * True while an administrator is acting as this person. Better Auth's own
+   * endpoints answer to the real session underneath, so changing a password
+   * here would change the administrator's - the menu hides it rather than
+   * offering something that would do the wrong thing.
+   */
+  impersonating?: boolean;
 };
 
-export function AppNav({ links, user }: AppNavProps) {
+export function AppNav({ links, user, impersonating = false }: AppNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -152,17 +159,21 @@ export function AppNav({ links, user }: AppNavProps) {
                 ) : null}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => setPasswordOpen(true)}
-                data-testid="change-password"
-              >
-                <KeyRound className="size-4" />
-                Change password
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleSignOut}>
-                <LogOut className="size-4" />
-                Sign out
-              </DropdownMenuItem>
+              {impersonating ? null : (
+                <>
+                  <DropdownMenuItem
+                    onClick={() => setPasswordOpen(true)}
+                    data-testid="change-password"
+                  >
+                    <KeyRound className="size-4" />
+                    Change password
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleSignOut}>
+                    <LogOut className="size-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -204,10 +215,12 @@ export function AppNav({ links, user }: AppNavProps) {
           </Sheet>
         </div>
       </div>
-      <ChangePasswordDialog
-        open={passwordOpen}
-        onOpenChange={setPasswordOpen}
-      />
+      {impersonating ? null : (
+        <ChangePasswordDialog
+          open={passwordOpen}
+          onOpenChange={setPasswordOpen}
+        />
+      )}
     </header>
   );
 }

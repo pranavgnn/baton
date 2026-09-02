@@ -8,6 +8,7 @@
 import { eq } from "drizzle-orm";
 
 import { provisionUser } from "@/lib/auth/provision";
+import { syncAdminFlags } from "@/lib/auth/admin-flag";
 import { db } from "@/lib/db";
 import {
   emailTemplate,
@@ -238,6 +239,9 @@ async function main() {
   await seedWorkflow(roleIdByName, templateIdByName);
   await seedSuperAdmin(roleIdByName[SUPER_ADMIN_ROLE_NAME]);
   await seedBucket();
+  // Derived from the permissions just seeded: it is what Better Auth reads
+  // to decide who may act as another user.
+  await syncAdminFlags();
 
   console.log("\nDone.");
   console.log(`  Sign in at ${env.NEXT_PUBLIC_APP_URL}/sign-in`);

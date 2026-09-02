@@ -8,6 +8,12 @@ export type AuditActor = {
   id: string;
   name: string;
   email: string;
+  /**
+   * Set when an administrator was acting as the actor. Actions pass the
+   * current user straight through, so this arrives on its own and the entry
+   * records the person at the keyboard rather than the account they borrowed.
+   */
+  impersonatedBy?: { id: string; name: string; email: string } | null;
 };
 
 export type AuditEntry = {
@@ -35,6 +41,8 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
   try {
     const origin = await requestOrigin();
 
+    const behind = entry.actor?.impersonatedBy ?? null;
+
     await db.insert(auditLog).values({
       id: crypto.randomUUID(),
       action: entry.action,
@@ -45,8 +53,12 @@ export async function recordAudit(entry: AuditEntry): Promise<void> {
       targetId: entry.targetId ?? null,
       targetLabel: entry.targetLabel ?? null,
       applicationId: entry.applicationId ?? null,
-      summary: entry.summary,
-      detail: entry.detail ?? {},
+      summary: behind
+        ? `${entry.summary} Carried out by ${behind.name}, acting as them.`
+        : entry.summary,
+      detail: behind
+        ? { ...(entry.detail ?? {}), impersonatedBy: behind.email }
+        : (entry.detail ?? {}),
       ipAddress: origin.ipAddress,
       userAgent: origin.userAgent,
     });

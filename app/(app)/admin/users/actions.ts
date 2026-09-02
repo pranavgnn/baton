@@ -2,6 +2,7 @@
 
 import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 
 import { recordAudit } from "@/lib/audit/record";
 import { z } from "zod";
@@ -13,6 +14,10 @@ import {
   parseInput,
   type ActionResult,
 } from "@/lib/actions";
+import { auth } from "@/lib/auth";
+import { syncAdminFlag } from "@/lib/auth/admin-flag";
+import { applyAuthCookies } from "@/lib/auth/cookies";
+import { refusalMessage, refuseImpersonation } from "@/lib/auth/impersonation";
 import { provisionUser, sendActivationLink } from "@/lib/auth/provision";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
@@ -66,6 +71,10 @@ async function setRoles(userId: string, roleIds: string[]) {
       })),
     )
     .onConflictDoNothing();
+
+  // Better Auth needs to know whether this account may act as another, and
+  // that answer is derived from the roles just written.
+  await syncAdminFlag(userId);
 }
 
 /**
@@ -398,4 +407,81 @@ export async function deleteUser(id: string): Promise<ActionResult> {
   } catch (error) {
     return failFrom(error);
   }
+}
+
+/**
+ * Signs the administrator in as somebody else, for up to an hour.
+ *
+ * The session swap is Better Auth's (`admin.impersonateUser`), which keeps the
+ * administrator's own session aside and restores it when they stop. What is
+ * added here is the portal's own gate: its permission rather than the plugin's
+ * notion of an admin, the rule that nobody may borrow permissions they do not
+ * hold, and a record of it in the audit log.
+ */
+export async function impersonateUser(id: string): Promise<ActionResult> {
+  try {
+    const current = await requirePermissionAction("users.manage");
+    if (current.impersonatedBy) {
+      return fail("Stop the current impersonation before starting another.");
+    }
+
+    const target = await getUserForImpersonation(id);
+    if (!target) return fail("That account no longer exists.");
+
+    const refusal = refuseImpersonation(current, target);
+    if (refusal) return fail(refusalMessage(refusal));
+
+    // Recorded before the swap: afterwards the session belongs to the person
+    // being impersonated, and the record would name the wrong actor.
+    await recordAudit({
+      action: "user.impersonation_started",
+      actor: current,
+      summary: `${current.name} started acting as ${target.name} (${target.email}).`,
+      targetType: "user",
+      targetId: target.id,
+      targetLabel: target.email,
+    });
+
+    const swapped = await auth.api.impersonateUser({
+      body: { userId: target.id },
+      headers: await headers(),
+      asResponse: true,
+    });
+    if (!swapped.ok) return fail("That impersonation could not be started.");
+    await applyAuthCookies(swapped);
+
+    revalidatePath("/", "layout");
+    return ok();
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+/** The permissions an account holds, for the impersonation rules to judge. */
+async function getUserForImpersonation(id: string) {
+  const rows = await db
+    .select({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      disabled: user.disabled,
+      permissions: role.permissions,
+    })
+    .from(user)
+    .leftJoin(userRole, eq(userRole.userId, user.id))
+    .leftJoin(role, eq(role.id, userRole.roleId))
+    .where(eq(user.id, id));
+
+  const first = rows[0];
+  if (!first) return null;
+
+  return {
+    id: first.id,
+    name: first.name,
+    email: first.email,
+    disabled: first.disabled,
+    permissions: Array.from(
+      new Set(rows.flatMap((row) => row.permissions ?? [])),
+    ),
+  };
 }

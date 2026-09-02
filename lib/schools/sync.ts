@@ -4,6 +4,7 @@ import {
   SCHOOL_DESIGNATIONS,
   type RoleDesignation,
 } from "@/lib/auth/designations";
+import { syncAdminFlags } from "@/lib/auth/admin-flag";
 import { db } from "@/lib/db";
 import { role, school, schoolAssociateDean, userRole } from "@/lib/db/schema";
 
@@ -39,6 +40,10 @@ export async function syncDesignatedRoles(): Promise<void> {
 
     await reconcile(roleId, await holdersOf(designation));
   }
+
+  // A designated role could itself grant `users.manage`, so who may act as
+  // another user can change with a posting.
+  await syncAdminFlags();
 }
 
 /** Everyone who currently holds the post the designation names. */

@@ -73,6 +73,16 @@ export const AUDIT_ACTIONS = [
   { key: "user.deleted", label: "User removed", group: "Administration" },
   { key: "user.imported", label: "Users imported", group: "Administration" },
   {
+    key: "user.impersonation_started",
+    label: "Impersonation started",
+    group: "Administration",
+  },
+  {
+    key: "user.impersonation_ended",
+    label: "Impersonation ended",
+    group: "Administration",
+  },
+  {
     key: "user.invite_resent",
     label: "Invitation resent",
     group: "Administration",
