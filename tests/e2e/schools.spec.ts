@@ -41,10 +41,7 @@ test.describe("schools", () => {
     await page.getByTestId("school-dean-search").fill("superadmin@");
     await page.getByTestId("school-dean-superadmin@manipal.edu").click();
 
-    for (const email of [
-      "institutehr@manipal.edu",
-      "associatedirector@manipal.edu",
-    ]) {
+    for (const email of ["institutehr@manipal.edu", "director@manipal.edu"]) {
       await page.getByTestId("school-associate-dean").click();
       await page.getByTestId("school-associate-dean-search").fill(email);
       await page.getByTestId(`school-associate-dean-${email}`).click();
@@ -64,7 +61,7 @@ test.describe("schools", () => {
     );
     await expect(
       page.getByTestId(`associate-deans-${NEW_SCHOOL}`),
-    ).toContainText("Test Associate Director");
+    ).toContainText("Test Director");
   });
 
   test("gives the people it appoints the roles that go with the post", async ({

@@ -149,7 +149,7 @@ async function seedWorkflow(
     workflowId: SINGLETON_WORKFLOW_ID,
     version: 1,
     graph,
-    memo: "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director, who may hand the decision to an associate director.",
+    memo: "Initial process: submission, the dean delegating to an associate dean and deciding on their recommendation, then HR, R&C, FD&W, the final HR declaration and the Director.",
     publishedByName: "Seed",
     createdAt: publishedAt,
   });

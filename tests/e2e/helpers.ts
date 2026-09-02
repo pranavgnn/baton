@@ -22,10 +22,6 @@ export const ACCOUNTS = {
   rc: { email: "rc@manipal.edu", password: "Portal@123" },
   fdw: { email: "fdw@manipal.edu", password: "Portal@123" },
   director: { email: "director@manipal.edu", password: "Portal@123" },
-  associateDirector: {
-    email: "associatedirector@manipal.edu",
-    password: "Portal@123",
-  },
   instituteHr: { email: "institutehr@manipal.edu", password: "Portal@123" },
 } as const;
 

@@ -104,14 +104,6 @@ export const DEMO_USERS = [
     designation: "Director",
   },
   {
-    email: "associatedirector@manipal.edu",
-    name: "Test Associate Director",
-    roleName: "Associate Director",
-    employeeId: "TEST-0010",
-    school: null,
-    designation: "Associate Director",
-  },
-  {
     email: "institutehr@manipal.edu",
     name: "Test Institute HR",
     roleName: "Institute HR",
