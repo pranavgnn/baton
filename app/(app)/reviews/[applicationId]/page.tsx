@@ -22,6 +22,7 @@ import {
 import { forbidden, requirePermission } from "@/lib/auth/session";
 import { nodeById, stageNodes, startNode } from "@/lib/workflow/graph";
 import { APPLICANT_NAMESPACE } from "@/lib/workflow/types";
+import { nomineesFor } from "../actions";
 import { ReviewForm } from "./review-form";
 
 export const metadata: Metadata = { title: "Review application" };
@@ -39,6 +40,11 @@ export default async function ReviewPage({
   const actionable = canActOnCurrentStage(app, current);
 
   // Reviewers who already signed off keep read access; everyone else is out.
+  const nominees =
+    actionable && stage?.kind === "stage" && stage.data.nominatesNext
+      ? await nomineesFor(app, stage)
+      : null;
+
   const previouslyActed = stageNodes(app.graph).some(
     (node) =>
       node.data.roleId !== null &&
@@ -107,6 +113,7 @@ export default async function ReviewPage({
               form={stage.data.form}
               outcomes={stage.data.outcomes}
               defaultValues={draft?.data ?? app.data?.[stage.id] ?? null}
+              nominees={nominees}
             />
           </TabsContent>
         ) : null}

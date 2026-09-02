@@ -131,6 +131,7 @@ marked conditional carry the rule that makes them so.
 | `lib/users/import.ts`        | Pure CSV and address-list parsing for the bulk user import.                                                                    |
 | `lib/audit/`                 | Audit vocabulary, the recorder, the filtered query and the CSV export. `csv.ts` and `actions.ts` are pure and unit-tested.     |
 | `lib/workflow/conditions.ts` | When a question applies, given the answers around it. Pure; used by the compiler, the runtime and the preview alike.           |
+| `lib/schools/`               | Schools, their dean and associate deans, and the searches that find people without listing everybody.                          |
 | `components/form-runtime/`   | Renders admin-defined forms for applicants and reviewers.                                                                      |
 | `components/form-builder/`   | The dnd-kit editor admins use to define those forms.                                                                           |
 | `app/(app)/admin/workflow/`  | React Flow canvas, custom nodes, node inspector.                                                                               |

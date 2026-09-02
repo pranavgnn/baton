@@ -14,9 +14,18 @@ import { recordAudit } from "@/lib/audit/record";
 import { requirePermissionAction, type CurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { stageDraft } from "@/lib/db/schema";
+import {
+  associateDeansOfSchool,
+  usersHoldingRole,
+  type SchoolPerson,
+} from "@/lib/schools/query";
 import { pruneToSchema, validateForm } from "@/lib/workflow/form";
-import { nodeById } from "@/lib/workflow/graph";
-import type { SectionData, StageNode } from "@/lib/workflow/types";
+import { continuationNodeId, nodeById } from "@/lib/workflow/graph";
+import {
+  DEFAULT_SOURCE_HANDLE,
+  type SectionData,
+  type StageNode,
+} from "@/lib/workflow/types";
 
 type LoadedStage =
   | { ok: false; error: string }
@@ -48,6 +57,40 @@ async function loadActionableStage(
   }
 
   return { ok: true, app, node };
+}
+
+/**
+ * Who a nominating stage may hand the application to.
+ *
+ * The associate deans of the applicant's own school, narrowed to those who
+ * actually hold the next stage's role - anyone else would be handed a file
+ * they cannot open.
+ */
+export async function nomineesFor(
+  app: ApplicationWithApplicant,
+  node: StageNode,
+): Promise<SchoolPerson[]> {
+  if (!node.data.nominatesNext) return [];
+  if (!app.applicant.schoolId) return [];
+
+  const nextNodeId = continuationNodeId(
+    app.graph,
+    node.id,
+    node.data.outcomes[0]?.id ?? DEFAULT_SOURCE_HANDLE,
+  );
+  const nextNode = nextNodeId ? nodeById(app.graph, nextNodeId) : null;
+  if (!nextNode || nextNode.kind !== "stage" || !nextNode.data.roleId) {
+    return [];
+  }
+
+  const candidates = await associateDeansOfSchool(app.applicant.schoolId);
+  if (candidates.length === 0) return [];
+
+  const holders = await usersHoldingRole(
+    nextNode.data.roleId,
+    candidates.map((person) => person.id),
+  );
+  return candidates.filter((person) => holders.has(person.id));
 }
 
 /** Per-reviewer draft so two holders of a role never overwrite each other. */
@@ -131,6 +174,7 @@ export async function completeStage(
   applicationId: string,
   outcomeId: string,
   data: SectionData,
+  nomineeId?: string | null,
 ): Promise<ActionResult<{ status: string; destination: string }>> {
   try {
     const current = await requirePermissionAction("applications.review");
@@ -140,6 +184,27 @@ export async function completeStage(
     const { app, node } = loaded;
     const outcome = node.data.outcomes.find((entry) => entry.id === outcomeId);
     if (!outcome) return fail("That outcome is not available on this stage.");
+
+    /**
+     * Re-derived rather than trusted: the browser sends an id, and the only
+     * ids this stage may hand the application to are the ones resolved here
+     * from the applicant's own school.
+     */
+    let nominee: { id: string; name: string } | null = null;
+    if (node.data.nominatesNext) {
+      const candidates = await nomineesFor(app, node);
+      if (candidates.length === 0) {
+        return fail(
+          "This school has no associate dean who can review applications. Ask an administrator to assign one.",
+        );
+      }
+
+      const chosen = candidates.find((entry) => entry.id === nomineeId);
+      if (!chosen) {
+        return fail("Choose which associate dean this goes to.");
+      }
+      nominee = { id: chosen.id, name: chosen.name };
+    }
 
     const pruned = pruneToSchema(node.data.form, data);
 
@@ -166,6 +231,7 @@ export async function completeStage(
       namespaceData: { namespace: node.id, data: payload },
       eventType: "stage_completed",
       note: `${node.data.label} completed with outcome "${outcome.label}".`,
+      nominee,
     });
 
     if (!result.ok) return fail(result.error);

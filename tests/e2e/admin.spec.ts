@@ -106,9 +106,10 @@ test.describe("user administration", () => {
     await page
       .getByRole("textbox", { name: "Display name" })
       .fill("E2E Invitee");
+    await page.getByTestId("user-school").click();
     await page
-      .getByRole("textbox", { name: "Department", exact: true })
-      .fill("Civil Engineering");
+      .getByRole("option", { name: "School of Civil & Chemical Engineering" })
+      .click();
     await page.getByRole("checkbox", { name: "Employee", exact: true }).click();
     await page.getByRole("button", { name: "Add user" }).click();
 
@@ -179,9 +180,11 @@ test.describe("user administration", () => {
 
     await page
       .getByRole("textbox", { name: "Search users" })
-      .fill("hod@manipal.edu");
-    await expect(page.getByTestId("user-hod@manipal.edu")).toBeVisible();
-    await expect(page.getByTestId("user-dean@manipal.edu")).toHaveCount(0);
+      .fill("dean@manipal.edu");
+
+    // The rows the search matches stay; everyone else goes.
+    await expect(page.getByTestId("user-dean@manipal.edu")).toBeVisible();
+    await expect(page.getByTestId("user-employee@manipal.edu")).toHaveCount(0);
   });
 });
 

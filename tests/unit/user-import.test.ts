@@ -40,10 +40,11 @@ describe("parseUserCsv", () => {
     expect(issues).toEqual([]);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
-      email: "r.kamath@manipal.edu",
-      name: "Prof. Ravi Kamath",
+      email: "a.person@manipal.edu",
+      name: "A Person",
       employeeId: "MIT-2201",
-      roles: ["Head of Department"],
+      school: "School of Computer Engineering",
+      roles: ["Dean"],
     });
     // The second row names no role, which means the default.
     expect(rows[1].roles).toEqual([]);

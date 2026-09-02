@@ -232,6 +232,12 @@ export const stageNodeDataSchema = z.object({
   roleId: z.string().nullable().default(null),
   form: formSchemaSchema.default({ sections: [] }),
   outcomes: z.array(stageOutcomeSchema).default([]),
+  /**
+   * When true the reviewer must name who takes the next step, chosen from the
+   * people who sign for the applicant's school. The application is then held
+   * for that person rather than offered to everyone holding the next role.
+   */
+  nominatesNext: z.boolean().default(false),
 });
 export type StageNodeData = z.infer<typeof stageNodeDataSchema>;
 

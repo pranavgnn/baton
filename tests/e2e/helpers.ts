@@ -9,7 +9,15 @@ export const ACCOUNTS = {
     password: process.env.SUPER_ADMIN_PASSWORD ?? "SuperAdmin@123",
   },
   employee: { email: "employee@manipal.edu", password: "Portal@123" },
-  hod: { email: "hod@manipal.edu", password: "Portal@123" },
+  dean: { email: "dean@manipal.edu", password: "Portal@123" },
+  associateDean: {
+    email: "associatedean@manipal.edu",
+    password: "Portal@123",
+  },
+  associateDean2: {
+    email: "associatedean2@manipal.edu",
+    password: "Portal@123",
+  },
   hr: { email: "hr@manipal.edu", password: "Portal@123" },
   rc: { email: "rc@manipal.edu", password: "Portal@123" },
   fdw: { email: "fdw@manipal.edu", password: "Portal@123" },

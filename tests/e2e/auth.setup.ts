@@ -16,7 +16,9 @@ import { ACCOUNTS, storageStatePath, type AccountName } from "./helpers";
 const ROLES: AccountName[] = [
   "superAdmin",
   "employee",
-  "hod",
+  "dean",
+  "associateDean",
+  "associateDean2",
   "hr",
   "rc",
   "fdw",

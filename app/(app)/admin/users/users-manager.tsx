@@ -444,7 +444,7 @@ function UserEditor({
             <Input
               id="user-name"
               value={name}
-              placeholder="Dr. Anita Rao"
+              placeholder="Full name"
               onChange={(event) => setName(event.target.value)}
               aria-invalid={Boolean(fieldErrors.name)}
             />

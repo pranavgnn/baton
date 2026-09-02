@@ -139,7 +139,7 @@ async function seedWorkflow(
     workflowId: SINGLETON_WORKFLOW_ID,
     version: 1,
     graph,
-    memo: "Initial process: submission, HOD, HR, R&C, FD&W, HR final and the Director.",
+    memo: "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director.",
     publishedByName: "Seed",
     createdAt: publishedAt,
   });

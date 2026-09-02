@@ -197,6 +197,12 @@ type AdvanceInput = {
   namespaceData?: { namespace: string; data: SectionData };
   eventType: "submitted" | "stage_completed";
   note?: string;
+  /**
+   * Who the next stage is held for. Set when the stage just completed
+   * nominates its successor; otherwise the next stage is open to everyone
+   * holding its role.
+   */
+  nominee?: { id: string; name: string } | null;
 };
 
 /**
@@ -249,6 +255,9 @@ export async function advanceApplication(
       submittedAt:
         input.eventType === "submitted" ? now : (app.submittedAt ?? now),
       completedAt: outcome.kind === "finished" ? now : null,
+      // Cleared unless this move nominates someone: an assignment belongs to
+      // the stage it was made for, not to the application for ever.
+      assignedToId: input.nominee?.id ?? null,
     })
     .where(eq(application.id, app.id))
     .returning();
@@ -265,8 +274,13 @@ export async function advanceApplication(
     outcomeLabel: input.outcomeLabel,
     actorId: input.actor?.id ?? null,
     actorName: input.actor?.name ?? null,
-    note: input.note ?? null,
-    detail: { destinationId: resolved.destination.id },
+    note: input.nominee
+      ? `${input.note ?? ""} Sent to ${input.nominee.name}.`.trim()
+      : (input.note ?? null),
+    detail: {
+      destinationId: resolved.destination.id,
+      ...(input.nominee ? { nomineeId: input.nominee.id } : {}),
+    },
   });
 
   const variables = buildVariables({

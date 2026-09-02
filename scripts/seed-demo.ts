@@ -8,10 +8,19 @@ import { eq } from "drizzle-orm";
 
 import { provisionUser } from "@/lib/auth/provision";
 import { db } from "@/lib/db";
-import { role, school, user, userRole } from "@/lib/db/schema";
+import {
+  role,
+  school,
+  schoolAssociateDean,
+  user,
+  userRole,
+} from "@/lib/db/schema";
 import { env } from "@/lib/env";
 
 export const DEMO_PASSWORD = "Portal@123";
+
+/** The school the demo accounts belong to. */
+const DEMO_SCHOOL = "School of Computer Engineering";
 
 /**
  * One account per role, named for what it is.
@@ -29,12 +38,28 @@ export const DEMO_USERS = [
     designation: "Assistant Professor",
   },
   {
-    email: "hod@manipal.edu",
-    name: "Test HOD",
-    roleName: "HOD",
+    email: "dean@manipal.edu",
+    name: "Test Dean",
+    roleName: "Dean",
     employeeId: "TEST-0002",
     school: "School of Computer Engineering",
-    designation: "Head of Department",
+    designation: "Dean",
+  },
+  {
+    email: "associatedean@manipal.edu",
+    name: "Test Associate Dean",
+    roleName: "Associate Dean",
+    employeeId: "TEST-0008",
+    school: "School of Computer Engineering",
+    designation: "Associate Dean",
+  },
+  {
+    email: "associatedean2@manipal.edu",
+    name: "Test Associate Dean Two",
+    roleName: "Associate Dean",
+    employeeId: "TEST-0009",
+    school: "School of Computer Engineering",
+    designation: "Associate Dean",
   },
   {
     email: "hr@manipal.edu",
@@ -128,7 +153,52 @@ async function main() {
     );
   }
 
+  await linkSchoolSignatories();
+
   console.log(`\nAll demo accounts use the password: ${DEMO_PASSWORD}\n`);
+}
+
+/**
+ * Gives the demo school its dean and associate deans.
+ *
+ * Without them the dean has nobody to send an application to and the process
+ * stops at the first step, so a demo database is not much of a demo.
+ */
+async function linkSchoolSignatories() {
+  const target = await db.query.school.findFirst({
+    where: eq(school.name, DEMO_SCHOOL),
+  });
+  if (!target) {
+    console.warn(`  ! school "${DEMO_SCHOOL}" not found - run pnpm seed first`);
+    return;
+  }
+
+  const byEmail = new Map(
+    (await db.select().from(user)).map((row) => [row.email, row.id]),
+  );
+
+  const deanId = byEmail.get("dean@manipal.edu");
+  if (deanId) {
+    await db.update(school).set({ deanId }).where(eq(school.id, target.id));
+  }
+
+  const associates = ["associatedean@manipal.edu", "associatedean2@manipal.edu"]
+    .map((email) => byEmail.get(email))
+    .filter((id): id is string => Boolean(id));
+
+  await db
+    .delete(schoolAssociateDean)
+    .where(eq(schoolAssociateDean.schoolId, target.id));
+
+  if (associates.length > 0) {
+    await db
+      .insert(schoolAssociateDean)
+      .values(associates.map((userId) => ({ schoolId: target.id, userId })));
+  }
+
+  console.log(
+    `  + ${DEMO_SCHOOL}: dean and ${associates.length} associate dean(s)`,
+  );
 }
 
 main()

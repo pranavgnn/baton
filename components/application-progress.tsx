@@ -196,7 +196,7 @@ function ProgressCanvas({
         nodeTypes={NODE_TYPES}
         fitView
         fitViewOptions={{ padding: 0.25 }}
-        minZoom={0.2}
+        minZoom={0.05}
         maxZoom={1.4}
         nodesDraggable={false}
         nodesConnectable={false}
