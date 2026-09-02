@@ -6,6 +6,16 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { FormWizard } from "@/components/form-runtime/form-wizard";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import {
@@ -24,6 +34,17 @@ import type {
 import { clearStageDraft, completeStage, saveStageDraft } from "../actions";
 
 export type Nominee = { id: string; name: string; email: string };
+
+/**
+ * What the confirmation asks. An outcome is admin-defined, so the two the
+ * process almost always has - one that carries on and one that stops - are
+ * named for what they do, and anything else is quoted as it was written.
+ */
+function confirmTitle(outcome: StageOutcome): string {
+  if (outcome.tone === "positive") return "Confirm approval";
+  if (outcome.tone === "negative") return "Confirm rejection";
+  return `Confirm "${outcome.label}"`;
+}
 
 export function ReviewForm({
   applicationId,
@@ -51,6 +72,8 @@ export function ReviewForm({
   const [nomineeByOutcome, setNomineeByOutcome] = useState<
     Record<string, string>
   >({});
+  /** The outcome whose confirmation is open, if any. */
+  const [confirming, setConfirming] = useState<string | null>(null);
 
   const nominating = outcomes.filter(
     (outcome) => nomineesByOutcome[outcome.id] != null,
@@ -120,50 +143,94 @@ export function ReviewForm({
             );
           })}
 
-          {outcomes.map((outcome) => {
-            const mustName = nomineesByOutcome[outcome.id] != null;
-            const chosen = nomineeByOutcome[outcome.id] ?? "";
-            return (
-              <Button
-                key={outcome.id}
-                disabled={busy || (mustName && !chosen)}
-                variant={
-                  outcome.tone === "positive"
-                    ? "default"
-                    : outcome.tone === "negative"
-                      ? "destructive"
-                      : "outline"
-                }
-                data-testid={`outcome-${outcome.label}`}
-                onClick={async () => {
-                  if (outcome.requiresForm && !(await validate())) return;
-                  setBusy(true);
-                  try {
-                    const result = await completeStage(
-                      applicationId,
-                      outcome.id,
-                      getValues(),
-                      chosen || null,
-                    );
-                    if (result.ok) {
-                      toast.success(
-                        `Recorded "${outcome.label}". The application is now at ${result.data.destination}.`,
-                      );
-                      router.push("/reviews");
-                      router.refresh();
-                    } else {
-                      toast.error(result.error);
+          <div className="outcome-bar">
+            {outcomes.map((outcome) => {
+              const mustName = nomineesByOutcome[outcome.id] != null;
+              const chosen = nomineeByOutcome[outcome.id] ?? "";
+              return (
+                <AlertDialog
+                  key={outcome.id}
+                  open={confirming === outcome.id}
+                  onOpenChange={(open) => {
+                    if (!open) setConfirming(null);
+                  }}
+                >
+                  <Button
+                    size="lg"
+                    className="outcome-button"
+                    disabled={busy || (mustName && !chosen)}
+                    variant={
+                      outcome.tone === "positive"
+                        ? "default"
+                        : outcome.tone === "negative"
+                          ? "destructive"
+                          : "outline"
                     }
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-                {outcome.label}
-              </Button>
-            );
-          })}
+                    data-testid={`outcome-${outcome.label}`}
+                    onClick={async () => {
+                      // Checked before the dialog opens: being asked to
+                      // confirm and then told the form is wrong reads as the
+                      // confirmation itself having failed.
+                      if (outcome.requiresForm && !(await validate())) return;
+                      setConfirming(outcome.id);
+                    }}
+                  >
+                    {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                    {outcome.label}
+                  </Button>
+
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        {confirmTitle(outcome)}
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This records &ldquo;{outcome.label}&rdquo; against{" "}
+                        {stageLabel.toLowerCase()} and moves the application on.
+                        It cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Go back</AlertDialogCancel>
+                      <AlertDialogAction
+                        data-testid={`confirm-${outcome.label}`}
+                        className={
+                          outcome.tone === "negative"
+                            ? "bg-destructive text-white hover:bg-destructive/90"
+                            : undefined
+                        }
+                        onClick={async (event) => {
+                          event.preventDefault();
+                          setBusy(true);
+                          try {
+                            const result = await completeStage(
+                              applicationId,
+                              outcome.id,
+                              getValues(),
+                              chosen || null,
+                            );
+                            if (result.ok) {
+                              toast.success(
+                                `Recorded "${outcome.label}". The application is now at ${result.data.destination}.`,
+                              );
+                              router.push("/reviews");
+                              router.refresh();
+                            } else {
+                              toast.error(result.error);
+                            }
+                          } finally {
+                            setBusy(false);
+                          }
+                        }}
+                      >
+                        {confirmTitle(outcome)}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              );
+            })}
+          </div>
         </>
       )}
     />

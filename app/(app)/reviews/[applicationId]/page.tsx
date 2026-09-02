@@ -7,14 +7,6 @@ import { ExportPdfButton } from "@/components/export-pdf-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
   canActOnCurrentStage,
   getApplicationById,
   getStageDraft,
@@ -26,6 +18,7 @@ import { nodeById, stageNodes, startNode } from "@/lib/workflow/graph";
 import { APPLICANT_NAMESPACE } from "@/lib/workflow/types";
 import { nomineesByOutcome } from "../actions";
 import { ReviewForm } from "./review-form";
+import { ReviewWorkspace } from "./review-workspace";
 
 export const metadata: Metadata = { title: "Review application" };
 
@@ -102,20 +95,38 @@ export default async function ReviewPage({
         </Alert>
       ) : null}
 
-      <Tabs defaultValue={actionable ? "review" : "application"}>
-        <TabsList>
-          {actionable ? (
-            <TabsTrigger value="review">Your review</TabsTrigger>
-          ) : null}
-          <TabsTrigger value="application">Applicant submission</TabsTrigger>
-          {earlierReviews.length > 0 ? (
-            <TabsTrigger value="earlier">Earlier reviews</TabsTrigger>
-          ) : null}
-          <TabsTrigger value="history">History</TabsTrigger>
-        </TabsList>
+      <ReviewWorkspace
+        decisionLabel={
+          stage?.kind === "stage" ? stage.data.label : "This decision"
+        }
+        application={
+          <>
+            <section className="section-stack">
+              <h2 className="section-heading">What the applicant submitted</h2>
+              {start ? (
+                <FormPreview
+                  form={start.data.form}
+                  data={app.data?.[APPLICANT_NAMESPACE] ?? null}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  The submission form is not available.
+                </p>
+              )}
+            </section>
 
-        {actionable && stage?.kind === "stage" ? (
-          <TabsContent value="review" className="pt-4">
+            {/* Everyone before this reviewer, in the order they signed off, so
+                the file reads as one document rather than as a set of tabs. */}
+            {earlierReviews.map((node) => (
+              <section key={node.id} className="section-stack">
+                <h2 className="section-heading">{node.data.label}</h2>
+                <FormPreview form={node.data.form} data={app.data[node.id]} />
+              </section>
+            ))}
+          </>
+        }
+        decision={
+          actionable && stage?.kind === "stage" ? (
             <ReviewForm
               applicationId={app.id}
               stageLabel={stage.data.label}
@@ -125,48 +136,10 @@ export default async function ReviewPage({
               nomineesByOutcome={nominees}
               profile={profile}
             />
-          </TabsContent>
-        ) : null}
-
-        <TabsContent value="application" className="pt-4">
-          {start ? (
-            <FormPreview
-              form={start.data.form}
-              data={app.data?.[APPLICANT_NAMESPACE] ?? null}
-            />
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              The submission form is not available.
-            </p>
-          )}
-        </TabsContent>
-
-        {earlierReviews.length > 0 ? (
-          <TabsContent value="earlier" className="section-stack pt-4">
-            {earlierReviews.map((node) => (
-              <Card key={node.id}>
-                <CardHeader>
-                  <CardTitle className="text-base">{node.data.label}</CardTitle>
-                  <CardDescription>
-                    Recorded by the reviewer who completed this stage.
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <FormPreview form={node.data.form} data={app.data[node.id]} />
-                </CardContent>
-              </Card>
-            ))}
-          </TabsContent>
-        ) : null}
-
-        <TabsContent value="history" className="pt-4">
-          <Card>
-            <CardContent className="pt-6">
-              <ApplicationTimeline events={timeline} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          ) : null
+        }
+        history={<ApplicationTimeline events={timeline} />}
+      />
     </div>
   );
 }

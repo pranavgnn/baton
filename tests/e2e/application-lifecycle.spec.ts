@@ -261,19 +261,23 @@ async function openApplication(page: Page) {
 /* -------------------------------------------------------------------------- */
 
 /**
- * Opens the application waiting on this role, fills its review form and takes
- * the named outcome.
+ * Opens the application waiting on this role, reads it, fills its review form
+ * and takes the named outcome.
  *
- * A stage form is itself a wizard, so a `fill` that spans more than one
- * section advances between them; this only makes the final step, which is what
- * reveals the outcome buttons.
+ * The page opens on the file - the submission and every completed review - so
+ * `read` runs there, and `fill` runs after the decision has been opened. A
+ * stage form is itself a wizard, so a `fill` that spans more than one section
+ * advances between them; this only makes the final step, which is what reveals
+ * the outcome buttons. Every outcome is then confirmed.
  */
 async function review(
   page: Page,
   {
+    read,
     fill,
     outcome,
   }: {
+    read?: (page: Page) => Promise<void>;
     fill: (page: Page) => Promise<void>;
     outcome: string;
   },
@@ -283,11 +287,14 @@ async function review(
   await expect(row).toBeVisible();
   await row.getByRole("link", { name: "Review" }).click();
 
-  await page.getByRole("tab", { name: "Your review" }).click();
+  if (read) await read(page);
+
+  await page.getByTestId("open-decision").click();
   await fill(page);
 
   await page.getByTestId("wizard-next").click();
   await page.getByTestId(`outcome-${outcome}`).click();
+  await page.getByTestId(`confirm-${outcome}`).click();
   await expect(page).toHaveURL(/\/reviews$/);
 }
 
@@ -387,13 +394,12 @@ test.describe("2. the dean delegates to an associate dean", () => {
     await page.goto("/reviews");
     await applicationRow(page).getByRole("link", { name: "Review" }).click();
 
-    // The reviewer can read what the applicant submitted.
-    await page.getByRole("tab", { name: "Applicant submission" }).click();
+    // The page opens on the file itself rather than on a form.
     await expect(page.getByText("Ph.D. in Information Security")).toBeVisible();
 
     // The dean writes nothing at this point - they only decide who looks at
     // it - so the outcome waits on a name and on nothing else.
-    await page.getByRole("tab", { name: "Your review" }).click();
+    await page.getByTestId("open-decision").click();
     await expect(
       page.getByTestId("nominee-field-Send to associate dean"),
     ).toBeVisible();
@@ -406,7 +412,7 @@ test.describe("2. the dean delegates to an associate dean", () => {
     await clearMailbox();
     await page.goto("/reviews");
     await applicationRow(page).getByRole("link", { name: "Review" }).click();
-    await page.getByRole("tab", { name: "Your review" }).click();
+    await page.getByTestId("open-decision").click();
 
     // Only this school's associate deans are on offer.
     await page.getByTestId("nominee-Send to associate dean").click();
@@ -418,6 +424,7 @@ test.describe("2. the dean delegates to an associate dean", () => {
       .click();
 
     await page.getByTestId("outcome-Send to associate dean").click();
+    await page.getByTestId("confirm-Send to associate dean").click();
     await expect(page).toHaveURL(/\/reviews$/);
 
     const mail = await waitForEmail((message) =>
@@ -449,14 +456,13 @@ test.describe("3. only the named associate dean sees it", () => {
 
       await review(page, {
         outcome: "Return to the dean",
-        fill: async (page) => {
+        read: async (page) => {
           // What the applicant said travels with it.
-          await page.getByRole("tab", { name: "Applicant submission" }).click();
           await expect(
             page.getByText("Ph.D. in Information Security"),
           ).toBeVisible();
-          await page.getByRole("tab", { name: "Your review" }).click();
-
+        },
+        fill: async (page) => {
           await page
             .getByRole("radio", { name: "Recommended", exact: true })
             .check();
@@ -482,14 +488,13 @@ test.describe("3b. the dean decides on the recommendation", () => {
 
     await review(page, {
       outcome: "Approve",
-      fill: async (page) => {
+      read: async (page) => {
         // The associate dean's recommendation is what the dean decides on.
-        await page.getByRole("tab", { name: "Earlier reviews" }).click();
         await expect(
           page.getByText("Reviewed on the dean's referral."),
         ).toBeVisible();
-        await page.getByRole("tab", { name: "Your review" }).click();
-
+      },
+      fill: async (page) => {
         await input(page, "vacancy_remarks").fill(
           "One Associate Professor position is vacant in the school.",
         );
@@ -558,14 +563,13 @@ test.describe("5. R&C evaluates the research", () => {
 
     await review(page, {
       outcome: "Forward to FD&W",
-      fill: async (page) => {
+      read: async (page) => {
         // HR's answers live in their own namespace and are readable here.
-        await page.getByRole("tab", { name: "Earlier reviews" }).click();
         await expect(
           page.getByText("Meets the experience criteria."),
         ).toBeVisible();
-        await page.getByRole("tab", { name: "Your review" }).click();
-
+      },
+      fill: async (page) => {
         // Every count R&C is asked to verify, addressed by key for the same
         // reason as the applicant's form.
         for (const key of [
@@ -641,7 +645,6 @@ test.describe("7. HR declares the candidate eligible", () => {
     await page.goto("/reviews");
     await applicationRow(page).getByRole("link", { name: "Review" }).click();
 
-    await page.getByRole("tab", { name: "Earlier reviews" }).click();
     await expect(
       page.getByText("Publication record verified against Scopus."),
     ).toBeVisible();
@@ -649,7 +652,7 @@ test.describe("7. HR declares the candidate eligible", () => {
       page.getByText("Formal evaluation complete. No objections."),
     ).toBeVisible();
 
-    await page.getByRole("tab", { name: "Your review" }).click();
+    await page.getByTestId("open-decision").click();
 
     // The reason field belongs to a different decision and is not asked for.
     await expect(field(page, "ineligibility_reason")).toHaveCount(0);
@@ -662,6 +665,7 @@ test.describe("7. HR declares the candidate eligible", () => {
 
     await page.getByTestId("wizard-next").click();
     await page.getByTestId("outcome-Eligible").click();
+    await page.getByTestId("confirm-Eligible").click();
     await expect(page).toHaveURL(/\/reviews$/);
 
     const mail = await waitForEmail((message) =>
@@ -679,14 +683,13 @@ test.describe("8. the Director has the last word", () => {
 
     await review(page, {
       outcome: "Approve",
-      fill: async (page) => {
+      read: async (page) => {
         // Every earlier verdict is in front of them when they decide.
-        await page.getByRole("tab", { name: "Earlier reviews" }).click();
         await expect(
           page.getByText("Eligible on every criterion."),
         ).toBeVisible();
-        await page.getByRole("tab", { name: "Your review" }).click();
-
+      },
+      fill: async (page) => {
         await input(page, "remarks").fill(
           "Endorsed at every stage. Approved - a strong record.",
         );

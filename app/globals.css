@@ -572,6 +572,25 @@
     @apply sticky bottom-0 -mx-4 flex flex-wrap items-center justify-between gap-3 border-t bg-background/95 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6;
   }
 
+  /* Reviewing --------------------------------------------------------- */
+  .section-heading {
+    @apply text-lg font-semibold;
+  }
+
+  /* The way through to the decision, at the foot of the reading. */
+  .decision-handoff {
+    @apply flex flex-wrap items-center justify-between gap-4 rounded-lg border border-dashed bg-muted/40 p-5;
+  }
+
+  .outcome-bar {
+    @apply flex w-full flex-wrap gap-3;
+  }
+
+  /* A decision is the point of the page: its buttons are not toolbar-sized. */
+  .outcome-button {
+    @apply h-12 min-w-40 flex-1 px-8 text-base font-semibold sm:flex-none;
+  }
+
   .preview-row {
     @apply grid gap-1 border-b py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-4;
   }

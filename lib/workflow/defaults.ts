@@ -1065,33 +1065,7 @@ const YES_NO: [string, string][] = [
   ["No", "no"],
 ];
 
-/** Section (a) and (b) of the paper form, signed by the dean. */
-function deanForm(): FormSchema {
-  return {
-    sections: [
-      createSection(
-        "Dean",
-        [
-          createField({
-            type: "textarea",
-            key: "vacancy_remarks",
-            label: "(a) Vacancy, with remarks",
-            required: true,
-          }),
-          createField({
-            type: "textarea",
-            key: "recommendations",
-            label: "(b) Recommendations",
-            required: true,
-          }),
-        ],
-        "Your name, designation and the date are recorded automatically. You will be asked which associate dean to send this to.",
-      ),
-    ],
-  };
-}
-
-/** What the associate dean the dean chose records before it goes to HR. */
+/** What the associate dean the dean named records before it goes back. */
 function associateDeanForm(): FormSchema {
   return {
     sections: [
@@ -1115,7 +1089,7 @@ function associateDeanForm(): FormSchema {
             required: true,
           }),
         ],
-        "Read the applicant's submission and the dean's recommendation before recording yours.",
+        "Read the applicant's submission before recording your recommendation. It goes back to the dean, who decides.",
       ),
     ],
   };
