@@ -407,7 +407,11 @@ function WorkflowCanvas({
                   createOutcome("Approve", "positive"),
                   createOutcome("Reject", "negative"),
                 ],
-                assignment: { mode: "role", pool: "role_holders" },
+                assignment: {
+                  mode: "role",
+                  pool: "role_holders",
+                  scope: "all_holders",
+                },
               },
             }
           : kind === "email"
@@ -421,6 +425,7 @@ function WorkflowCanvas({
                   templateId: null,
                   recipientMode: "applicant",
                   recipientRoleId: null,
+                  recipientScope: "all_holders",
                   recipientEmail: "",
                 },
               }

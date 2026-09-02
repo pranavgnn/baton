@@ -1534,6 +1534,7 @@ export function defaultWorkflowGraph({
       templateId: template(templateName),
       recipientMode: "applicant",
       recipientRoleId: null,
+      recipientScope: "all_holders",
       recipientEmail: "",
     },
   });
@@ -1555,6 +1556,7 @@ export function defaultWorkflowGraph({
       templateId: template(templateName),
       recipientMode: "role",
       recipientRoleId: role(roleName),
+      recipientScope: "all_holders",
       recipientEmail: "",
     },
   });
@@ -1599,7 +1601,11 @@ export function defaultWorkflowGraph({
         roleId: role("Dean"),
         form: deanForm(),
         outcomes: [outcomes.dean],
-        assignment: { mode: "role", pool: "role_holders" },
+        assignment: {
+          mode: "role",
+          pool: "role_holders",
+          scope: "all_holders",
+        },
       },
     },
     toApplicant(
@@ -1628,7 +1634,11 @@ export function defaultWorkflowGraph({
         outcomes: [outcomes.associateDean],
         // Not offered to the associate deans at large: the dean names one of
         // their own school's, and the file is held for that person alone.
-        assignment: { mode: "nominated", pool: "school_associate_deans" },
+        assignment: {
+          mode: "nominated",
+          pool: "school_associate_deans",
+          scope: "all_holders",
+        },
       },
     },
     toApplicant(
@@ -1656,7 +1666,11 @@ export function defaultWorkflowGraph({
         roleId: role("HR Officer"),
         form: hrInitialForm(),
         outcomes: [outcomes.hrInitial],
-        assignment: { mode: "role", pool: "role_holders" },
+        assignment: {
+          mode: "role",
+          pool: "role_holders",
+          scope: "all_holders",
+        },
       },
     },
     toApplicant(
@@ -1684,7 +1698,11 @@ export function defaultWorkflowGraph({
         roleId: role("R&C Officer"),
         form: rcForm(),
         outcomes: [outcomes.rc],
-        assignment: { mode: "role", pool: "role_holders" },
+        assignment: {
+          mode: "role",
+          pool: "role_holders",
+          scope: "all_holders",
+        },
       },
     },
     toApplicant(
@@ -1711,7 +1729,11 @@ export function defaultWorkflowGraph({
         roleId: role("FDW Officer"),
         form: fdwForm(),
         outcomes: [outcomes.fdw],
-        assignment: { mode: "role", pool: "role_holders" },
+        assignment: {
+          mode: "role",
+          pool: "role_holders",
+          scope: "all_holders",
+        },
       },
     },
     toApplicant(
@@ -1739,7 +1761,11 @@ export function defaultWorkflowGraph({
         roleId: role("HR Officer"),
         form: hrFinalForm(),
         outcomes: [outcomes.eligible, outcomes.ineligible],
-        assignment: { mode: "role", pool: "role_holders" },
+        assignment: {
+          mode: "role",
+          pool: "role_holders",
+          scope: "all_holders",
+        },
       },
     },
     toApplicant(
@@ -1783,7 +1809,11 @@ export function defaultWorkflowGraph({
         roleId: role("Director"),
         form: directorForm(),
         outcomes: [outcomes.approve, outcomes.reject, outcomes.delegate],
-        assignment: { mode: "role", pool: "role_holders" },
+        assignment: {
+          mode: "role",
+          pool: "role_holders",
+          scope: "all_holders",
+        },
       },
     },
     toRole(
@@ -1815,7 +1845,11 @@ export function defaultWorkflowGraph({
         ],
         // The Director does not hand this to every associate director: they
         // name one, and the decision is that person's to make.
-        assignment: { mode: "nominated", pool: "role_holders" },
+        assignment: {
+          mode: "nominated",
+          pool: "role_holders",
+          scope: "all_holders",
+        },
       },
     },
     toApplicant(

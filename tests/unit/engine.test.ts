@@ -56,6 +56,7 @@ describe("resolveTransition", () => {
         templateId: TEMPLATE_ACK,
         recipientMode: "custom",
         recipientRoleId: null,
+        recipientScope: "all_holders",
         recipientEmail: "registrar@manipal.edu",
       },
     });

@@ -245,9 +245,30 @@ export const NOMINEE_POOLS = [
 export const nomineePoolSchema = z.enum(NOMINEE_POOLS);
 export type NomineePool = z.infer<typeof nomineePoolSchema>;
 
+/**
+ * Which holders of a role a step or a notification actually reaches.
+ *
+ * A role is institute-wide, but many of the posts that hold one are not: there
+ * is a dean of every school, and an application concerns exactly one of them.
+ * Narrowing by school is therefore a property of the step, not something the
+ * process can be trusted to arrange by having a separate role per school.
+ *
+ * `applicant_school` means the holders attached to the applicant's own school
+ * - the people who sign for it, and anyone whose account names it.
+ */
+export const AUDIENCE_SCOPES = ["all_holders", "applicant_school"] as const;
+export const audienceScopeSchema = z.enum(AUDIENCE_SCOPES);
+export type AudienceScope = z.infer<typeof audienceScopeSchema>;
+
 export const stageAssignmentSchema = z.object({
   mode: z.enum(["role", "nominated"]).default("role"),
   pool: nomineePoolSchema.default("role_holders"),
+  /**
+   * Narrows both who is offered the stage and who may be named for it. Old
+   * snapshots carry no scope and default to the whole role, which is what they
+   * meant when they were published.
+   */
+  scope: audienceScopeSchema.default("all_holders"),
 });
 export type StageAssignment = z.infer<typeof stageAssignmentSchema>;
 
@@ -276,6 +297,7 @@ export const stageNodeDataSchema = z.object({
   assignment: stageAssignmentSchema.default({
     mode: "role",
     pool: "role_holders",
+    scope: "all_holders",
   }),
 });
 export type StageNodeData = z.infer<typeof stageNodeDataSchema>;
@@ -284,6 +306,14 @@ export const RECIPIENT_MODES = ["applicant", "role", "custom"] as const;
 export const recipientModeSchema = z.enum(RECIPIENT_MODES);
 export type RecipientMode = z.infer<typeof recipientModeSchema>;
 
+/** The audience scopes, plus the one only a notification can mean. */
+export const RECIPIENT_SCOPES = [
+  ...AUDIENCE_SCOPES,
+  "assigned_person",
+] as const;
+export const recipientScopeSchema = z.enum(RECIPIENT_SCOPES);
+export type RecipientScope = z.infer<typeof recipientScopeSchema>;
+
 export const emailNodeDataSchema = z.object({
   label: z.string().min(1).default("Send Email"),
   description: z.string().optional().default(""),
@@ -291,6 +321,13 @@ export const emailNodeDataSchema = z.object({
   recipientMode: recipientModeSchema.default("applicant"),
   /** Used when recipientMode is `role`. */
   recipientRoleId: z.string().nullable().default(null),
+  /**
+   * Narrows a role-addressed message. Beyond the scopes a stage can take, a
+   * notification may also be addressed to the one person the application has
+   * just been handed to, which is what a "the file is now yours" message
+   * means.
+   */
+  recipientScope: recipientScopeSchema.default("all_holders"),
   /** Used when recipientMode is `custom`. */
   recipientEmail: z.string().default(""),
 });

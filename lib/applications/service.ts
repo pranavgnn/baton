@@ -14,7 +14,12 @@ import {
   type Application,
   type ApplicationStatus,
 } from "@/lib/db/schema";
-import { nodeById, startNode, stageNodes } from "@/lib/workflow/graph";
+import {
+  nodeById,
+  startNode,
+  stageNodes,
+  withinStageAudience,
+} from "@/lib/workflow/graph";
 import { pruneToSchema } from "@/lib/workflow/form";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
 import {
@@ -233,21 +238,9 @@ export async function getReviewQueue(
     const graph = row.application.graph ?? published?.graph;
     if (!graph) continue;
 
-    const node = nodeById(graph, row.application.currentNodeId);
-    if (!node || node.kind !== "stage") continue;
-    if (!node.data.roleId || !current.roleIds.includes(node.data.roleId)) {
-      continue;
-    }
-    // Held for one person: the rest of the role should not see it at all.
-    if (
-      row.application.assignedToId &&
-      row.application.assignedToId !== current.id
-    ) {
-      continue;
-    }
-
-    queue.push({
+    const app: ApplicationWithApplicant = {
       ...row.application,
+      graph,
       applicant: {
         id: row.applicantId,
         name: row.applicantName,
@@ -256,34 +249,48 @@ export async function getReviewQueue(
         school: row.applicantSchool,
         designation: row.applicantDesignation,
       },
-    });
+    };
+
+    // One rule for the queue and for the action, so what a reviewer is shown
+    // and what they are allowed to do cannot drift apart.
+    if (canActOnCurrentStage(app, current)) queue.push(app);
   }
 
   return queue;
 }
 
+/**
+ * What a stage needs to know about the application to decide who may take it:
+ * where it is, whether it is held for someone, and which school it concerns.
+ */
+export type StageAccessInput = Pick<
+  Application,
+  "graph" | "currentNodeId" | "status" | "assignedToId"
+> & { applicant: { schoolId: string | null } };
+
 /** True when the viewer may act on the application's current stage. */
 export function canActOnCurrentStage(
-  app: Pick<
-    Application,
-    "graph" | "currentNodeId" | "status" | "assignedToId" | "assignedToId"
-  >,
+  app: StageAccessInput,
   current: CurrentUser,
 ): boolean {
   if (app.status !== "in_progress") return false;
   const node = nodeById(app.graph, app.currentNodeId);
   if (!node || node.kind !== "stage" || !node.data.roleId) return false;
   if (!current.roleIds.includes(node.data.roleId)) return false;
+  // A stage scoped to the applicant's school belongs to that school's holders
+  // of the role, not to everyone who holds it.
+  const inAudience = withinStageAudience(node.data.assignment, {
+    applicantSchoolId: app.applicant.schoolId,
+    viewerSchoolIds: current.schoolIds,
+  });
+  if (!inAudience) return false;
   // A stage nominated to one person is theirs alone until they act.
   return !app.assignedToId || app.assignedToId === current.id;
 }
 
 /** Read access: owner, any assigned reviewer, or a global viewer. */
 export function canViewApplication(
-  app: Pick<
-    Application,
-    "applicantId" | "graph" | "currentNodeId" | "status" | "assignedToId"
-  >,
+  app: StageAccessInput & Pick<Application, "applicantId">,
   current: CurrentUser,
 ): boolean {
   if (app.applicantId === current.id) return true;

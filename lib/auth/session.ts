@@ -14,6 +14,7 @@ import {
 } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
 import { role, school, user, userRole } from "@/lib/db/schema";
+import { schoolsOf } from "@/lib/schools/query";
 
 export type SessionRole = {
   id: string;
@@ -28,6 +29,13 @@ export type CurrentUser = {
   employeeId: string | null;
   schoolId: string | null;
   schoolName: string | null;
+  /**
+   * Every school this person is attached to: their own, and any they sign for
+   * as dean or associate dean. It is what a school-scoped stage is matched
+   * against, so a dean sees the applications of their own school and not of
+   * every school with a dean.
+   */
+  schoolIds: string[];
   designation: string | null;
   activated: boolean;
   disabled: boolean;
@@ -68,6 +76,8 @@ async function loadUser(id: string): Promise<CurrentUser | null> {
   const first = rows[0];
   if (!first) return null;
 
+  const schoolIds = await schoolsOf(id);
+
   const roles: SessionRole[] = [];
   for (const row of rows) {
     if (row.roleId && row.roleName) {
@@ -88,6 +98,7 @@ async function loadUser(id: string): Promise<CurrentUser | null> {
     employeeId: first.employeeId,
     schoolId: first.schoolId,
     schoolName: first.schoolName,
+    schoolIds,
     designation: first.designation,
     activated: first.activated,
     disabled: first.disabled,

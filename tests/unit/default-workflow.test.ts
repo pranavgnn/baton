@@ -112,10 +112,12 @@ describe("the seeded workflow", () => {
     expect(stage("node_stage_associate_dean").data.assignment).toEqual({
       mode: "nominated",
       pool: "school_associate_deans",
+      scope: "all_holders",
     });
     expect(stage("node_stage_associate_director").data.assignment).toEqual({
       mode: "nominated",
       pool: "role_holders",
+      scope: "all_holders",
     });
 
     for (const id of [

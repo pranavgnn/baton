@@ -18,6 +18,7 @@ import {
   type TemplateVariables,
   type WorkflowNode,
 } from "@/lib/workflow/types";
+import { holdersOfRole, holdersOfRoleInSchool } from "@/lib/schools/query";
 import { emailsForRole } from "./service";
 
 /* -------------------------------------------------------------------------- */
@@ -77,19 +78,57 @@ export function humanStatus(status: ApplicationStatus): string {
 /*  Email dispatch                                                             */
 /* -------------------------------------------------------------------------- */
 
+/** Who an email step is about, beyond the message itself. */
+type Audience = {
+  applicantEmail: string;
+  /** The school the application concerns, for a school-scoped message. */
+  applicantSchoolId: string | null;
+  /** The person the application has just been handed to, if anyone. */
+  assignee: { id: string; name: string } | null;
+};
+
+/**
+ * The addresses one email step resolves to.
+ *
+ * A role is institute-wide but a notification rarely is: "tell the dean" means
+ * the dean of the applicant's school, and "tell the associate dean" means the
+ * one the file was just handed to. Both are the step's own setting rather than
+ * anything inferred from the role, so an institute that organises itself
+ * differently configures it differently.
+ */
 async function resolveRecipients(
   node: EmailNode,
-  applicantEmail: string,
+  audience: Audience,
 ): Promise<string[]> {
   switch (node.data.recipientMode) {
     case "applicant":
-      return [applicantEmail];
+      return [audience.applicantEmail];
     case "custom":
       return node.data.recipientEmail ? [node.data.recipientEmail.trim()] : [];
-    case "role":
-      return node.data.recipientRoleId
-        ? emailsForRole(node.data.recipientRoleId)
-        : [];
+    case "role": {
+      const roleId = node.data.recipientRoleId;
+      if (!roleId) return [];
+
+      // Snapshots taken before scopes existed carry none, and meant the role.
+      switch (node.data.recipientScope) {
+        case "applicant_school": {
+          const people = await holdersOfRoleInSchool(
+            roleId,
+            audience.applicantSchoolId,
+          );
+          return people.map((person) => person.email);
+        }
+        case "assigned_person": {
+          if (!audience.assignee) return [];
+          const holders = await holdersOfRole(roleId);
+          return holders
+            .filter((person) => person.id === audience.assignee?.id)
+            .map((person) => person.email);
+        }
+        default:
+          return emailsForRole(roleId);
+      }
+    }
   }
 }
 
@@ -115,7 +154,7 @@ async function queueEmails(
   applicationId: string,
   nodes: EmailNode[],
   variables: TemplateVariables,
-  applicantEmail: string,
+  audience: Audience,
 ): Promise<EmailDispatchRecord[]> {
   const records: EmailDispatchRecord[] = [];
   const jobs: EmailJob[] = [];
@@ -134,7 +173,7 @@ async function queueEmails(
       continue;
     }
 
-    const recipients = await resolveRecipients(node, applicantEmail);
+    const recipients = await resolveRecipients(node, audience);
     if (recipients.length === 0) {
       records.push({
         nodeId: node.id,
@@ -293,12 +332,11 @@ export async function advanceApplication(
     status,
   });
 
-  const emails = await queueEmails(
-    app.id,
-    resolved.emails,
-    variables,
-    applicant.email,
-  );
+  const emails = await queueEmails(app.id, resolved.emails, variables, {
+    applicantEmail: applicant.email,
+    applicantSchoolId: applicant.schoolId,
+    assignee: input.nominee ?? null,
+  });
 
   for (const record of emails) {
     await db.insert(applicationEvent).values({
