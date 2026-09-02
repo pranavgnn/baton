@@ -4,6 +4,7 @@ import {
   type AnyField,
   type EmailNode,
   type EndNode,
+  type StageAssignment,
   type StageNode,
   type StartNode,
   type WorkflowEdge,
@@ -99,6 +100,28 @@ export function nominatedTarget(
   );
   if (!target || target.kind !== "stage") return null;
   return target.data.assignment.mode === "nominated" ? target : null;
+}
+
+/**
+ * Whether one person falls inside a stage's audience.
+ *
+ * A role is institute-wide; a stage need not be. Scoping to the applicant's
+ * school is what keeps the dean of one school out of another school's queue
+ * without the institute having to invent a role per school. Pure, so the queue
+ * and the action can be sure they are answering the same question.
+ */
+export function withinStageAudience(
+  assignment: StageAssignment | undefined,
+  where: {
+    applicantSchoolId: string | null;
+    /** Schools the viewer belongs to or signs for. */
+    viewerSchoolIds: readonly string[];
+  },
+): boolean {
+  // Snapshots taken before scopes existed carry none, and meant the role.
+  if (assignment?.scope !== "applicant_school") return true;
+  if (!where.applicantSchoolId) return false;
+  return where.viewerSchoolIds.includes(where.applicantSchoolId);
 }
 
 /** Email nodes fired off when this handle is taken. */
@@ -587,6 +610,8 @@ export function structureSignature(graph: WorkflowGraph): string {
         recipientMode: node.kind === "email" ? node.data.recipientMode : null,
         recipientRoleId:
           node.kind === "email" ? node.data.recipientRoleId : null,
+        // Who a notification reaches is part of the process, not its wording.
+        recipientScope: node.kind === "email" ? node.data.recipientScope : null,
         recipientEmail: node.kind === "email" ? node.data.recipientEmail : null,
         result: node.kind === "end" ? node.data.result : null,
       }))

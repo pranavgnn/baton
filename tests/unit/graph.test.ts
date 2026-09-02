@@ -13,6 +13,7 @@ import {
   stageNodes,
   startNode,
   validateGraph,
+  withinStageAudience,
 } from "@/lib/workflow/graph";
 import type { WorkflowGraph } from "@/lib/workflow/types";
 import { createField, createRepeater } from "@/lib/workflow/defaults";
@@ -179,6 +180,7 @@ describe("validateGraph", () => {
         templateId: TEMPLATE_ACK,
         recipientMode: "custom",
         recipientRoleId: null,
+        recipientScope: "all_holders",
         recipientEmail: "registrar@manipal.edu",
       },
     });
@@ -420,5 +422,53 @@ describe("incomingEdges", () => {
     ]);
     // The submission node is re-entered by the send-back loop.
     expect(incomingEdges(graph, "start").map((e) => e.id)).toEqual(["e5"]);
+  });
+});
+
+describe("withinStageAudience", () => {
+  const school = { applicantSchoolId: "school-soce", viewerSchoolIds: [] };
+
+  it("lets the whole role in when the stage is not scoped to a school", () => {
+    expect(
+      withinStageAudience(
+        { mode: "role", pool: "role_holders", scope: "all_holders" },
+        school,
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps the dean of another school out, and lets the right one in", () => {
+    const assignment = {
+      mode: "role",
+      pool: "role_holders",
+      scope: "applicant_school",
+    } as const;
+
+    expect(withinStageAudience(assignment, school)).toBe(false);
+    expect(
+      withinStageAudience(assignment, {
+        applicantSchoolId: "school-soce",
+        viewerSchoolIds: ["school-see", "school-soce"],
+      }),
+    ).toBe(true);
+  });
+
+  it("admits nobody when the applicant has no school to scope to", () => {
+    expect(
+      withinStageAudience(
+        { mode: "role", pool: "role_holders", scope: "applicant_school" },
+        { applicantSchoolId: null, viewerSchoolIds: ["school-soce"] },
+      ),
+    ).toBe(false);
+  });
+
+  it("reads a snapshot saved before scopes existed as the whole role", () => {
+    // Applications carry their own graph, so one published last year has no
+    // scope on its stages at all.
+    const legacy = {
+      mode: "role",
+      pool: "role_holders",
+    } as unknown as Parameters<typeof withinStageAudience>[0];
+    expect(withinStageAudience(legacy, school)).toBe(true);
   });
 });

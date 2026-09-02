@@ -141,6 +141,89 @@ export async function holdersOfRole(roleId: string): Promise<SchoolPerson[]> {
     .orderBy(asc(user.name));
 }
 
+/**
+ * The people attached to one school: whoever signs for it, and whoever names
+ * it as their own.
+ *
+ * Both halves matter. A dean is attached to a school by the posting rather
+ * than by their account, and an HR officer sitting inside a school is attached
+ * by their account rather than by any posting - a step scoped to the
+ * applicant's school means "the people of that school" and should not have to
+ * care which of the two made them one.
+ */
+export async function peopleOfSchool(schoolId: string): Promise<Set<string>> {
+  const [signatories, members] = await Promise.all([
+    db
+      .select({ id: user.id })
+      .from(schoolAssociateDean)
+      .innerJoin(user, eq(user.id, schoolAssociateDean.userId))
+      .where(eq(schoolAssociateDean.schoolId, schoolId)),
+    db.select({ id: user.id }).from(user).where(eq(user.schoolId, schoolId)),
+  ]);
+
+  const dean = await db
+    .select({ id: school.deanId })
+    .from(school)
+    .where(eq(school.id, schoolId))
+    .limit(1);
+
+  const ids = new Set<string>();
+  for (const row of [...signatories, ...members]) ids.add(row.id);
+  if (dean[0]?.id) ids.add(dean[0].id);
+  return ids;
+}
+
+/**
+ * Everyone holding a role, narrowed to one school.
+ *
+ * Resolved as two questions rather than one join, because "attached to a
+ * school" is two different relationships and neither of them is the role.
+ */
+export async function holdersOfRoleInSchool(
+  roleId: string,
+  schoolId: string | null,
+): Promise<SchoolPerson[]> {
+  // An applicant with no school has no school's dean; offering the whole role
+  // instead would defeat the point of scoping the step.
+  if (!schoolId) return [];
+
+  const [holders, attached] = await Promise.all([
+    holdersOfRole(roleId),
+    peopleOfSchool(schoolId),
+  ]);
+  return holders.filter((person) => attached.has(person.id));
+}
+
+/**
+ * The schools one person is attached to, for a session to carry.
+ *
+ * Their own school counts alongside the ones they sign for: it is what lets a
+ * school-scoped step reach an officer posted inside a school without anybody
+ * having to name them dean of it.
+ */
+export async function schoolsOf(userId: string): Promise<string[]> {
+  const [own, associate, dean] = await Promise.all([
+    db
+      .select({ schoolId: user.schoolId })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1),
+    db
+      .select({ schoolId: schoolAssociateDean.schoolId })
+      .from(schoolAssociateDean)
+      .where(eq(schoolAssociateDean.userId, userId)),
+    db
+      .select({ schoolId: school.id })
+      .from(school)
+      .where(eq(school.deanId, userId)),
+  ]);
+
+  const ids = new Set<string>();
+  if (own[0]?.schoolId) ids.add(own[0].schoolId);
+  for (const row of [...associate, ...dean]) ids.add(row.schoolId);
+  return Array.from(ids);
+}
+
 /** Which of these people hold the given role. */
 export async function usersHoldingRole(
   roleId: string,

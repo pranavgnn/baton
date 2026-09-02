@@ -38,6 +38,7 @@ import type {
   FormSchema,
   OutcomeTone,
   RecipientMode,
+  RecipientScope,
   StageAssignment,
   StageOutcome,
   WorkflowNode,
@@ -51,36 +52,95 @@ import type {
 const ASSIGNMENT_CHOICES = [
   {
     value: "role",
+    assignment: { mode: "role", pool: "role_holders", scope: "all_holders" },
     label: "Anyone holding the role",
     description:
       "The application appears in every holder's queue and the first to act moves it on.",
   },
   {
-    value: "nominated:role_holders",
+    value: "role_in_school",
+    assignment: {
+      mode: "role",
+      pool: "role_holders",
+      scope: "applicant_school",
+    },
+    label: "Anyone holding the role, in the applicant's school",
+    description:
+      "Only holders attached to the applicant's own school - whoever signs for it, and whoever names it as theirs - see it at all.",
+  },
+  {
+    value: "nominated",
+    assignment: {
+      mode: "nominated",
+      pool: "role_holders",
+      scope: "all_holders",
+    },
     label: "One person, named by the previous reviewer",
     description:
       "Whoever routes the application here must choose a holder of this role, and it is held for them alone.",
   },
   {
-    value: "nominated:school_associate_deans",
+    value: "nominated_associate_dean",
+    assignment: {
+      mode: "nominated",
+      pool: "school_associate_deans",
+      scope: "all_holders",
+    },
     label: "One associate dean of the applicant's school",
     description:
       "The candidates are the associate deans of the applicant's own school who hold this role.",
   },
-] as const;
+] as const satisfies readonly {
+  value: string;
+  assignment: StageAssignment;
+  label: string;
+  description: string;
+}[];
 
+/**
+ * The three parts of an assignment - whether a name is required, where the
+ * names come from, and how far the role reaches - are one choice to an admin,
+ * so they are offered as one list and split apart again on the way into the
+ * node.
+ */
 function assignmentValue(assignment: StageAssignment): string {
-  return assignment.mode === "role" ? "role" : `nominated:${assignment.pool}`;
+  const match = ASSIGNMENT_CHOICES.find(
+    (choice) =>
+      choice.assignment.mode === assignment.mode &&
+      choice.assignment.pool === assignment.pool &&
+      // Snapshots saved before scopes existed carry none, and meant the role.
+      choice.assignment.scope === (assignment.scope ?? "all_holders"),
+  );
+  return match?.value ?? "role";
 }
 
 function parseAssignment(value: string): StageAssignment {
-  if (value === "role") return { mode: "role", pool: "role_holders" };
-  const pool = value.slice("nominated:".length);
-  return {
-    mode: "nominated",
-    pool: pool === "school_associate_deans" ? pool : "role_holders",
-  };
+  const match = ASSIGNMENT_CHOICES.find((choice) => choice.value === value);
+  return match
+    ? { ...match.assignment }
+    : { mode: "role", pool: "role_holders", scope: "all_holders" };
 }
+
+/** How far a role-addressed notification reaches. */
+const RECIPIENT_SCOPE_CHOICES = [
+  {
+    value: "all_holders",
+    label: "Everyone holding the role",
+    description: "Every holder of the role is written to.",
+  },
+  {
+    value: "applicant_school",
+    label: "Only the applicant's school",
+    description:
+      "Only holders attached to the applicant's own school, which is what telling the dean usually means.",
+  },
+  {
+    value: "assigned_person",
+    label: "Only the person it was just handed to",
+    description:
+      "Written only to whoever the application was named for on this step. Nothing is sent if it was not named for anybody.",
+  },
+] as const;
 
 export type RoleOption = { id: string; name: string };
 export type TemplateOption = { id: string; name: string };
@@ -292,6 +352,43 @@ export function NodeInspector({
                         ))}
                       </SelectContent>
                     </Select>
+                  </Field>
+                ) : null}
+
+                {node.data.recipientMode === "role" ? (
+                  <Field>
+                    <FieldLabel htmlFor="node-recipient-scope">
+                      Which holders
+                    </FieldLabel>
+                    <Select
+                      value={node.data.recipientScope ?? "all_holders"}
+                      onValueChange={(value) =>
+                        patch({ recipientScope: value as RecipientScope })
+                      }
+                    >
+                      <SelectTrigger
+                        id="node-recipient-scope"
+                        data-testid="node-recipient-scope"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RECIPIENT_SCOPE_CHOICES.map((choice) => (
+                          <SelectItem key={choice.value} value={choice.value}>
+                            {choice.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription>
+                      {
+                        RECIPIENT_SCOPE_CHOICES.find(
+                          (choice) =>
+                            choice.value ===
+                            (node.data.recipientScope ?? "all_holders"),
+                        )?.description
+                      }
+                    </FieldDescription>
                   </Field>
                 ) : null}
 

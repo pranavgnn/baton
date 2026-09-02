@@ -17,6 +17,7 @@ import { stageDraft } from "@/lib/db/schema";
 import {
   associateDeansOfSchool,
   holdersOfRole,
+  holdersOfRoleInSchool,
   usersHoldingRole,
   type SchoolPerson,
 } from "@/lib/schools/query";
@@ -87,6 +88,12 @@ export async function nomineesFor(
       candidates.map((person) => person.id),
     );
     return candidates.filter((person) => holders.has(person.id));
+  }
+
+  // The same narrowing the stage itself applies: a reviewer must not be able
+  // to name someone who would then be refused the stage they were named for.
+  if (target.data.assignment.scope === "applicant_school") {
+    return holdersOfRoleInSchool(target.data.roleId, app.applicant.schoolId);
   }
 
   return holdersOfRole(target.data.roleId);
