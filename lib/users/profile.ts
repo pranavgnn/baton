@@ -33,6 +33,28 @@ export function userTypeLabel(value: string | null | undefined): string {
 }
 
 /**
+ * Whether someone's employment lets them apply at all.
+ *
+ * A promotion is a move within the permanent rolls, so a fixed-term appointment
+ * and a probationary period are not eligible for one - the institute's rule,
+ * not the portal's invention. An account whose employment has never been
+ * recorded is not barred: the portal not knowing something is not the same as
+ * knowing it disqualifies them, and an import that missed a column must not
+ * quietly stop people applying.
+ */
+export function promotionBar(
+  userType: string | null | undefined,
+): string | null {
+  if (userType === "contract") {
+    return "Employees appointed on contract are not eligible to apply for promotion.";
+  }
+  if (userType === "probation") {
+    return "Employees serving a probationary period are not eligible to apply for promotion.";
+  }
+  return null;
+}
+
+/**
  * How a value is read and written.
  *
  * `school` and `roles` are matched by name against what the institute has

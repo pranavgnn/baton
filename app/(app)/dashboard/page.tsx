@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { can, canAny, requireUser } from "@/lib/auth/session";
+import { promotionBar } from "@/lib/users/profile";
 import {
   countApplicationsByStatus,
   getOpenApplicationFor,
@@ -101,6 +102,7 @@ export default async function DashboardPage() {
 
       {isApplicant ? (
         <ApplicantPanel
+          barred={promotionBar(current.userType)}
           application={openApplication}
           stageLabel={currentStageLabel}
           past={past}
@@ -137,12 +139,15 @@ function ApplicantPanel({
   past,
   applicationsOpen,
   workflowPublished,
+  barred,
 }: {
   application: Application | null;
   stageLabel: string | null;
   past: Application[];
   applicationsOpen: boolean;
   workflowPublished: boolean;
+  /** Why this person cannot apply at all, if they cannot. */
+  barred: string | null;
 }) {
   if (!application) {
     return (
@@ -151,21 +156,27 @@ function ApplicantPanel({
           <CardHeader>
             <CardTitle>Your promotion application</CardTitle>
             <CardDescription>
-              {applicationsOpen
-                ? "Applications are open. You can save your progress and finish later."
-                : "Applications are not currently open."}
+              {barred
+                ? barred
+                : applicationsOpen
+                  ? "Applications are open. You can save your progress and finish later."
+                  : "Applications are not currently open."}
             </CardDescription>
             <CardAction>
               {/* asChild forwards to a Link, which ignores `disabled`. */}
               <Button
-                asChild={workflowPublished}
-                disabled={!workflowPublished}
+                asChild={workflowPublished && !barred}
+                disabled={!workflowPublished || Boolean(barred)}
                 data-testid="dashboard-primary-action"
               >
-                <Link href="/application">
-                  Start application
-                  <ArrowRight className="size-4" />
-                </Link>
+                {barred ? (
+                  <span>Not eligible</span>
+                ) : (
+                  <Link href="/application">
+                    Start application
+                    <ArrowRight className="size-4" />
+                  </Link>
+                )}
               </Button>
             </CardAction>
           </CardHeader>

@@ -328,6 +328,35 @@ test.describe("form builder", () => {
     );
   });
 
+  test("previews the form without asking anyone to fill it in", async ({
+    page,
+  }) => {
+    await openForm(page, "node-start");
+    await page.getByRole("button", { name: "Live Preview" }).click();
+
+    // A rehearsal, not a form: nothing to save, nothing to clear.
+    await expect(page.getByTestId("wizard-save-draft")).toHaveCount(0);
+    await expect(page.getByTestId("wizard-clear")).toHaveCount(0);
+
+    // The first question is required, and the preview goes on anyway - an
+    // admin checking the wording of a later section should not have to answer
+    // the earlier ones to reach it.
+    await page.getByTestId("wizard-next").click();
+    await expect(page.getByTestId("wizard-step-1")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+
+    // And any step can be opened directly.
+    await page.getByTestId("wizard-step-5").click();
+    await expect(page.getByTestId("wizard-step-5")).toHaveAttribute(
+      "aria-current",
+      "step",
+    );
+
+    await closeOverlays(page);
+  });
+
   test("switching sections shows that section's fields", async ({ page }) => {
     await openForm(page, "node-start");
 

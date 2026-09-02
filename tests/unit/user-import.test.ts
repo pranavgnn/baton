@@ -9,7 +9,7 @@ import {
   splitCsvLine,
   CSV_TEMPLATE,
 } from "@/lib/users/import";
-import { parseUserDate } from "@/lib/users/profile";
+import { parseUserDate, promotionBar } from "@/lib/users/profile";
 
 describe("splitCsvLine", () => {
   it("splits a plain line", () => {
@@ -230,5 +230,21 @@ describe("dates as people write them", () => {
     expect(parseUserDate("31/02/2020")).toBe(null);
     expect(parseUserDate("June 2017")).toBe(null);
     expect(parseUserDate("")).toBe(null);
+  });
+});
+
+describe("who may apply for a promotion", () => {
+  it("bars a fixed-term or probationary appointment, and nobody else", () => {
+    expect(promotionBar("contract")).toMatch(/not eligible/);
+    expect(promotionBar("probation")).toMatch(/not eligible/);
+    expect(promotionBar("regular")).toBe(null);
+  });
+
+  it("does not bar an account whose employment was never recorded", () => {
+    // The portal not knowing something is not the same as knowing it
+    // disqualifies them: an import that missed a column must not quietly
+    // stop people applying.
+    expect(promotionBar(null)).toBe(null);
+    expect(promotionBar("")).toBe(null);
   });
 });

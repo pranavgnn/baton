@@ -18,7 +18,9 @@ import {
   application,
   applicationEvent,
   applicationFile,
+  user,
 } from "@/lib/db/schema";
+import { promotionBar } from "@/lib/users/profile";
 import { applyCalculations, applyPrefill } from "@/lib/workflow/autofill";
 import { collectFiles, pruneToSchema, validateForm } from "@/lib/workflow/form";
 import { accountProfile } from "@/lib/users/account-profile";
@@ -42,6 +44,9 @@ export async function startApplication(): Promise<
 
     const existing = await getOpenApplicationFor(current.id);
     if (existing) return ok({ id: existing.id });
+
+    const barred = await promotionBarFor(current.id);
+    if (barred) return fail(barred);
 
     const published = await getPublishedWorkflow();
     if (!published) {
@@ -120,6 +125,11 @@ export async function saveApplicationDraft(
     const loaded = await loadOwnDraft(current.id);
     if (loaded.error) return fail(loaded.error);
 
+    // Checked again on the way out: employment can change between starting a
+    // draft and sending it, and it is the sending that matters.
+    const barred = await promotionBarFor(current.id);
+    if (barred) return fail(barred);
+
     const app = loaded.app!;
     const start = startNode(app.graph);
     if (!start) return fail("The workflow has no submission step.");
@@ -191,6 +201,11 @@ export async function submitApplication(
     const current = await requirePermissionAction("applications.apply");
     const loaded = await loadOwnDraft(current.id);
     if (loaded.error) return fail(loaded.error);
+
+    // Checked again on the way out: employment can change between starting a
+    // draft and sending it, and it is the sending that matters.
+    const barred = await promotionBarFor(current.id);
+    if (barred) return fail(barred);
 
     const app = loaded.app!;
     const start = startNode(app.graph);
@@ -265,4 +280,15 @@ async function attachFiles(applicationId: string, fileIds: string[]) {
         eq(applicationFile.confirmed, true),
       ),
     );
+}
+
+/** The reason this account may not apply, if there is one. */
+async function promotionBarFor(userId: string): Promise<string | null> {
+  const row = await db
+    .select({ userType: user.userType })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  return promotionBar(row[0]?.userType);
 }

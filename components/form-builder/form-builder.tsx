@@ -389,7 +389,7 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
             key={JSON.stringify(value)}
             form={value}
             defaultValues={null}
-            onSaveDraft={async () => ({ ok: true })}
+            preview
             renderSubmitActions={() => (
               <Button disabled className="gap-2">
                 Submit Application (Preview Mode)

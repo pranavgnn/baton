@@ -604,6 +604,12 @@
     @apply h-12 min-w-40 flex-1 px-8 text-base font-semibold sm:flex-none;
   }
 
+  /* The same actions in a preview, where a bar pinned to the bottom of a
+     panel inside a dialog is a box floating in a box. */
+  .wizard-actions-bare {
+    @apply static mx-0 border-0 bg-transparent px-0 backdrop-blur-none sm:mx-0 sm:px-0;
+  }
+
   .preview-row {
     @apply grid gap-1 border-b py-2.5 last:border-b-0 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)] sm:gap-4;
   }

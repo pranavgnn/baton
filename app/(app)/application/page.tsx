@@ -23,6 +23,7 @@ import {
   refreshDraftToPublished,
 } from "@/lib/applications/service";
 import { requirePermission } from "@/lib/auth/session";
+import { promotionBar } from "@/lib/users/profile";
 import { accountProfile } from "@/lib/users/account-profile";
 import { nodeById, startNode } from "@/lib/workflow/graph";
 import {
@@ -62,6 +63,35 @@ export default async function ApplicationPage() {
           <AlertDescription>
             The promotion workflow has not been published. Please check back
             later.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  /* Not eligible at all ---------------------------------------------------- */
+  // Said plainly, and before anything else: a button that always fails is
+  // worse than no button.
+  const barred = promotionBar(current.userType);
+  if (barred && !open) {
+    return (
+      <div className="app-shell section-stack">
+        <div className="page-header">
+          <div>
+            <h1 className="page-title">Promotion application</h1>
+            <p className="page-subtitle">
+              Signed in as {current.name}
+              {current.designation ? `, ${current.designation}` : ""}.
+            </p>
+          </div>
+        </div>
+
+        <Alert data-testid="not-eligible">
+          <Lock className="size-4" />
+          <AlertTitle>You cannot apply for a promotion</AlertTitle>
+          <AlertDescription>
+            {barred} If your employment has changed, ask an administrator to
+            update your record.
           </AlertDescription>
         </Alert>
       </div>

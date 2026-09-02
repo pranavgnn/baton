@@ -37,6 +37,8 @@ export type CurrentUser = {
    */
   schoolIds: string[];
   designation: string | null;
+  /** Regular, contract or probation - null when it has never been recorded. */
+  userType: string | null;
   activated: boolean;
   disabled: boolean;
   roles: SessionRole[];
@@ -61,6 +63,7 @@ async function loadUser(id: string): Promise<CurrentUser | null> {
       schoolId: user.schoolId,
       schoolName: school.name,
       designation: user.designation,
+      userType: user.userType,
       activated: user.activated,
       disabled: user.disabled,
       roleId: role.id,
@@ -100,6 +103,7 @@ async function loadUser(id: string): Promise<CurrentUser | null> {
     schoolName: first.schoolName,
     schoolIds,
     designation: first.designation,
+    userType: first.userType,
     activated: first.activated,
     disabled: first.disabled,
     roles,
