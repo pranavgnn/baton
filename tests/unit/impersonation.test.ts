@@ -32,9 +32,9 @@ describe("who may act as whom", () => {
   it("refuses an account that holds something the administrator does not", () => {
     // The rule the whole feature rests on: impersonation must not be a way to
     // borrow a permission.
-    expect(
-      refuseImpersonation(admin, party("hr", ["roles.manage"])),
-    ).toBe("privileged");
+    expect(refuseImpersonation(admin, party("hr", ["roles.manage"]))).toBe(
+      "privileged",
+    );
     expect(refuseImpersonation(admin, party("root", ["*"]))).toBe("privileged");
   });
 

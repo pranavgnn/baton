@@ -33,9 +33,11 @@ test.describe("role administration", () => {
     await page.getByRole("button", { name: "Create role" }).click();
 
     await expectToast(page, "Role created.");
-    const card = page.getByTestId(`role-card-${NEW_ROLE}`);
-    await expect(card).toBeVisible();
-    await expect(card).toContainText("Review applications");
+    // The row summarises what the role can do by area rather than listing
+    // every permission, so it stays readable as roles grow.
+    const row = page.getByTestId(`role-${NEW_ROLE}`);
+    await expect(row).toBeVisible();
+    await expect(row).toContainText("Applications · 1");
   });
 
   test("rejects a duplicate role name", async ({ page }) => {
@@ -55,8 +57,8 @@ test.describe("role administration", () => {
 
     // Dean both holds members and is bound to a workflow stage; either guard
     // is a correct refusal, and the role must survive the attempt.
-    const card = page.getByTestId("role-card-Director");
-    await card.getByRole("button", { name: "Delete" }).click();
+    const card = page.getByTestId("role-Director");
+    await card.getByRole("button", { name: "Delete Director" }).click();
     await page.getByRole("button", { name: "Delete role" }).click();
 
     await expectToast(
@@ -70,8 +72,8 @@ test.describe("role administration", () => {
     await page.goto("/admin/roles");
 
     await page
-      .getByTestId("role-card-Super Admin")
-      .getByRole("button", { name: "Edit" })
+      .getByTestId("role-Super Admin")
+      .getByRole("button", { name: "Edit Super Admin" })
       .click();
     await expect(
       page.getByText("The Super Admin role always holds every permission"),
@@ -82,13 +84,13 @@ test.describe("role administration", () => {
     await page.goto("/admin/roles");
 
     await page
-      .getByTestId(`role-card-${NEW_ROLE}`)
-      .getByRole("button", { name: "Delete" })
+      .getByTestId(`role-${NEW_ROLE}`)
+      .getByRole("button", { name: `Delete ${NEW_ROLE}` })
       .click();
     await page.getByRole("button", { name: "Delete role" }).click();
 
     await expectToast(page, `Deleted "${NEW_ROLE}".`);
-    await expect(page.getByTestId(`role-card-${NEW_ROLE}`)).toHaveCount(0);
+    await expect(page.getByTestId(`role-${NEW_ROLE}`)).toHaveCount(0);
   });
 });
 

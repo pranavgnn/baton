@@ -18,10 +18,7 @@ export type ImpersonationParty = {
 };
 
 export type ImpersonationRefusal =
-  | "self"
-  | "disabled"
-  | "privileged"
-  | "not-permitted";
+  "self" | "disabled" | "privileged" | "not-permitted";
 
 /**
  * Permissions that administer the portal rather than use it.

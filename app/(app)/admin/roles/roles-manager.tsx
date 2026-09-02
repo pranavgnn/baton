@@ -5,22 +5,15 @@ import {
   Loader2,
   Pencil,
   Plus,
-  Shield,
+  Search,
   Trash2,
 } from "lucide-react";
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -48,6 +41,19 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -83,6 +89,53 @@ export type RoleRow = {
   designation: string;
 };
 
+/** The human labels of the permissions a role holds, for searching. */
+function permissionLabels(permissions: string[]): string[] {
+  return permissions.map(
+    (key) => PERMISSIONS.find((entry) => entry.key === key)?.label ?? key,
+  );
+}
+
+/**
+ * What a role can do, at a glance.
+ *
+ * Listing every permission as its own badge is what made this page unreadable
+ * once roles held more than two or three: the row says how many, in which
+ * areas, and the full list is one hover - or the editor - away.
+ */
+function PermissionSummary({ permissions }: { permissions: string[] }) {
+  if (permissions.includes(SUPER_ADMIN_PERMISSION)) {
+    return <Badge>All permissions</Badge>;
+  }
+  if (permissions.length === 0) {
+    return <span className="text-xs text-muted-foreground">None granted</span>;
+  }
+
+  const counts = PERMISSION_GROUPS.map((group) => ({
+    group,
+    held: PERMISSIONS.filter(
+      (entry) => entry.group === group && permissions.includes(entry.key),
+    ),
+  })).filter((entry) => entry.held.length > 0);
+
+  return (
+    <div className="flex flex-wrap gap-1">
+      {counts.map(({ group, held }) => (
+        <Tooltip key={group}>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className="font-normal">
+              {group} · {held.length}
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            {held.map((entry) => entry.label).join(", ")}
+          </TooltipContent>
+        </Tooltip>
+      ))}
+    </div>
+  );
+}
+
 /** Radix forbids an empty item value, so "no post" carries a sentinel. */
 const NO_DESIGNATION = "none";
 
@@ -103,7 +156,20 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [isDeleting, startDelete] = useTransition();
 
-  const pagination = usePagination(roles, 25);
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return roles;
+    return roles.filter((item) =>
+      [item.name, item.description, ...permissionLabels(item.permissions)]
+        .join(" ")
+        .toLowerCase()
+        .includes(needle),
+    );
+  }, [roles, query]);
+
+  const pagination = usePagination(filtered, 25);
 
   function handleDelete() {
     if (!pendingDelete) return;
@@ -121,102 +187,124 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
 
   return (
     <>
-      <div className="toolbar justify-end">
-        <Button
-          variant="outline"
-          onClick={() => setPriorityOpen(true)}
-          data-testid="open-role-priority"
-        >
-          <ArrowUpDown className="size-4" />
-          Set priority
-        </Button>
-        <Button
-          onClick={() => setEditor({ open: true, role: null })}
-          data-testid="new-role"
-        >
-          <Plus className="size-4" />
-          New role
-        </Button>
+      <div className="toolbar justify-between">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by name, description or permission"
+            className="pl-8"
+            aria-label="Search roles"
+          />
+        </div>
+        <div className="toolbar">
+          <Button
+            variant="outline"
+            onClick={() => setPriorityOpen(true)}
+            data-testid="open-role-priority"
+          >
+            <ArrowUpDown className="size-4" />
+            Set priority
+          </Button>
+          <Button
+            onClick={() => setEditor({ open: true, role: null })}
+            data-testid="new-role"
+          >
+            <Plus className="size-4" />
+            New role
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {pagination.items.map((item) => {
-          const isSuper = item.permissions.includes(SUPER_ADMIN_PERMISSION);
-          return (
-            <Card key={item.id} data-testid={`role-card-${item.name}`}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="size-4" />
-                  {item.name}
-                </CardTitle>
-                <CardDescription>
-                  {item.description || "No description."}
-                </CardDescription>
-                <CardAction>
-                  <span className="flex flex-wrap items-center justify-end gap-1">
-                    {item.id === defaultRoleId ? (
-                      <Badge title="Given to users when no role is named">
-                        Default
-                      </Badge>
-                    ) : null}
-                    {item.designation ? (
-                      <Badge
-                        variant="outline"
-                        title="Held automatically by whoever fills this post"
-                      >
-                        {designationLabel(item.designation)}
-                      </Badge>
-                    ) : null}
-                    <Badge variant="secondary">
-                      {item.memberCount} member
-                      {item.memberCount === 1 ? "" : "s"}
-                    </Badge>
-                  </span>
-                </CardAction>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                <div className="flex flex-wrap gap-1">
-                  {isSuper ? (
-                    <Badge>All permissions</Badge>
-                  ) : item.permissions.length === 0 ? (
-                    <span className="text-sm text-muted-foreground">
-                      No permissions granted.
-                    </span>
-                  ) : (
-                    item.permissions.map((permission) => (
-                      <Badge key={permission} variant="outline">
-                        {PERMISSIONS.find((p) => p.key === permission)?.label ??
-                          permission}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-                <div className="toolbar">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setEditor({ open: true, role: item })}
-                  >
-                    <Pencil className="size-4" />
-                    Edit
-                  </Button>
-                  {item.isSystem ? null : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive"
-                      onClick={() => setPendingDelete(item)}
-                    >
-                      <Trash2 className="size-4" />
-                      Delete
-                    </Button>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-10 text-right">#</TableHead>
+                  <TableHead>Role</TableHead>
+                  <TableHead className="w-44">Stands for</TableHead>
+                  <TableHead className="w-24">Members</TableHead>
+                  <TableHead>Permissions</TableHead>
+                  <TableHead className="w-24" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <div className="empty-state border-0">
+                        No roles match that search.
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  pagination.items.map((item) => (
+                    <TableRow key={item.id} data-testid={`role-${item.name}`}>
+                      <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
+                        {item.priority + 1}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="flex items-center gap-2 font-medium">
+                            {item.name}
+                            {item.id === defaultRoleId ? (
+                              <Badge title="Given to users when no role is named">
+                                Default
+                              </Badge>
+                            ) : null}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {item.description || "No description."}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {item.designation
+                          ? designationLabel(item.designation)
+                          : "-"}
+                      </TableCell>
+                      <TableCell className="text-sm tabular-nums">
+                        {item.memberCount}
+                      </TableCell>
+                      <TableCell>
+                        <PermissionSummary permissions={item.permissions} />
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Edit ${item.name}`}
+                            onClick={() =>
+                              setEditor({ open: true, role: item })
+                            }
+                          >
+                            <Pencil className="size-4" />
+                          </Button>
+                          {item.isSystem ? null : (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              aria-label={`Delete ${item.name}`}
+                              onClick={() => setPendingDelete(item)}
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
 
       <ListPagination pagination={pagination} label="roles" />
 
@@ -398,36 +486,48 @@ function RoleEditor({
               </FieldDescription>
             ) : (
               <div className="flex flex-col gap-4">
-                {PERMISSION_GROUPS.map((group) => (
-                  <div key={group} className="flex flex-col gap-2">
-                    <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                      {group}
-                    </p>
-                    {PERMISSIONS.filter((p) => p.group === group).map(
-                      (permission) => (
-                        <label
-                          key={permission.key}
-                          className="flex items-start gap-2.5 rounded-md border p-2.5"
-                        >
-                          <Checkbox
-                            checked={permissions.includes(permission.key)}
-                            onCheckedChange={(checked) =>
-                              toggle(permission.key, checked === true)
-                            }
-                          />
-                          <span className="flex flex-col gap-0.5">
-                            <span className="text-sm font-medium">
-                              {permission.label}
+                {PERMISSION_GROUPS.map((group) => {
+                  const inGroup = PERMISSIONS.filter((p) => p.group === group);
+                  const held = inGroup.filter((p) =>
+                    permissions.includes(p.key),
+                  ).length;
+
+                  return (
+                    <div key={group} className="flex flex-col gap-2">
+                      <p className="flex items-center justify-between text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                        {group}
+                        <span className="tabular-nums">
+                          {held} of {inGroup.length}
+                        </span>
+                      </p>
+                      {/* Two abreast: the whole vocabulary then fits without
+                          the dialog becoming a scroll. */}
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {inGroup.map((permission) => (
+                          <label
+                            key={permission.key}
+                            className="flex items-start gap-2.5 rounded-md border p-2.5"
+                          >
+                            <Checkbox
+                              checked={permissions.includes(permission.key)}
+                              onCheckedChange={(checked) =>
+                                toggle(permission.key, checked === true)
+                              }
+                            />
+                            <span className="flex flex-col gap-0.5">
+                              <span className="text-sm font-medium">
+                                {permission.label}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {permission.description}
+                              </span>
                             </span>
-                            <span className="text-xs text-muted-foreground">
-                              {permission.description}
-                            </span>
-                          </span>
-                        </label>
-                      ),
-                    )}
-                  </div>
-                ))}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </Field>
