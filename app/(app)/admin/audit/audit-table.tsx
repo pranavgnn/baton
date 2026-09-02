@@ -1,15 +1,29 @@
 "use client";
 
-import { Download, Loader2, Search, X } from "lucide-react";
+import { Check, Download, Filter, Loader2, Search, X } from "lucide-react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Select,
   SelectContent,
@@ -30,9 +44,10 @@ import {
   AUDIT_ACTION_GROUPS,
   auditActionLabel,
 } from "@/lib/audit/actions";
-import type { AuditFilters } from "@/lib/audit/query";
+import type { AuditActor, AuditFilters } from "@/lib/audit/query";
 import { formatDateTime } from "@/lib/format";
-import { exportAuditLog } from "./actions";
+import { cn } from "@/lib/utils";
+import { exportAuditLog, findAuditActors } from "./actions";
 
 export type AuditRow = {
   id: string;
@@ -53,11 +68,10 @@ export type AuditTableProps = {
   page: number;
   pageSize: number;
   pageSizes: number[];
-  actors: { id: string; name: string }[];
+  /** Only the actor the filter names, if any - never the whole directory. */
+  actor: AuditActor | null;
   filters: AuditFilters;
 };
-
-const ANY = "__any__";
 
 export function AuditTable({
   rows,
@@ -65,7 +79,7 @@ export function AuditTable({
   page,
   pageSize,
   pageSizes,
-  actors,
+  actor,
   filters,
 }: AuditTableProps) {
   const router = useRouter();
@@ -75,13 +89,15 @@ export function AuditTable({
   const [search, setSearch] = useState(filters.search ?? "");
   const [isExporting, startExport] = useTransition();
 
+  const selectedActions = filters.actions ?? [];
   const pages = Math.max(1, Math.ceil(total / pageSize));
-  const hasFilters =
-    Boolean(filters.search) ||
-    Boolean(filters.actorId) ||
-    Boolean(filters.from) ||
-    Boolean(filters.to) ||
-    (filters.actions?.length ?? 0) > 0;
+
+  const activeCount =
+    selectedActions.length +
+    (filters.actorId ? 1 : 0) +
+    (filters.from ? 1 : 0) +
+    (filters.to ? 1 : 0) +
+    (filters.search ? 1 : 0);
 
   /**
    * Filters live in the URL, so a filtered view is a link someone can send to
@@ -99,6 +115,18 @@ export function AuditTable({
     // typedRoutes cannot know a query string assembled at runtime, and the
     // path itself is the one this component is already rendered on.
     router.push(`${pathname}?${next.toString()}` as Route);
+  }
+
+  function toggleAction(key: string) {
+    const next = selectedActions.includes(key)
+      ? selectedActions.filter((entry) => entry !== key)
+      : [...selectedActions, key];
+    apply({ actions: next.join(",") || null });
+  }
+
+  function clearAll() {
+    setSearch("");
+    router.push(pathname as Route);
   }
 
   function handleExport() {
@@ -120,91 +148,76 @@ export function AuditTable({
 
   return (
     <div className="section-stack">
-      <div className="toolbar" data-testid="audit-filters">
+      {/* One line of controls: what to look for, how to narrow it, and out. */}
+      <div className="audit-toolbar" data-testid="audit-filters">
         <form
-          className="flex items-center gap-2"
+          className="audit-search"
           onSubmit={(event) => {
             event.preventDefault();
             apply({ q: search.trim() || null });
           }}
         >
+          <Search className="audit-search-icon" aria-hidden />
           <Input
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search people, records and descriptions"
             aria-label="Search the audit log"
+            className="pl-8"
             data-testid="audit-search"
           />
-          <Button type="submit" variant="outline" size="icon">
-            <Search className="size-4" />
-            <span className="sr-only">Search</span>
-          </Button>
         </form>
 
-        <Select
-          value={filters.actions?.[0] ?? ANY}
-          onValueChange={(value) =>
-            apply({ actions: value === ANY ? null : value })
-          }
-        >
-          <SelectTrigger aria-label="Action" data-testid="audit-action-filter">
-            <SelectValue placeholder="Any action" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Any action</SelectItem>
-            {AUDIT_ACTION_GROUPS.map((group) => (
-              <SelectGroupItems key={group} group={group} />
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select
-          value={filters.actorId ?? ANY}
-          onValueChange={(value) =>
-            apply({ actor: value === ANY ? null : value })
-          }
-        >
-          <SelectTrigger aria-label="Person" data-testid="audit-actor-filter">
-            <SelectValue placeholder="Anyone" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ANY}>Anyone</SelectItem>
-            {actors.map((actor) => (
-              <SelectItem key={actor.id} value={actor.id}>
-                {actor.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Input
-          type="date"
-          value={filters.from ?? ""}
-          onChange={(event) => apply({ from: event.target.value || null })}
-          aria-label="From date"
-          data-testid="audit-from"
-        />
-        <Input
-          type="date"
-          value={filters.to ?? ""}
-          onChange={(event) => apply({ to: event.target.value || null })}
-          aria-label="To date"
-          data-testid="audit-to"
+        <ActionFilter
+          key={selectedActions.join(",")}
+          selected={selectedActions}
+          onApply={(actions) => apply({ actions: actions.join(",") || null })}
         />
 
-        {hasFilters ? (
-          <Button
-            variant="ghost"
-            onClick={() => {
-              setSearch("");
-              router.push(pathname as Route);
-            }}
-            data-testid="audit-clear-filters"
-          >
-            <X className="size-4" />
-            Clear
-          </Button>
-        ) : null}
+        <ActorFilter
+          actor={actor}
+          onSelect={(next) => apply({ actor: next?.id ?? null })}
+        />
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline" data-testid="audit-date-filter">
+              <Filter className="size-4" />
+              Dates
+              {filters.from || filters.to ? (
+                <Badge variant="secondary">1</Badge>
+              ) : null}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-64">
+            <div className="flex flex-col gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="audit-from">From</Label>
+                <Input
+                  id="audit-from"
+                  type="date"
+                  value={filters.from ?? ""}
+                  onChange={(event) =>
+                    apply({ from: event.target.value || null })
+                  }
+                  data-testid="audit-from"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="audit-to">To</Label>
+                <Input
+                  id="audit-to"
+                  type="date"
+                  value={filters.to ?? ""}
+                  onChange={(event) =>
+                    apply({ to: event.target.value || null })
+                  }
+                  data-testid="audit-to"
+                />
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <Button
           variant="outline"
@@ -222,26 +235,77 @@ export function AuditTable({
         </Button>
       </div>
 
+      {/* What is currently narrowing the list, each one removable on its own. */}
+      {activeCount > 0 ? (
+        <div className="audit-chips" data-testid="audit-active-filters">
+          {filters.search ? (
+            <FilterChip
+              label={`matching "${filters.search}"`}
+              onRemove={() => {
+                setSearch("");
+                apply({ q: null });
+              }}
+            />
+          ) : null}
+
+          {selectedActions.map((action) => (
+            <FilterChip
+              key={action}
+              label={auditActionLabel(action)}
+              onRemove={() => toggleAction(action)}
+            />
+          ))}
+
+          {filters.actorId ? (
+            <FilterChip
+              label={`by ${actor?.name ?? "someone"}`}
+              onRemove={() => apply({ actor: null })}
+            />
+          ) : null}
+
+          {filters.from ? (
+            <FilterChip
+              label={`from ${filters.from}`}
+              onRemove={() => apply({ from: null })}
+            />
+          ) : null}
+          {filters.to ? (
+            <FilterChip
+              label={`to ${filters.to}`}
+              onRemove={() => apply({ to: null })}
+            />
+          ) : null}
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearAll}
+            data-testid="audit-clear-filters"
+          >
+            Clear all
+          </Button>
+        </div>
+      ) : null}
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table data-testid="audit-table">
               <TableHeader>
                 <TableRow>
-                  <TableHead>When</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead>Who</TableHead>
+                  <TableHead className="w-44">When</TableHead>
+                  <TableHead className="w-52">Who</TableHead>
+                  <TableHead className="w-44">Action</TableHead>
                   <TableHead>What happened</TableHead>
-                  <TableHead>Record</TableHead>
-                  <TableHead>From</TableHead>
+                  <TableHead className="w-32">From</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6}>
+                    <TableCell colSpan={5}>
                       <p className="empty-state" data-testid="audit-empty">
-                        {hasFilters
+                        {activeCount > 0
                           ? "Nothing matches these filters."
                           : "Nothing has been recorded yet."}
                       </p>
@@ -250,18 +314,13 @@ export function AuditTable({
                 ) : (
                   rows.map((row) => (
                     <TableRow key={row.id} data-testid={`audit-row-${row.id}`}>
-                      <TableCell className="whitespace-nowrap tabular-nums">
+                      <TableCell className="align-top whitespace-nowrap tabular-nums">
                         {formatDateTime(row.createdAt)}
                       </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {auditActionLabel(row.action)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
+                      <TableCell className="align-top">
                         {row.actorName ? (
                           <span className="flex flex-col">
-                            <span>{row.actorName}</span>
+                            <span className="font-medium">{row.actorName}</span>
                             <span className="text-xs text-muted-foreground">
                               {row.actorEmail}
                             </span>
@@ -270,11 +329,22 @@ export function AuditTable({
                           <span className="text-muted-foreground">System</span>
                         )}
                       </TableCell>
-                      <TableCell>{row.summary}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {row.targetLabel ?? "—"}
+                      <TableCell className="align-top">
+                        <Badge variant="outline" className="whitespace-nowrap">
+                          {auditActionLabel(row.action)}
+                        </Badge>
                       </TableCell>
-                      <TableCell className="text-muted-foreground tabular-nums">
+                      <TableCell className="align-top">
+                        <span className="flex flex-col">
+                          <span>{row.summary}</span>
+                          {row.targetLabel ? (
+                            <span className="text-xs text-muted-foreground">
+                              {row.targetLabel}
+                            </span>
+                          ) : null}
+                        </span>
+                      </TableCell>
+                      <TableCell className="align-top text-muted-foreground tabular-nums">
                         {row.ipAddress ?? "—"}
                       </TableCell>
                     </TableRow>
@@ -335,17 +405,215 @@ export function AuditTable({
   );
 }
 
-function SelectGroupItems({ group }: { group: string }) {
+/* -------------------------------------------------------------------------- */
+/*  Filters                                                                    */
+/* -------------------------------------------------------------------------- */
+
+function FilterChip({
+  label,
+  onRemove,
+}: {
+  label: string;
+  onRemove: () => void;
+}) {
   return (
-    <>
-      {AUDIT_ACTIONS.filter((action) => action.group === group).map(
-        (action) => (
-          <SelectItem key={action.key} value={action.key}>
-            {action.label}
-          </SelectItem>
-        ),
-      )}
-    </>
+    <span className="audit-chip">
+      {label}
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove filter: ${label}`}
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <X className="size-3" />
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Any number of actions at once, grouped as the vocabulary groups them.
+ *
+ * The choices are collected while the panel is open and applied when it
+ * closes, so picking four actions is one navigation rather than four - and the
+ * list cannot be re-rendered out from under the pointer mid-selection.
+ */
+function ActionFilter({
+  selected,
+  onApply,
+}: {
+  selected: string[];
+  onApply: (actions: string[]) => void;
+}) {
+  const [draft, setDraft] = useState(selected);
+
+  function toggle(key: string) {
+    setDraft((current) =>
+      current.includes(key)
+        ? current.filter((entry) => entry !== key)
+        : [...current, key],
+    );
+  }
+
+  return (
+    <Popover
+      onOpenChange={(open) => {
+        if (open) return;
+        const changed =
+          draft.length !== selected.length ||
+          draft.some((entry) => !selected.includes(entry));
+        if (changed) onApply(draft);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button variant="outline" data-testid="audit-action-filter">
+          Actions
+          {draft.length > 0 ? (
+            <Badge variant="secondary">{draft.length}</Badge>
+          ) : null}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Find an action" />
+          <CommandList>
+            <CommandEmpty>No action by that name.</CommandEmpty>
+            {AUDIT_ACTION_GROUPS.map((group) => (
+              <CommandGroup key={group} heading={group}>
+                {AUDIT_ACTIONS.filter((action) => action.group === group).map(
+                  (action) => (
+                    <CommandItem
+                      key={action.key}
+                      value={`${action.label} ${action.key}`}
+                      onSelect={() => toggle(action.key)}
+                      data-testid={`audit-action-${action.key}`}
+                    >
+                      <Check
+                        className={cn(
+                          "size-4",
+                          draft.includes(action.key)
+                            ? "opacity-100"
+                            : "opacity-0",
+                        )}
+                      />
+                      {action.label}
+                    </CommandItem>
+                  ),
+                )}
+              </CommandGroup>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * One person, found by typing.
+ *
+ * The candidates are fetched as the admin types and always bounded, because an
+ * institute has thousands of accounts and a list of all of them helps nobody.
+ */
+function ActorFilter({
+  actor,
+  onSelect,
+}: {
+  actor: AuditActor | null;
+  onSelect: (actor: AuditActor | null) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<AuditActor[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  /**
+   * Debounced, and driven by what the admin does rather than by an effect
+   * watching state: a keystroke should not be a database query, and there is
+   * nothing here to synchronise - only a request to make when they type.
+   */
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function lookup(next: string, delay = 250) {
+    setQuery(next);
+    setLoading(true);
+    if (timer.current) clearTimeout(timer.current);
+
+    timer.current = setTimeout(async () => {
+      const result = await findAuditActors(next);
+      setResults(result.ok ? result.data.actors : []);
+      setLoading(false);
+    }, delay);
+  }
+
+  return (
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) lookup(query, 0);
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button variant="outline" data-testid="audit-actor-filter">
+          {actor ? actor.name : "Anyone"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-72 p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Type a name or email"
+            value={query}
+            onValueChange={lookup}
+            data-testid="audit-actor-search"
+          />
+          <CommandList>
+            {loading ? (
+              <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                Searching
+              </div>
+            ) : (
+              <CommandEmpty>Nobody in the log matches that.</CommandEmpty>
+            )}
+
+            <CommandGroup>
+              {actor ? (
+                <CommandItem
+                  value="__anyone__"
+                  onSelect={() => {
+                    onSelect(null);
+                    setOpen(false);
+                  }}
+                  data-testid="audit-actor-anyone"
+                >
+                  Anyone
+                </CommandItem>
+              ) : null}
+
+              {results.map((entry) => (
+                <CommandItem
+                  key={entry.id}
+                  value={entry.id}
+                  onSelect={() => {
+                    onSelect(entry);
+                    setOpen(false);
+                  }}
+                  data-testid={`audit-actor-${entry.email ?? entry.id}`}
+                >
+                  <span className="flex flex-col">
+                    <span>{entry.name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {entry.email}
+                    </span>
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 

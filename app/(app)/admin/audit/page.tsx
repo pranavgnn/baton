@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { requirePermission } from "@/lib/auth/session";
-import { listAuditActors, listAuditLog } from "@/lib/audit/query";
+import { findAuditActor, listAuditLog } from "@/lib/audit/query";
 import { AuditTable } from "./audit-table";
 
 export const metadata: Metadata = { title: "Audit log" };
@@ -41,9 +41,11 @@ export default async function AuditPage({
     : DEFAULT_PAGE_SIZE;
   const index = Math.max(0, Number(single(params.page) || "0") || 0);
 
-  const [{ rows, total }, actors] = await Promise.all([
+  const [{ rows, total }, actor] = await Promise.all([
     listAuditLog(filters, { index, size }),
-    listAuditActors(),
+    // Only the one the filter names: enough to label the chip, without
+    // fetching a list nobody can read.
+    filters.actorId ? findAuditActor(filters.actorId) : Promise.resolve(null),
   ]);
 
   return (
@@ -75,7 +77,7 @@ export default async function AuditPage({
         page={index}
         pageSize={size}
         pageSizes={PAGE_SIZES}
-        actors={actors}
+        actor={actor}
         filters={filters}
       />
     </div>
