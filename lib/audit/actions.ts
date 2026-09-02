@@ -64,6 +64,24 @@ export const AUDIT_ACTIONS = [
     label: "Application exported",
     group: "Applications",
   },
+  // Email is kept out of an application's own history - it is a notification,
+  // not a step - but "was that person ever told" is exactly the question this
+  // table is read to answer.
+  {
+    key: "application.email_dispatched",
+    label: "Email dispatched",
+    group: "Applications",
+  },
+  {
+    key: "application.email_delivered",
+    label: "Email delivered",
+    group: "Applications",
+  },
+  {
+    key: "application.email_failed",
+    label: "Email delivery failed",
+    group: "Applications",
+  },
 
   /* User and role administration ------------------------------------------ */
   { key: "user.invited", label: "User invited", group: "Administration" },

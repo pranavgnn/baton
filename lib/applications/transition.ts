@@ -8,6 +8,7 @@ import {
   type Application,
   type ApplicationStatus,
 } from "@/lib/db/schema";
+import { recordAudit } from "@/lib/audit/record";
 import { portalUrl } from "@/lib/mail/system";
 import { publishEmailJobs, type EmailJob } from "@/lib/mail/queue";
 import { classifyDestination, resolveTransition } from "@/lib/workflow/engine";
@@ -351,6 +352,26 @@ export async function advanceApplication(
         ? `Queued for ${record.recipients.join(", ")}`
         : `Could not queue: ${record.error}`,
       detail: { recipients: record.recipients, ok: record.ok },
+    });
+
+    // Recorded against the person whose action set it off, but as the
+    // portal's own doing: nobody chose the recipients, the step did.
+    await recordAudit({
+      action: record.ok
+        ? "application.email_dispatched"
+        : "application.email_failed",
+      summary: record.ok
+        ? `Dispatched "${record.nodeLabel}" for ${nextApp.reference} to ${record.recipients.join(", ")}.`
+        : `Could not dispatch "${record.nodeLabel}" for ${nextApp.reference}: ${record.error}`,
+      targetType: "application",
+      targetId: app.id,
+      targetLabel: nextApp.reference,
+      applicationId: app.id,
+      detail: {
+        step: record.nodeLabel,
+        recipients: record.recipients,
+        triggeredBy: input.actor?.name ?? "the applicant",
+      },
     });
   }
 

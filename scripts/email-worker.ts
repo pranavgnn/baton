@@ -9,6 +9,7 @@
  */
 import { eq } from "drizzle-orm";
 
+import { recordAudit } from "@/lib/audit/record";
 import { db } from "@/lib/db";
 import { applicationEvent, emailTemplate } from "@/lib/db/schema";
 import { env } from "@/lib/env";
@@ -23,6 +24,11 @@ import {
 import { renderTemplate } from "@/lib/mail/render";
 import { sendMail } from "@/lib/mail/transport";
 
+/**
+ * Records what became of one message, in both places it belongs: against the
+ * application for anyone reading its file, and in the audit log, which is
+ * where "was that person ever told" is actually asked.
+ */
 async function record(
   job: EmailJob,
   type: "email_sent" | "email_failed",
@@ -38,6 +44,23 @@ async function record(
     actorName: null,
     note,
     detail: { recipients: job.recipients, jobId: job.id },
+  });
+
+  const reference = job.variables.application_reference ?? job.applicationId;
+  await recordAudit({
+    action:
+      type === "email_sent"
+        ? "application.email_delivered"
+        : "application.email_failed",
+    summary:
+      type === "email_sent"
+        ? `Delivered "${job.nodeLabel}" for ${reference} to ${job.recipients.join(", ")}.`
+        : `Failed to deliver "${job.nodeLabel}" for ${reference}: ${note}`,
+    targetType: "application",
+    targetId: job.applicationId,
+    targetLabel: reference,
+    applicationId: job.applicationId,
+    detail: { step: job.nodeLabel, recipients: job.recipients, jobId: job.id },
   });
 }
 
