@@ -20,6 +20,7 @@ import type {
   WorkflowGraph,
 } from "@/lib/workflow/types";
 import type { RolePermission } from "@/lib/auth/permissions";
+import type { RoleDesignation, RoleGrantSource } from "@/lib/auth/designations";
 
 /* -------------------------------------------------------------------------- */
 /*  Better Auth core tables                                                    */
@@ -196,6 +197,12 @@ export const role = pgTable(
     priority: integer("priority").default(0).notNull(),
     /** System roles cannot be deleted, only renamed. */
     isSystem: boolean("is_system").default(false).notNull(),
+    /**
+     * Which standing post this role represents, if any (`lib/auth/designations`).
+     * Roles are renameable, so this - not the name - is what schools and the
+     * workflow key off. At most one role may carry each designation.
+     */
+    designation: text("designation").$type<RoleDesignation>(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at")
       .defaultNow()
@@ -204,6 +211,9 @@ export const role = pgTable(
   },
   (table) => [
     uniqueIndex("role_name_uidx").on(table.name),
+    // Postgres treats nulls as distinct, so any number of roles may carry no
+    // designation while each designation belongs to exactly one role.
+    uniqueIndex("role_designation_uidx").on(table.designation),
     index("role_priority_idx").on(table.priority),
   ],
 );
@@ -217,6 +227,11 @@ export const userRole = pgTable(
     roleId: text("role_id")
       .notNull()
       .references(() => role.id, { onDelete: "cascade" }),
+    /**
+     * Who granted it. A grant that came from a school posting is withdrawn
+     * when the posting ends; one an admin made by hand outlives every posting.
+     */
+    source: text("source").$type<RoleGrantSource>().default("manual").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [

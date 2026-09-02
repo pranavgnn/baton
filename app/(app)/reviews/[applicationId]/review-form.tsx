@@ -30,7 +30,7 @@ export function ReviewForm({
   form,
   outcomes,
   defaultValues,
-  nominees,
+  nomineesByOutcome,
 }: {
   applicationId: string;
   stageLabel: string;
@@ -38,16 +38,19 @@ export function ReviewForm({
   outcomes: StageOutcome[];
   defaultValues: SectionData | null;
   /**
-   * Who this stage may hand the application on to. Null when the stage does
-   * not nominate, which is every stage but the dean's.
+   * Per outcome, who it may be addressed to. Null for an outcome that goes to
+   * a whole role, which is most of them.
    */
-  nominees: Nominee[] | null;
+  nomineesByOutcome: Record<string, Nominee[] | null>;
 }) {
   const router = useRouter();
-  const [nomineeId, setNomineeId] = useState("");
+  const [nomineeByOutcome, setNomineeByOutcome] = useState<
+    Record<string, string>
+  >({});
 
-  const mustNominate = nominees !== null;
-  const noCandidates = mustNominate && nominees.length === 0;
+  const nominating = outcomes.filter(
+    (outcome) => nomineesByOutcome[outcome.id] != null,
+  );
 
   return (
     <FormWizard
@@ -59,76 +62,103 @@ export function ReviewForm({
       onClear={() => clearStageDraft(applicationId)}
       renderSubmitActions={({ getValues, validate, busy, setBusy }) => (
         <>
-          {mustNominate ? (
-            <Field className="w-full" data-testid="nominee-field">
-              <FieldLabel htmlFor="nominee">Send to</FieldLabel>
-              {noCandidates ? (
-                <FieldDescription data-testid="no-nominees">
-                  This school has no associate dean who can review applications.
-                  Ask an administrator to assign one before sending this on.
-                </FieldDescription>
-              ) : (
-                <>
-                  <Select value={nomineeId} onValueChange={setNomineeId}>
-                    <SelectTrigger id="nominee" data-testid="nominee">
-                      <SelectValue placeholder="Choose an associate dean" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {nominees.map((person) => (
-                        <SelectItem key={person.id} value={person.id}>
-                          {person.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FieldDescription>
-                    Only the person you choose will see this application next.
+          {nominating.map((outcome) => {
+            const people = nomineesByOutcome[outcome.id] ?? [];
+            return (
+              <Field
+                key={outcome.id}
+                className="w-full"
+                data-testid={`nominee-field-${outcome.label}`}
+              >
+                <FieldLabel htmlFor={`nominee-${outcome.id}`}>
+                  {nominating.length > 1
+                    ? `Send to, for "${outcome.label}"`
+                    : "Send to"}
+                </FieldLabel>
+                {people.length === 0 ? (
+                  <FieldDescription data-testid="no-nominees">
+                    Nobody is currently appointed to take this on. Ask an
+                    administrator to appoint someone before choosing &ldquo;
+                    {outcome.label}&rdquo;.
                   </FieldDescription>
-                </>
-              )}
-            </Field>
-          ) : null}
+                ) : (
+                  <>
+                    <Select
+                      value={nomineeByOutcome[outcome.id] ?? ""}
+                      onValueChange={(value) =>
+                        setNomineeByOutcome((current) => ({
+                          ...current,
+                          [outcome.id]: value,
+                        }))
+                      }
+                    >
+                      <SelectTrigger
+                        id={`nominee-${outcome.id}`}
+                        data-testid={`nominee-${outcome.label}`}
+                      >
+                        <SelectValue placeholder="Choose a person" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {people.map((person) => (
+                          <SelectItem key={person.id} value={person.id}>
+                            {person.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FieldDescription>
+                      Only the person you choose will see this application next.
+                    </FieldDescription>
+                  </>
+                )}
+              </Field>
+            );
+          })}
 
-          {outcomes.map((outcome) => (
-            <Button
-              key={outcome.id}
-              disabled={busy || (mustNominate && !nomineeId)}
-              variant={
-                outcome.tone === "positive"
-                  ? "default"
-                  : outcome.tone === "negative"
-                    ? "destructive"
-                    : "outline"
-              }
-              data-testid={`outcome-${outcome.label}`}
-              onClick={async () => {
-                if (outcome.requiresForm && !(await validate())) return;
-                setBusy(true);
-                try {
-                  const result = await completeStage(
-                    applicationId,
-                    outcome.id,
-                    getValues(),
-                    nomineeId || null,
-                  );
-                  if (result.ok) {
-                    toast.success(
-                      `Recorded "${outcome.label}". The application is now at ${result.data.destination}.`,
-                    );
-                    router.push("/reviews");
-                    router.refresh();
-                  } else {
-                    toast.error(result.error);
-                  }
-                } finally {
-                  setBusy(false);
+          {outcomes.map((outcome) => {
+            const mustName = nomineesByOutcome[outcome.id] != null;
+            const chosen = nomineeByOutcome[outcome.id] ?? "";
+            return (
+              <Button
+                key={outcome.id}
+                disabled={busy || (mustName && !chosen)}
+                variant={
+                  outcome.tone === "positive"
+                    ? "default"
+                    : outcome.tone === "negative"
+                      ? "destructive"
+                      : "outline"
                 }
-              }}
-            >
-              {busy ? <Loader2 className="size-4 animate-spin" /> : null}
-              {outcome.label}
-            </Button>
-          ))}
+                data-testid={`outcome-${outcome.label}`}
+                onClick={async () => {
+                  if (outcome.requiresForm && !(await validate())) return;
+                  setBusy(true);
+                  try {
+                    const result = await completeStage(
+                      applicationId,
+                      outcome.id,
+                      getValues(),
+                      chosen || null,
+                    );
+                    if (result.ok) {
+                      toast.success(
+                        `Recorded "${outcome.label}". The application is now at ${result.data.destination}.`,
+                      );
+                      router.push("/reviews");
+                      router.refresh();
+                    } else {
+                      toast.error(result.error);
+                    }
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                {busy ? <Loader2 className="size-4 animate-spin" /> : null}
+                {outcome.label}
+              </Button>
+            );
+          })}
         </>
       )}
     />

@@ -200,6 +200,7 @@ export const DEFAULT_ROLES = [
     description: "Submits and tracks their own promotion application.",
     permissions: ["applications.apply"],
     isSystem: false,
+    designation: null,
   },
   {
     name: "Dean",
@@ -207,6 +208,7 @@ export const DEFAULT_ROLES = [
       "Dean of a school. Records a recommendation and sends the application to one of the school's associate deans.",
     permissions: ["applications.review"],
     isSystem: false,
+    designation: "dean",
   },
   {
     name: "Associate Dean",
@@ -214,6 +216,7 @@ export const DEFAULT_ROLES = [
       "Associate dean of a school. Reviews the applications the dean sends them.",
     permissions: ["applications.review"],
     isSystem: false,
+    designation: "associate_dean",
   },
   {
     name: "HR Officer",
@@ -221,6 +224,7 @@ export const DEFAULT_ROLES = [
       "Reviews experience and service, and makes the final eligibility declaration.",
     permissions: ["applications.review"],
     isSystem: false,
+    designation: null,
   },
   {
     name: "R&C Officer",
@@ -228,6 +232,7 @@ export const DEFAULT_ROLES = [
       "Associate Director (R&C). Evaluates research output and publications.",
     permissions: ["applications.review"],
     isSystem: false,
+    designation: null,
   },
   {
     name: "FDW Officer",
@@ -235,12 +240,22 @@ export const DEFAULT_ROLES = [
       "Associate Director (FD&W). Carries out the formal evaluation.",
     permissions: ["applications.review"],
     isSystem: false,
+    designation: null,
   },
   {
     name: "Director",
     description: "Gives the final institutional approval or rejection.",
     permissions: ["applications.review", "applications.viewAll"],
     isSystem: false,
+    designation: null,
+  },
+  {
+    name: "Associate Director",
+    description:
+      "Decides the applications the Director hands to them instead of deciding personally.",
+    permissions: ["applications.review"],
+    isSystem: false,
+    designation: "associate_director",
   },
   {
     name: "Institute HR",
@@ -248,6 +263,7 @@ export const DEFAULT_ROLES = [
       "Receives the approved application for filing. Notified by email; no action is required in the portal.",
     permissions: ["applications.viewAll"],
     isSystem: false,
+    designation: null,
   },
   {
     name: "System Admin",
@@ -263,12 +279,14 @@ export const DEFAULT_ROLES = [
       "audit.view",
     ],
     isSystem: false,
+    designation: null,
   },
   {
     name: SUPER_ADMIN_ROLE_NAME,
     description: "Full access to every part of the portal.",
     permissions: ["*"],
     isSystem: true,
+    designation: null,
   },
 ] as const;
 
@@ -1418,6 +1436,25 @@ function directorForm(): FormSchema {
   };
 }
 
+function associateDirectorForm(): FormSchema {
+  return {
+    sections: [
+      createSection(
+        "Associate Director's Decision",
+        [
+          createField({
+            type: "textarea",
+            key: "remarks",
+            label: "Remarks",
+            required: true,
+          }),
+        ],
+        "The Director has asked you to decide this application. Your decision closes it.",
+      ),
+    ],
+  };
+}
+
 /* -------------------------------------------------------------------------- */
 /*  Default workflow graph                                                     */
 /* -------------------------------------------------------------------------- */
@@ -1460,6 +1497,9 @@ export function defaultWorkflowGraph({
     ineligible: createOutcome("Not eligible", "negative"),
     approve: createOutcome("Approve", "positive"),
     reject: createOutcome("Reject", "negative"),
+    delegate: createOutcome("Send to associate director", "neutral", false),
+    associateDirectorApprove: createOutcome("Approve", "positive"),
+    associateDirectorReject: createOutcome("Reject", "negative"),
   };
 
   const role = (name: string) => roleIdByName[name] ?? null;
@@ -1546,9 +1586,7 @@ export function defaultWorkflowGraph({
         roleId: role("Dean"),
         form: deanForm(),
         outcomes: [outcomes.dean],
-        // The dean does not hand this to the associate deans at large: they
-        // choose one, and it is held for that person.
-        nominatesNext: true,
+        assignment: { mode: "role", pool: "role_holders" },
       },
     },
     toApplicant(
@@ -1575,7 +1613,9 @@ export function defaultWorkflowGraph({
         roleId: role("Associate Dean"),
         form: associateDeanForm(),
         outcomes: [outcomes.associateDean],
-        nominatesNext: false,
+        // Not offered to the associate deans at large: the dean names one of
+        // their own school's, and the file is held for that person alone.
+        assignment: { mode: "nominated", pool: "school_associate_deans" },
       },
     },
     toApplicant(
@@ -1603,7 +1643,7 @@ export function defaultWorkflowGraph({
         roleId: role("HR Officer"),
         form: hrInitialForm(),
         outcomes: [outcomes.hrInitial],
-        nominatesNext: false,
+        assignment: { mode: "role", pool: "role_holders" },
       },
     },
     toApplicant(
@@ -1631,7 +1671,7 @@ export function defaultWorkflowGraph({
         roleId: role("R&C Officer"),
         form: rcForm(),
         outcomes: [outcomes.rc],
-        nominatesNext: false,
+        assignment: { mode: "role", pool: "role_holders" },
       },
     },
     toApplicant(
@@ -1658,7 +1698,7 @@ export function defaultWorkflowGraph({
         roleId: role("FDW Officer"),
         form: fdwForm(),
         outcomes: [outcomes.fdw],
-        nominatesNext: false,
+        assignment: { mode: "role", pool: "role_holders" },
       },
     },
     toApplicant(
@@ -1686,7 +1726,7 @@ export function defaultWorkflowGraph({
         roleId: role("HR Officer"),
         form: hrFinalForm(),
         outcomes: [outcomes.eligible, outcomes.ineligible],
-        nominatesNext: false,
+        assignment: { mode: "role", pool: "role_holders" },
       },
     },
     toApplicant(
@@ -1725,30 +1765,63 @@ export function defaultWorkflowGraph({
       position: { x: column(14), y: 220 },
       data: {
         label: "Director Review",
-        description: "The final institutional decision.",
+        description:
+          "The final institutional decision, or a hand-over to an associate director who takes it instead.",
         roleId: role("Director"),
         form: directorForm(),
-        outcomes: [outcomes.approve, outcomes.reject],
-        nominatesNext: false,
+        outcomes: [outcomes.approve, outcomes.reject, outcomes.delegate],
+        assignment: { mode: "role", pool: "role_holders" },
+      },
+    },
+    toRole(
+      "node_email_associate_director_assigned",
+      "Notify Associate Director",
+      "Reviewer Assignment",
+      "Associate Director",
+      { x: column(15), y: 620 },
+    ),
+    toApplicant(
+      "node_email_associate_director_applicant",
+      "Tell Applicant: with the Associate Director",
+      "Application Advanced",
+      { x: column(15), y: 740 },
+    ),
+    {
+      id: "node_stage_associate_director",
+      kind: "stage",
+      position: { x: column(15), y: 480 },
+      data: {
+        label: "Associate Director Review",
+        description:
+          "Decides an application the Director handed over, in the Director's place.",
+        roleId: role("Associate Director"),
+        form: associateDirectorForm(),
+        outcomes: [
+          outcomes.associateDirectorApprove,
+          outcomes.associateDirectorReject,
+        ],
+        // The Director does not hand this to every associate director: they
+        // name one, and the decision is that person's to make.
+        assignment: { mode: "nominated", pool: "role_holders" },
       },
     },
     toApplicant(
       "node_email_approved",
       "Tell Applicant: approved",
       "Application Approved",
-      { x: column(15), y: -120 },
+      { x: column(16), y: -120 },
     ),
     toRole(
       "node_email_archive",
       "Send to Institute HR for filing",
       "Archive Notice",
       "Institute HR",
-      { x: column(15), y: 0 },
+      { x: column(16), y: 0 },
     ),
     {
       id: "node_end_approved",
       kind: "end",
-      position: { x: column(15), y: 140 },
+      position: { x: column(16), y: 140 },
       data: {
         label: "Approved",
         description: "The promotion was approved by the Director.",
@@ -1759,19 +1832,19 @@ export function defaultWorkflowGraph({
       "node_email_rejected",
       "Tell Applicant: rejected",
       "Application Rejected",
-      { x: column(15), y: 420 },
+      { x: column(16), y: 420 },
     ),
     toRole(
       "node_email_hr_fyi",
       "Tell HR (for information)",
       "Application Rejected",
       "HR Officer",
-      { x: column(15), y: 540 },
+      { x: column(16), y: 540 },
     ),
     {
       id: "node_end_rejected",
       kind: "end",
-      position: { x: column(15), y: 290 },
+      position: { x: column(16), y: 290 },
       data: {
         label: "Closed - Rejected",
         description: "The Director rejected the application.",
@@ -1848,6 +1921,27 @@ export function defaultWorkflowGraph({
         "node_email_approved",
         "node_email_archive",
       ]),
+      ...hop(
+        "node_stage_director",
+        outcomes.delegate.id,
+        "node_stage_associate_director",
+        [
+          "node_email_associate_director_assigned",
+          "node_email_associate_director_applicant",
+        ],
+      ),
+      ...hop(
+        "node_stage_associate_director",
+        outcomes.associateDirectorApprove.id,
+        "node_end_approved",
+        ["node_email_approved", "node_email_archive"],
+      ),
+      ...hop(
+        "node_stage_associate_director",
+        outcomes.associateDirectorReject.id,
+        "node_end_rejected",
+        ["node_email_rejected", "node_email_hr_fyi"],
+      ),
       ...hop("node_stage_director", outcomes.reject.id, "node_end_rejected", [
         "node_email_rejected",
         "node_email_hr_fyi",

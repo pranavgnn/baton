@@ -81,6 +81,25 @@ export function continuationNodeId(
   return target?.id ?? null;
 }
 
+/**
+ * The stage this handle leads to when that stage is held for one named person
+ * rather than offered to a whole role.
+ *
+ * Null for every other handle, which is what tells a reviewer's form whether
+ * this particular outcome has to be addressed to somebody.
+ */
+export function nominatedTarget(
+  graph: WorkflowGraph,
+  nodeId: string,
+  handleId: string = DEFAULT_SOURCE_HANDLE,
+): StageNode | null {
+  const target = handleTargets(graph, nodeId, handleId).find(
+    (node) => node.kind !== "email",
+  );
+  if (!target || target.kind !== "stage") return null;
+  return target.data.assignment.mode === "nominated" ? target : null;
+}
+
 /** Email nodes fired off when this handle is taken. */
 export function emailTargets(
   graph: WorkflowGraph,
@@ -540,6 +559,9 @@ export function structureSignature(graph: WorkflowGraph): string {
         id: node.id,
         kind: node.kind,
         roleId: node.kind === "stage" ? node.data.roleId : null,
+        // Who may act on a stage is structure, not wording: moving it from a
+        // whole role to one named person is a change to the process.
+        assignment: node.kind === "stage" ? node.data.assignment : null,
         outcomes:
           node.kind === "stage"
             ? node.data.outcomes.map((outcome) => outcome.id)

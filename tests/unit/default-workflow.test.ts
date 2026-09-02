@@ -106,19 +106,27 @@ describe("the seeded workflow", () => {
     }
   });
 
-  it("makes the dean name the associate dean who reviews it next", () => {
-    // The one stage that hands the file to a person rather than to a role.
-    expect(stage("node_stage_dean").data.nominatesNext).toBe(true);
+  it("holds the delegated stages for one named person and the rest for a role", () => {
+    // The associate dean is chosen by the dean from their own school; the
+    // associate director is chosen by the director from the whole role.
+    expect(stage("node_stage_associate_dean").data.assignment).toEqual({
+      mode: "nominated",
+      pool: "school_associate_deans",
+    });
+    expect(stage("node_stage_associate_director").data.assignment).toEqual({
+      mode: "nominated",
+      pool: "role_holders",
+    });
 
     for (const id of [
-      "node_stage_associate_dean",
+      "node_stage_dean",
       "node_stage_hr_initial",
       "node_stage_rc",
       "node_stage_fdw",
       "node_stage_hr_final",
       "node_stage_director",
     ]) {
-      expect(stage(id).data.nominatesNext).toBe(false);
+      expect(stage(id).data.assignment.mode).toBe("role");
     }
   });
 

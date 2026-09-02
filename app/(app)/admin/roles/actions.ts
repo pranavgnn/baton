@@ -14,6 +14,11 @@ import {
   type ActionResult,
 } from "@/lib/actions";
 import {
+  ROLE_DESIGNATION_KEYS,
+  designationLabel,
+  type RoleDesignation,
+} from "@/lib/auth/designations";
+import {
   PERMISSION_KEYS,
   SUPER_ADMIN_PERMISSION,
   type PermissionKey,
@@ -21,6 +26,7 @@ import {
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { application, role, userRole, workflow } from "@/lib/db/schema";
+import { releaseSchoolGrants, syncDesignatedRoles } from "@/lib/schools/sync";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
 import { stageNodes } from "@/lib/workflow/graph";
 
@@ -34,9 +40,31 @@ const roleInput = z.object({
   permissions: z
     .array(z.enum(PERMISSION_KEYS as [PermissionKey, ...PermissionKey[]]))
     .default([]),
+  /** Empty string means "no standing post", which is the common case. */
+  designation: z
+    .union([
+      z.literal(""),
+      z.enum(ROLE_DESIGNATION_KEYS as [RoleDesignation, ...RoleDesignation[]]),
+    ])
+    .default(""),
 });
 
 export type RoleInput = z.input<typeof roleInput>;
+
+/**
+ * A designation names one role, so claiming one has to take it off whoever
+ * held it - refusing instead would leave an admin unable to move it without
+ * first knowing where it currently sits.
+ */
+async function claimDesignation(
+  designation: RoleDesignation,
+  roleId: string,
+): Promise<void> {
+  await db
+    .update(role)
+    .set({ designation: null })
+    .where(and(eq(role.designation, designation), ne(role.id, roleId)));
+}
 
 async function assertNameFree(name: string, excludeId?: string) {
   const existing = await db.query.role.findFirst({
@@ -66,8 +94,14 @@ export async function createRole(input: RoleInput): Promise<ActionResult> {
       .orderBy(desc(role.priority))
       .limit(1);
 
+    const id = crypto.randomUUID();
+    // Freed before the insert, or the unique index rejects the new row.
+    if (parsed.data.designation) {
+      await claimDesignation(parsed.data.designation, id);
+    }
+
     await db.insert(role).values({
-      id: crypto.randomUUID(),
+      id,
       name: parsed.data.name,
       description: parsed.data.description || null,
       permissions: parsed.data.permissions,
@@ -75,15 +109,24 @@ export async function createRole(input: RoleInput): Promise<ActionResult> {
       // that unnamed users are given.
       priority: (last?.priority ?? -1) + 1,
       isSystem: false,
+      designation: parsed.data.designation || null,
     });
+
+    if (parsed.data.designation) await syncDesignatedRoles();
 
     await recordAudit({
       action: "role.created",
       actor: current,
-      summary: `Created the role "${parsed.data.name}".`,
+      summary: parsed.data.designation
+        ? `Created the role "${parsed.data.name}", which now stands for ${designationLabel(parsed.data.designation).toLowerCase()}.`
+        : `Created the role "${parsed.data.name}".`,
       targetType: "role",
+      targetId: id,
       targetLabel: parsed.data.name,
-      detail: { permissions: parsed.data.permissions },
+      detail: {
+        permissions: parsed.data.permissions,
+        designation: parsed.data.designation || null,
+      },
     });
 
     revalidatePath("/admin/roles");
@@ -118,14 +161,25 @@ export async function updateRole(
       ? existing.permissions
       : parsed.data.permissions;
 
+    const designation = parsed.data.designation || null;
+    if (designation) await claimDesignation(designation, id);
+
     await db
       .update(role)
       .set({
         name: parsed.data.name,
         description: parsed.data.description || null,
         permissions,
+        designation,
       })
       .where(eq(role.id, id));
+
+    if (existing.designation !== designation) {
+      // Whatever this role was auto-granted for no longer applies; the
+      // reconciliation then re-grants under whichever role now holds it.
+      await releaseSchoolGrants(id);
+    }
+    await syncDesignatedRoles();
 
     await recordAudit({
       action: "role.updated",
@@ -134,7 +188,7 @@ export async function updateRole(
       targetType: "role",
       targetId: id,
       targetLabel: parsed.data.name,
-      detail: { permissions },
+      detail: { permissions, designation },
     });
 
     revalidatePath("/admin/roles");

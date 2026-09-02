@@ -7,6 +7,7 @@
 import { eq } from "drizzle-orm";
 
 import { provisionUser } from "@/lib/auth/provision";
+import { syncDesignatedRoles } from "@/lib/schools/sync";
 import { db } from "@/lib/db";
 import {
   role,
@@ -94,6 +95,14 @@ export const DEMO_USERS = [
     designation: "Director",
   },
   {
+    email: "associatedirector@manipal.edu",
+    name: "Test Associate Director",
+    roleName: "Associate Director",
+    employeeId: "TEST-0010",
+    school: null,
+    designation: "Associate Director",
+  },
+  {
     email: "institutehr@manipal.edu",
     name: "Test Institute HR",
     roleName: "Institute HR",
@@ -154,6 +163,9 @@ async function main() {
   }
 
   await linkSchoolSignatories();
+  // The dean and associate dean roles follow the postings just made, exactly
+  // as they do when an admin sets them from the schools page.
+  await syncDesignatedRoles();
 
   console.log(`\nAll demo accounts use the password: ${DEMO_PASSWORD}\n`);
 }
