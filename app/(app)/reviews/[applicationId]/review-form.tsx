@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { PrefillProfile } from "@/lib/workflow/autofill";
 import type {
   FormSchema,
   SectionData,
@@ -31,12 +32,15 @@ export function ReviewForm({
   outcomes,
   defaultValues,
   nomineesByOutcome,
+  profile,
 }: {
   applicationId: string;
   stageLabel: string;
   form: FormSchema;
   outcomes: StageOutcome[];
   defaultValues: SectionData | null;
+  /** The reviewer's own account, for any question that draws on it. */
+  profile: PrefillProfile;
   /**
    * Per outcome, who it may be addressed to. Null for an outcome that goes to
    * a whole role, which is most of them.
@@ -56,6 +60,7 @@ export function ReviewForm({
     <FormWizard
       form={form}
       defaultValues={defaultValues}
+      profile={profile}
       submitHeading={`Confirm your ${stageLabel.toLowerCase()}`}
       submitDescription="Choose the outcome that decides where this application goes next."
       onSaveDraft={(data) => saveStageDraft(applicationId, data)}

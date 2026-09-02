@@ -33,6 +33,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import {
+  applyCalculations,
+  applyPrefill,
+  type PrefillProfile,
+} from "@/lib/workflow/autofill";
 import { buildDefaultValues, valueFields } from "@/lib/workflow/form";
 import { buildFormZodSchema } from "@/lib/workflow/form";
 import type { FormSchema, SectionData } from "@/lib/workflow/types";
@@ -64,6 +69,12 @@ export type FormWizardProps = {
   submitHeading?: string;
   submitDescription?: string;
   disabled?: boolean;
+  /**
+   * The account values behind any prefilled question. Applied to what the
+   * wizard starts from, and again on the server, so what is shown read-only is
+   * also what is stored.
+   */
+  profile?: PrefillProfile | null;
 };
 
 export function FormWizard({
@@ -75,6 +86,7 @@ export function FormWizard({
   submitHeading = "Review before submitting",
   submitDescription = "Check every answer. Once submitted the application moves to the next stage and can no longer be edited.",
   disabled,
+  profile,
 }: FormWizardProps) {
   const sections = form.sections;
   const previewStep = sections.length;
@@ -87,8 +99,12 @@ export function FormWizard({
 
   const resolver = useMemo(() => zodResolver(buildFormZodSchema(form)), [form]);
   const initialValues = useMemo(
-    () => buildDefaultValues(form, defaultValues),
-    [form, defaultValues],
+    () =>
+      applyCalculations(
+        form,
+        applyPrefill(form, buildDefaultValues(form, defaultValues), profile),
+      ),
+    [form, defaultValues, profile],
   );
 
   const methods = useForm<FieldValues>({
@@ -204,7 +220,11 @@ export function FormWizard({
     if (!onClear) return;
     const result = await onClear();
     if (result.ok) {
-      const blank = buildDefaultValues(form, null);
+      // Cleared back to what the account can answer, not to nothing.
+      const blank = applyCalculations(
+        form,
+        applyPrefill(form, buildDefaultValues(form, null), profile),
+      );
       markPersisted(blank);
       reset(blank);
       setStep(0);
@@ -276,6 +296,7 @@ export function FormWizard({
                   field={field}
                   control={control}
                   disabled={disabled}
+                  profile={profile}
                 />
               ))}
             </div>

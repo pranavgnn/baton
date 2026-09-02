@@ -19,7 +19,9 @@ import {
   applicationEvent,
   applicationFile,
 } from "@/lib/db/schema";
+import { applyCalculations, applyPrefill } from "@/lib/workflow/autofill";
 import { collectFiles, pruneToSchema, validateForm } from "@/lib/workflow/form";
+import { accountProfile } from "@/lib/users/account-profile";
 import { startNode } from "@/lib/workflow/graph";
 import {
   APPLICANT_NAMESPACE,
@@ -194,7 +196,17 @@ export async function submitApplication(
     const start = startNode(app.graph);
     if (!start) return fail("The workflow has no submission step.");
 
-    const pruned = pruneToSchema(start.data.form, data);
+    // Recomputed and re-prefilled rather than taken as sent: a total the
+    // browser was talked into, or a locked answer edited on the way, is
+    // overwritten here before anything is validated or stored.
+    const pruned = applyCalculations(
+      start.data.form,
+      applyPrefill(
+        start.data.form,
+        pruneToSchema(start.data.form, data),
+        await accountProfile(current.id),
+      ),
+    );
     const validation = validateForm(start.data.form, pruned);
     if (!validation.ok) {
       return fail(

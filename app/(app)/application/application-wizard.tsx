@@ -6,6 +6,7 @@ import { toast } from "sonner";
 
 import { FormWizard } from "@/components/form-runtime/form-wizard";
 import { Button } from "@/components/ui/button";
+import type { PrefillProfile } from "@/lib/workflow/autofill";
 import type { FormSchema, SectionData } from "@/lib/workflow/types";
 import {
   clearApplicationDraft,
@@ -16,9 +17,11 @@ import {
 export function ApplicationWizard({
   form,
   defaultValues,
+  profile,
 }: {
   form: FormSchema;
   defaultValues: SectionData | null;
+  profile: PrefillProfile;
 }) {
   const router = useRouter();
 
@@ -26,6 +29,7 @@ export function ApplicationWizard({
     <FormWizard
       form={form}
       defaultValues={defaultValues}
+      profile={profile}
       onSaveDraft={saveApplicationDraft}
       onClear={clearApplicationDraft}
       renderSubmitActions={({ getValues, validate, busy, setBusy }) => (

@@ -1,7 +1,9 @@
 "use client";
 
+import { useEffect } from "react";
 import {
   Controller,
+  useController,
   useWatch,
   type Control,
   type FieldValues,
@@ -29,6 +31,12 @@ import {
   isFieldRequired,
   isFieldVisible,
 } from "@/lib/workflow/conditions";
+import { formulaKeys } from "@/lib/workflow/calc";
+import {
+  computed,
+  isLockedByProfile,
+  type PrefillProfile,
+} from "@/lib/workflow/autofill";
 import type { AnyField, FileValue } from "@/lib/workflow/types";
 import { cn } from "@/lib/utils";
 import { FileField } from "./file-field";
@@ -44,6 +52,8 @@ export type FieldRendererProps = {
    * `qualifications.0.year`, so its errors land on the input that caused them.
    */
   name?: string;
+  /** The account values a prefilled field draws on. */
+  profile?: PrefillProfile | null;
 };
 
 /**
@@ -55,6 +65,7 @@ export function FieldRenderer({
   control,
   disabled,
   name,
+  profile,
 }: FieldRendererProps) {
   const path = name ?? field.key;
 
@@ -80,6 +91,22 @@ export function FieldRenderer({
   const required = isFieldRequired(field, scope);
 
   if (!visible) return null;
+
+  // Worked out rather than asked for, and taken from the account rather than
+  // asked for: both render as something to read, not something to fill in.
+  if (field.formula) {
+    return (
+      <CalculatedField
+        field={field}
+        control={control}
+        path={path}
+        scopePrefix={scopePrefix}
+        required={required}
+      />
+    );
+  }
+
+  const locked = isLockedByProfile(field, profile);
 
   if (field.type === "heading") {
     return (
@@ -118,6 +145,7 @@ export function FieldRenderer({
           control={control}
           name={path}
           disabled={disabled}
+          profile={profile}
         />
       </Field>
     );
@@ -151,6 +179,11 @@ export function FieldRenderer({
 
             {renderControl()}
 
+            {locked ? (
+              <FieldDescription data-testid={`prefilled-${path}`}>
+                Taken from your account. Ask an administrator if it is wrong.
+              </FieldDescription>
+            ) : null}
             {field.description && field.type !== "checkbox" ? (
               <FieldDescription>{field.description}</FieldDescription>
             ) : null}
@@ -166,7 +199,7 @@ export function FieldRenderer({
                   id={inputId}
                   rows={5}
                   placeholder={field.placeholder}
-                  disabled={disabled}
+                  disabled={disabled || locked}
                   aria-invalid={invalid}
                   value={(rhf.value as string) ?? ""}
                   onChange={rhf.onChange}
@@ -303,6 +336,9 @@ export function FieldRenderer({
                   }
                   placeholder={field.placeholder}
                   disabled={disabled}
+                  readOnly={locked}
+                  aria-readonly={locked || undefined}
+                  className={cn(locked && "bg-muted")}
                   aria-invalid={invalid}
                   value={(rhf.value as string | number) ?? ""}
                   onChange={rhf.onChange}
@@ -314,5 +350,78 @@ export function FieldRenderer({
         }
       }}
     />
+  );
+}
+
+/**
+ * An answer the form works out for itself.
+ *
+ * The value is written back into the form rather than only displayed, so it is
+ * what gets validated, drafted and submitted - and recomputed again on the
+ * server, which is what makes the read-only input honest rather than merely
+ * discouraging.
+ */
+function CalculatedField({
+  field,
+  control,
+  path,
+  scopePrefix,
+  required,
+}: {
+  field: AnyField;
+  control: Control<FieldValues>;
+  path: string;
+  scopePrefix: string;
+  required: boolean;
+}) {
+  const keys = formulaKeys(field.formula ?? "");
+  const watched = useWatch({
+    control,
+    name: keys.map((key) => `${scopePrefix}${key}`),
+  }) as unknown[];
+
+  const scope: Record<string, unknown> = {};
+  keys.forEach((key, index) => {
+    scope[key] = watched[index];
+  });
+
+  const value = computed(field, scope);
+  const { field: rhf, fieldState } = useController({ control, name: path });
+
+  useEffect(() => {
+    if (rhf.value !== value) rhf.onChange(value);
+    // Only the computed value should drive this; `rhf` is new every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
+  const inputId = `field-${path}`;
+
+  return (
+    <Field
+      data-invalid={Boolean(fieldState.error)}
+      className={cn(field.width === "half" ? "sm:col-span-1" : "col-span-full")}
+      data-testid={`field-${path}`}
+    >
+      <FieldLabel htmlFor={inputId}>
+        {field.label}
+        {required ? (
+          <span aria-hidden className="text-destructive">
+            *
+          </span>
+        ) : null}
+      </FieldLabel>
+      <Input
+        id={inputId}
+        readOnly
+        aria-readonly
+        className="bg-muted"
+        data-testid={`calculated-${path}`}
+        value={value ?? ""}
+      />
+      <FieldDescription>
+        {field.description || "Worked out from your other answers."}
+      </FieldDescription>
+      <FieldError errors={[fieldState.error]} />
+    </Field>
   );
 }
