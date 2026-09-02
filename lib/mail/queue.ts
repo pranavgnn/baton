@@ -70,6 +70,12 @@ export async function ensureEmailTopic(): Promise<void> {
   const admin = kafka().admin();
   await admin.connect();
   try {
+    // Asked for rather than assumed: creating a topic that already exists is
+    // harmless, but the broker answers with an error that KafkaJS logs at
+    // ERROR level - which reads like a fault on every restart after the first.
+    const existing = await admin.listTopics();
+    if (existing.includes(EMAIL_TOPIC)) return;
+
     await admin.createTopics({
       // KafkaJS 2 defers to the cluster unless these are given, and a
       // single-node broker has no defaults to defer to.
