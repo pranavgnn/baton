@@ -25,7 +25,14 @@ import {
 } from "@/lib/auth/permissions";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { application, role, userRole, workflow } from "@/lib/db/schema";
+import {
+  application,
+  role,
+  school,
+  user,
+  userRole,
+  workflow,
+} from "@/lib/db/schema";
 import { syncAdminFlags } from "@/lib/auth/admin-flag";
 import { releaseSchoolGrants, syncDesignatedRoles } from "@/lib/schools/sync";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
@@ -317,6 +324,59 @@ export async function deleteRole(id: string): Promise<ActionResult> {
 
     revalidatePath("/admin/roles");
     return ok();
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Who holds a role                                                           */
+/* -------------------------------------------------------------------------- */
+
+export type RoleMember = {
+  id: string;
+  name: string;
+  email: string;
+  employeeId: string;
+  schoolName: string;
+  disabled: boolean;
+};
+
+/**
+ * Everyone holding one role.
+ *
+ * Fetched when the role is opened rather than sent with the page: a role's
+ * members are only wanted one role at a time, and shipping every membership in
+ * the institute to render a table of counts would be a great deal of nothing.
+ */
+export async function listRoleMembers(
+  roleId: string,
+): Promise<ActionResult<RoleMember[]>> {
+  try {
+    await requirePermissionAction("roles.manage");
+
+    const rows = await db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        employeeId: user.employeeId,
+        schoolName: school.name,
+        disabled: user.disabled,
+      })
+      .from(userRole)
+      .innerJoin(user, eq(user.id, userRole.userId))
+      .leftJoin(school, eq(school.id, user.schoolId))
+      .where(eq(userRole.roleId, roleId))
+      .orderBy(user.name);
+
+    return ok(
+      rows.map((row) => ({
+        ...row,
+        employeeId: row.employeeId ?? "",
+        schoolName: row.schoolName ?? "",
+      })),
+    );
   } catch (error) {
     return failFrom(error);
   }

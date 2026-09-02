@@ -8,8 +8,14 @@ import { UsersManager, type UserRow } from "./users-manager";
 
 export const metadata: Metadata = { title: "Users" };
 
-export default async function UsersPage() {
+export default async function UsersPage({
+  searchParams,
+}: PageProps<"/admin/users">) {
   const current = await requirePermission("users.manage");
+  // A link from elsewhere in the admin area - the members of a role, say -
+  // arrives naming one person, and should land on that person rather than on
+  // page one of everybody.
+  const { person } = await searchParams;
 
   const [rows, roles, schools] = await Promise.all([
     db
@@ -90,6 +96,7 @@ export default async function UsersPage() {
         roles={roles.map((r) => ({ id: r.id, name: r.name }))}
         schools={schools.map((s) => ({ id: s.id, name: s.name }))}
         currentUserId={current.id}
+        openEmail={typeof person === "string" ? person : null}
       />
     </div>
   );

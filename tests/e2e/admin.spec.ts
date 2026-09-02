@@ -33,11 +33,36 @@ test.describe("role administration", () => {
     await page.getByRole("button", { name: "Create role" }).click();
 
     await expectToast(page, "Role created.");
-    // The row summarises what the role can do by area rather than listing
-    // every permission, so it stays readable as roles grow.
+    // The row counts what the role can do rather than listing it, so the
+    // table stays readable as roles grow.
     const row = page.getByTestId(`role-${NEW_ROLE}`);
     await expect(row).toBeVisible();
-    await expect(row).toContainText("Applications · 1");
+    await expect(row).toContainText("1");
+  });
+
+  test("opens a role to say what it grants and who holds it", async ({
+    page,
+  }) => {
+    await page.goto("/admin/roles");
+    await page.getByTestId("open-role-Dean").click();
+
+    const detail = page.getByTestId("role-detail");
+    await expect(detail).toBeVisible();
+    // Spelled out here, which is why the table no longer has to.
+    await expect(detail).toContainText("Review applications");
+    await expect(detail).toContainText("Dean of a school");
+
+    // Its members, searchable, and each one a way into their own record.
+    await expect(detail.getByTestId("role-members")).toContainText("Test Dean");
+    await detail.getByTestId("member-search").fill("nobody-by-that-name");
+    await expect(detail).toContainText("Nobody matches that search.");
+    await detail.getByTestId("member-search").fill("dean@manipal.edu");
+
+    await detail.getByRole("link", { name: "Open" }).first().click();
+    await expect(page).toHaveURL(/\/admin\/users\?person=/);
+    await expect(page.getByTestId("user-detail")).toContainText(
+      "dean@manipal.edu",
+    );
   });
 
   test("rejects a duplicate role name", async ({ page }) => {
@@ -231,6 +256,34 @@ test.describe("user administration", () => {
     // The rows the search matches stay; everyone else goes.
     await expect(page.getByTestId("user-dean@manipal.edu")).toBeVisible();
     await expect(page.getByTestId("user-employee@manipal.edu")).toHaveCount(0);
+  });
+});
+
+test.describe("one account, in full", () => {
+  test("opens from the row and shows what they have applied for", async ({
+    page,
+  }) => {
+    await page.goto("/admin/users");
+    await page
+      .getByRole("textbox", { name: "Search users" })
+      .fill("employee@manipal.edu");
+    await page.getByTestId("open-user-employee@manipal.edu").click();
+
+    const detail = page.getByTestId("user-detail");
+    await expect(detail).toBeVisible();
+    await expect(detail).toContainText("TEST-0001");
+    await expect(detail).toContainText("School of Computer Engineering");
+    await expect(detail).toContainText("Regular");
+    // Their applications - the point of opening the record at all.
+    await expect(detail.getByTestId("user-applications")).toContainText(
+      "PROM-",
+    );
+
+    // And straight from reading into changing.
+    await detail.getByTestId("edit-from-detail").click();
+    await expect(page.getByTestId("user-detail")).toHaveCount(0);
+    await expect(page.getByTestId("user-date-of-birth")).toBeVisible();
+    await closeOverlays(page);
   });
 });
 

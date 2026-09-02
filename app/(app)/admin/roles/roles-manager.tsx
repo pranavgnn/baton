@@ -50,11 +50,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -74,6 +69,7 @@ import {
   type PermissionKey,
 } from "@/lib/auth/permissions";
 import { createRole, deleteRole, updateRole } from "./actions";
+import { RoleDetailDialog } from "./role-detail";
 import { RolePriorityDialog } from "./role-priority";
 
 export type RoleRow = {
@@ -96,46 +92,6 @@ function permissionLabels(permissions: string[]): string[] {
   );
 }
 
-/**
- * What a role can do, at a glance.
- *
- * Listing every permission as its own badge is what made this page unreadable
- * once roles held more than two or three: the row says how many, in which
- * areas, and the full list is one hover - or the editor - away.
- */
-function PermissionSummary({ permissions }: { permissions: string[] }) {
-  if (permissions.includes(SUPER_ADMIN_PERMISSION)) {
-    return <Badge>All permissions</Badge>;
-  }
-  if (permissions.length === 0) {
-    return <span className="text-xs text-muted-foreground">None granted</span>;
-  }
-
-  const counts = PERMISSION_GROUPS.map((group) => ({
-    group,
-    held: PERMISSIONS.filter(
-      (entry) => entry.group === group && permissions.includes(entry.key),
-    ),
-  })).filter((entry) => entry.held.length > 0);
-
-  return (
-    <div className="flex flex-wrap gap-1">
-      {counts.map(({ group, held }) => (
-        <Tooltip key={group}>
-          <TooltipTrigger asChild>
-            <Badge variant="outline" className="font-normal">
-              {group} · {held.length}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            {held.map((entry) => entry.label).join(", ")}
-          </TooltipContent>
-        </Tooltip>
-      ))}
-    </div>
-  );
-}
-
 /** Radix forbids an empty item value, so "no post" carries a sentinel. */
 const NO_DESIGNATION = "none";
 
@@ -152,6 +108,7 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
     open: false,
     role: null,
   });
+  const [viewing, setViewing] = useState<RoleRow | null>(null);
   const [pendingDelete, setPendingDelete] = useState<RoleRow | null>(null);
   const [priorityOpen, setPriorityOpen] = useState(false);
   const [isDeleting, startDelete] = useTransition();
@@ -225,9 +182,9 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
                 <TableRow>
                   <TableHead className="w-10 text-right">#</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead className="w-44">Stands for</TableHead>
-                  <TableHead className="w-24">Members</TableHead>
-                  <TableHead>Permissions</TableHead>
+                  <TableHead className="w-48">Stands for</TableHead>
+                  <TableHead className="w-28">Members</TableHead>
+                  <TableHead className="w-32">Permissions</TableHead>
                   <TableHead className="w-24" />
                 </TableRow>
               </TableHeader>
@@ -247,7 +204,15 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
                         {item.priority + 1}
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-col gap-0.5">
+                        {/* The whole role opens from its name: what it grants
+                            and who holds it are a click away rather than
+                            spread across the row. */}
+                        <button
+                          type="button"
+                          className="row-opener"
+                          onClick={() => setViewing(item)}
+                          data-testid={`open-role-${item.name}`}
+                        >
                           <span className="flex items-center gap-2 font-medium">
                             {item.name}
                             {item.id === defaultRoleId ? (
@@ -259,7 +224,7 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
                           <span className="text-xs text-muted-foreground">
                             {item.description || "No description."}
                           </span>
-                        </div>
+                        </button>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {item.designation
@@ -269,8 +234,10 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
                       <TableCell className="text-sm tabular-nums">
                         {item.memberCount}
                       </TableCell>
-                      <TableCell>
-                        <PermissionSummary permissions={item.permissions} />
+                      <TableCell className="text-sm text-muted-foreground tabular-nums">
+                        {item.permissions.includes(SUPER_ADMIN_PERMISSION)
+                          ? "All"
+                          : item.permissions.length}
                       </TableCell>
                       <TableCell>
                         <div className="flex justify-end gap-1">
@@ -314,6 +281,18 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
         open={priorityOpen}
         onOpenChange={setPriorityOpen}
         roles={roles}
+      />
+
+      {/* Keyed so a second role opens with its own members, not the first's. */}
+      <RoleDetailDialog
+        key={viewing?.id ?? "none"}
+        role={viewing}
+        isDefault={viewing?.id === defaultRoleId}
+        onOpenChange={(open) => !open && setViewing(null)}
+        onEdit={() => {
+          setEditor({ open: true, role: viewing });
+          setViewing(null);
+        }}
       />
 
       <RoleEditor
