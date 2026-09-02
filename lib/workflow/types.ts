@@ -291,8 +291,8 @@ export const stageNodeDataSchema = z.object({
    *
    * It sits on the stage that is entered rather than on the one handing over,
    * so a reviewer is asked for a name only on the branch that leads somewhere
-   * needing one: the director naming an associate director when they forward,
-   * and not when they decide it themselves.
+   * needing one: the dean naming an associate dean when they delegate, and not
+   * on a branch that goes to a whole role.
    */
   assignment: stageAssignmentSchema.default({
     mode: "role",

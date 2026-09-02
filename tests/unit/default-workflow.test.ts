@@ -70,10 +70,15 @@ describe("the seeded workflow", () => {
 
   it("runs the review stages in the order the process defines", () => {
     expect(next("node_submission")).toBe("node_stage_dean");
+    // The school half is three steps: the dean delegates, the associate dean
+    // recommends, and it comes back to the dean to decide.
     expect(next("node_stage_dean", "Send to associate dean")).toBe(
       "node_stage_associate_dean",
     );
-    expect(next("node_stage_associate_dean", "Forward to HR")).toBe(
+    expect(next("node_stage_associate_dean", "Return to the dean")).toBe(
+      "node_stage_dean_approval",
+    );
+    expect(next("node_stage_dean_approval", "Approve")).toBe(
       "node_stage_hr_initial",
     );
     expect(next("node_stage_hr_initial", "Forward to R&C")).toBe(
@@ -85,6 +90,9 @@ describe("the seeded workflow", () => {
   });
 
   it("closes the application where the process says it closes", () => {
+    expect(next("node_stage_dean_approval", "Reject")).toBe(
+      "node_end_dean_rejected",
+    );
     expect(next("node_stage_hr_final", "Not eligible")).toBe(
       "node_end_ineligible",
     );
@@ -92,7 +100,7 @@ describe("the seeded workflow", () => {
     expect(next("node_stage_director", "Reject")).toBe("node_end_rejected");
   });
 
-  it("gives the intermediate stages no way to close the file", () => {
+  it("gives the stages between the dean and HR no way to close the file", () => {
     // R&C and FD&W may record an ineligibility, but it travels with the
     // application rather than stopping it: HR and the Director decide.
     for (const id of [
@@ -106,22 +114,35 @@ describe("the seeded workflow", () => {
     }
   });
 
-  it("holds the delegated stages for one named person and the rest for a role", () => {
-    // The associate dean is chosen by the dean from their own school; the
-    // associate director is chosen by the director from the whole role.
+  it("asks the dean for nothing when they are only delegating", () => {
+    // The dean writes their remarks once, on the way out, rather than twice.
+    expect(stage("node_stage_dean").data.form.sections).toHaveLength(0);
+    expect(
+      stage("node_stage_dean_approval").data.form.sections[0].fields.map(
+        (field) => field.key,
+      ),
+    ).toEqual(["vacancy_remarks", "remarks"]);
+  });
+
+  it("leaves the Director the last word", () => {
+    expect(
+      stage("node_stage_director").data.outcomes.map(
+        (outcome) => outcome.label,
+      ),
+    ).toEqual(["Approve", "Reject"]);
+  });
+
+  it("holds the delegated stage for one named person and the rest for a role", () => {
+    // The associate dean is chosen by the dean from their own school.
     expect(stage("node_stage_associate_dean").data.assignment).toEqual({
       mode: "nominated",
       pool: "school_associate_deans",
       scope: "all_holders",
     });
-    expect(stage("node_stage_associate_director").data.assignment).toEqual({
-      mode: "nominated",
-      pool: "role_holders",
-      scope: "all_holders",
-    });
 
     for (const id of [
       "node_stage_dean",
+      "node_stage_dean_approval",
       "node_stage_hr_initial",
       "node_stage_rc",
       "node_stage_fdw",
@@ -132,8 +153,45 @@ describe("the seeded workflow", () => {
     }
   });
 
+  it("keeps a dean inside their own school, and leaves HR institute-wide", () => {
+    for (const id of ["node_stage_dean", "node_stage_dean_approval"]) {
+      expect(stage(id).data.assignment.scope).toBe("applicant_school");
+    }
+    for (const id of ["node_stage_hr_initial", "node_stage_director"]) {
+      expect(stage(id).data.assignment.scope).toBe("all_holders");
+    }
+  });
+
+  it("addresses each hand-off notification to the people it concerns", () => {
+    const graph = build();
+    const email = (id: string) => {
+      const node = nodeById(graph, id);
+      if (!node || node.kind !== "email") throw new Error(`${id} is not email`);
+      return node.data;
+    };
+
+    // Telling "the dean" means the dean of this applicant's school, and
+    // telling "the associate dean" means the one just handed the file.
+    expect(email("node_email_dean_assigned").recipientScope).toBe(
+      "applicant_school",
+    );
+    expect(email("node_email_dean_approval_assigned").recipientScope).toBe(
+      "applicant_school",
+    );
+    expect(email("node_email_associate_dean_assigned").recipientScope).toBe(
+      "assigned_person",
+    );
+    expect(email("node_email_hr_initial_assigned").recipientScope).toBe(
+      "all_holders",
+    );
+  });
+
   it("assigns each stage to the role that owns it", () => {
     expect(stage("node_stage_dean").data.roleId).toBe(roleIdByName["Dean"]);
+    // The dean sees the file twice: once to delegate, once to decide.
+    expect(stage("node_stage_dean_approval").data.roleId).toBe(
+      roleIdByName["Dean"],
+    );
     expect(stage("node_stage_associate_dean").data.roleId).toBe(
       roleIdByName["Associate Dean"],
     );

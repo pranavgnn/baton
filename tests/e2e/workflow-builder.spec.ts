@@ -257,7 +257,7 @@ test.describe("workflow builder canvas", () => {
 
     // The seed publishes version 1 with a memo of its own.
     await expect(page.getByTestId("version-1")).toContainText(
-      "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director, who may hand the decision to an associate director.",
+      "Initial process: submission, the dean delegating to an associate dean and deciding on their recommendation, then HR, R&C, FD&W, the final HR declaration and the Director.",
     );
 
     // The live revision offers neither restoring nor deleting: it is what the

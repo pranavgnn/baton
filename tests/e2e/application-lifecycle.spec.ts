@@ -378,7 +378,7 @@ test.describe("1. the applicant fills in and submits", () => {
 /*  2 - 5. The review chain                                                    */
 /* -------------------------------------------------------------------------- */
 
-test.describe("2. the dean recommends and chooses an associate dean", () => {
+test.describe("2. the dean delegates to an associate dean", () => {
   test.use({ storageState: storageStatePath("dean") });
 
   test("cannot send it on without naming who reviews it next", async ({
@@ -391,16 +391,9 @@ test.describe("2. the dean recommends and chooses an associate dean", () => {
     await page.getByRole("tab", { name: "Applicant submission" }).click();
     await expect(page.getByText("Ph.D. in Information Security")).toBeVisible();
 
+    // The dean writes nothing at this point - they only decide who looks at
+    // it - so the outcome waits on a name and on nothing else.
     await page.getByRole("tab", { name: "Your review" }).click();
-    await input(page, "vacancy_remarks").fill(
-      "One Associate Professor position is vacant in the school.",
-    );
-    await input(page, "recommendations").fill(
-      "Recommended. The candidate meets the school's expectations.",
-    );
-    await page.getByTestId("wizard-next").click();
-
-    // The outcome is refused until an associate dean is chosen.
     await expect(
       page.getByTestId("nominee-field-Send to associate dean"),
     ).toBeVisible();
@@ -413,15 +406,7 @@ test.describe("2. the dean recommends and chooses an associate dean", () => {
     await clearMailbox();
     await page.goto("/reviews");
     await applicationRow(page).getByRole("link", { name: "Review" }).click();
-
     await page.getByRole("tab", { name: "Your review" }).click();
-    await input(page, "vacancy_remarks").fill(
-      "One Associate Professor position is vacant in the school.",
-    );
-    await input(page, "recommendations").fill(
-      "Recommended. The candidate meets the school's expectations.",
-    );
-    await page.getByTestId("wizard-next").click();
 
     // Only this school's associate deans are on offer.
     await page.getByTestId("nominee-Send to associate dean").click();
@@ -438,7 +423,9 @@ test.describe("2. the dean recommends and chooses an associate dean", () => {
     const mail = await waitForEmail((message) =>
       message.Subject.includes("awaits your review"),
     );
-    expect(mail.To).toContain("associatedean@manipal.edu");
+    // Addressed to the one person it was handed to, and not to every
+    // associate dean of the school.
+    expect(mail.To).toEqual(["associatedean@manipal.edu"]);
   });
 });
 
@@ -457,16 +444,16 @@ test.describe("3. only the named associate dean sees it", () => {
   test.describe("the one who was", () => {
     test.use({ storageState: storageStatePath("associateDean") });
 
-    test("reviews it and forwards it to HR", async ({ page }) => {
+    test("recommends it and sends it back to the dean", async ({ page }) => {
       await clearMailbox();
 
       await review(page, {
-        outcome: "Forward to HR",
+        outcome: "Return to the dean",
         fill: async (page) => {
-          // The dean's recommendation travels with it.
-          await page.getByRole("tab", { name: "Earlier reviews" }).click();
+          // What the applicant said travels with it.
+          await page.getByRole("tab", { name: "Applicant submission" }).click();
           await expect(
-            page.getByText("Recommended. The candidate meets"),
+            page.getByText("Ph.D. in Information Security"),
           ).toBeVisible();
           await page.getByRole("tab", { name: "Your review" }).click();
 
@@ -482,8 +469,40 @@ test.describe("3. only the named associate dean sees it", () => {
       const mail = await waitForEmail((message) =>
         message.Subject.includes("awaits your review"),
       );
-      expect(mail.To).toContain("hr@manipal.edu");
+      expect(mail.To).toContain("dean@manipal.edu");
     });
+  });
+});
+
+test.describe("3b. the dean decides on the recommendation", () => {
+  test.use({ storageState: storageStatePath("dean") });
+
+  test("approves it, and it goes on to HR", async ({ page }) => {
+    await clearMailbox();
+
+    await review(page, {
+      outcome: "Approve",
+      fill: async (page) => {
+        // The associate dean's recommendation is what the dean decides on.
+        await page.getByRole("tab", { name: "Earlier reviews" }).click();
+        await expect(
+          page.getByText("Reviewed on the dean's referral."),
+        ).toBeVisible();
+        await page.getByRole("tab", { name: "Your review" }).click();
+
+        await input(page, "vacancy_remarks").fill(
+          "One Associate Professor position is vacant in the school.",
+        );
+        await input(page, "remarks").fill(
+          "Approved. The candidate meets the school's expectations.",
+        );
+      },
+    });
+
+    const mail = await waitForEmail((message) =>
+      message.Subject.includes("awaits your review"),
+    );
+    expect(mail.To).toContain("hr@manipal.edu");
   });
 });
 
@@ -652,63 +671,8 @@ test.describe("7. HR declares the candidate eligible", () => {
   });
 });
 
-test.describe("8. the Director hands the decision to an associate director", () => {
+test.describe("8. the Director has the last word", () => {
   test.use({ storageState: storageStatePath("director") });
-
-  test("is asked for a name only on the branch that needs one", async ({
-    page,
-  }) => {
-    await page.goto("/reviews");
-    await applicationRow(page).getByRole("link", { name: "Review" }).click();
-
-    await page.getByRole("tab", { name: "Your review" }).click();
-    await input(page, "remarks").fill("Endorsed at every stage.");
-    await page.getByTestId("wizard-next").click();
-
-    // Deciding it personally asks nobody; handing it over asks who.
-    await expect(page.getByTestId("outcome-Approve")).toBeEnabled();
-    await expect(
-      page.getByTestId("nominee-field-Send to associate director"),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId("outcome-Send to associate director"),
-    ).toBeDisabled();
-  });
-
-  test("sends it to the associate director it names", async ({ page }) => {
-    await clearMailbox();
-    await page.goto("/reviews");
-    await applicationRow(page).getByRole("link", { name: "Review" }).click();
-
-    await page.getByRole("tab", { name: "Your review" }).click();
-    await input(page, "remarks").fill(
-      "Endorsed at every stage. Passed to the Associate Director to decide.",
-    );
-    await page.getByTestId("wizard-next").click();
-
-    await page.getByTestId("nominee-Send to associate director").click();
-    await page
-      .getByRole("option", { name: "Test Associate Director", exact: true })
-      .click();
-    await page.getByTestId("outcome-Send to associate director").click();
-    await expect(page).toHaveURL(/\/reviews$/);
-
-    const mail = await waitForEmail((message) =>
-      message.Subject.includes("awaits your review"),
-    );
-    expect(mail.To).toContain("associatedirector@manipal.edu");
-  });
-
-  test("no longer shows it in the queue", async ({ page }) => {
-    await page.goto("/reviews");
-    await expect(
-      page.getByText("Nothing is waiting on you right now."),
-    ).toBeVisible();
-  });
-});
-
-test.describe("9. the associate director decides in the Director's place", () => {
-  test.use({ storageState: storageStatePath("associateDirector") });
 
   test("approves, and the file goes to Institute HR", async ({ page }) => {
     await clearMailbox();
@@ -716,15 +680,15 @@ test.describe("9. the associate director decides in the Director's place", () =>
     await review(page, {
       outcome: "Approve",
       fill: async (page) => {
-        // The Director's own remarks travel with it.
+        // Every earlier verdict is in front of them when they decide.
         await page.getByRole("tab", { name: "Earlier reviews" }).click();
         await expect(
-          page.getByText("Passed to the Associate Director"),
+          page.getByText("Eligible on every criterion."),
         ).toBeVisible();
         await page.getByRole("tab", { name: "Your review" }).click();
 
         await input(page, "remarks").fill(
-          "Approved on the Director's referral. A strong record.",
+          "Endorsed at every stage. Approved - a strong record.",
         );
       },
     });
@@ -739,13 +703,20 @@ test.describe("9. the associate director decides in the Director's place", () =>
     );
     expect(archive.To).toContain("institutehr@manipal.edu");
   });
+
+  test("no longer shows it in the queue", async ({ page }) => {
+    await page.goto("/reviews");
+    await expect(
+      page.getByText("Nothing is waiting on you right now."),
+    ).toBeVisible();
+  });
 });
 
 /* -------------------------------------------------------------------------- */
 /*  8. The outcome                                                             */
 /* -------------------------------------------------------------------------- */
 
-test.describe("10. the outcome is visible to everyone entitled to it", () => {
+test.describe("9. the outcome is visible to everyone entitled to it", () => {
   test.describe("to the applicant", () => {
     test.use({ storageState: storageStatePath("employee") });
 
@@ -806,11 +777,10 @@ test.describe("10. the outcome is visible to everyone entitled to it", () => {
       for (const entry of [
         "Submitted",
         "Send to associate dean",
-        "Forward to HR",
+        "Return to the dean",
         "Forward to R&C",
         "Forward to FD&W",
         "Eligible",
-        "Send to associate director",
         "Approve",
         "Completed",
       ]) {

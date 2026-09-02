@@ -1,4 +1,4 @@
-import { DEFAULT_SOURCE_HANDLE } from "./types";
+import { DEFAULT_SOURCE_HANDLE, emptyForm } from "./types";
 import type {
   ConditionGroup,
   ConditionOperator,
@@ -6,6 +6,8 @@ import type {
   FormField,
   FormSchema,
   FormSection,
+  RecipientScope,
+  StageAssignment,
   StageOutcome,
   WorkflowEdge,
   WorkflowGraph,
@@ -187,6 +189,7 @@ export const DEFAULT_SCHOOLS = [
   { name: "School of Civil & Chemical Engineering", code: "SCCE" },
   { name: "School of Computer Engineering", code: "SOCE" },
   { name: "School of Electrical Engineering", code: "SEE" },
+  { name: "School of Mechanical Engineering", code: "SOME" },
 ] as const;
 
 export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
@@ -207,7 +210,7 @@ export const DEFAULT_ROLES = [
   {
     name: "Dean",
     description:
-      "Dean of a school. Records a recommendation and sends the application to one of the school's associate deans.",
+      "Dean of a school. Sends an application to one of the school's associate deans and decides it once the recommendation comes back.",
     permissions: ["applications.review"],
     isSystem: false,
     designation: "dean",
@@ -215,7 +218,7 @@ export const DEFAULT_ROLES = [
   {
     name: "Associate Dean",
     description:
-      "Associate dean of a school. Reviews the applications the dean sends them.",
+      "Associate dean of a school. Recommends on the applications the dean sends them.",
     permissions: ["applications.review"],
     isSystem: false,
     designation: "associate_dean",
@@ -246,18 +249,11 @@ export const DEFAULT_ROLES = [
   },
   {
     name: "Director",
-    description: "Gives the final institutional approval or rejection.",
+    description:
+      "Gives the final institutional approval or rejection. Nothing follows it either way.",
     permissions: ["applications.review", "applications.viewAll"],
     isSystem: false,
     designation: null,
-  },
-  {
-    name: "Associate Director",
-    description:
-      "Decides the applications the Director hands to them instead of deciding personally.",
-    permissions: ["applications.review"],
-    isSystem: false,
-    designation: "associate_director",
   },
   {
     name: "Institute HR",
@@ -1449,20 +1445,27 @@ function directorForm(): FormSchema {
   };
 }
 
-function associateDirectorForm(): FormSchema {
+/** What the dean records when the recommendation comes back to them. */
+function deanApprovalForm(): FormSchema {
   return {
     sections: [
       createSection(
-        "Associate Director's Decision",
+        "Dean",
         [
           createField({
             type: "textarea",
+            key: "vacancy_remarks",
+            label: "(a) Vacancy, with remarks",
+            required: true,
+          }),
+          createField({
+            type: "textarea",
             key: "remarks",
-            label: "Remarks",
+            label: "(b) Remarks",
             required: true,
           }),
         ],
-        "The Director has asked you to decide this application. Your decision closes it.",
+        "Read the associate dean's recommendation before deciding. Approving sends the application on to HR; rejecting closes it.",
       ),
     ],
   };
@@ -1480,29 +1483,39 @@ export type DefaultGraphInput = {
 /**
  * The promotion process as STN 023 R5 and Evaluation Form V2 describe it:
  *
- *   Submission -> Dean -> Associate Dean -> HR (initial) -> R&C -> FD&W
- *                                              -> HR (final)
+ *   Submission -> Dean (delegates) -> Associate Dean -> Dean (decides)
+ *                                                       |- rejected -> closed
+ *                                                       `- approved -> HR
+ *                                       HR -> R&C -> FD&W -> HR (final)
  *                                                       |- not eligible -> closed
  *                                                       `- eligible -> Director
  *                                                                      |- approved
  *                                                                      `- rejected
  *
- * The dean names the associate dean who reviews it next, and the file is held
- * for that person alone. Every stage before the final HR declaration always
- * advances: a negative verdict is recorded
+ * The school half of that is three steps rather than one. The dean does not
+ * write anything up front: they name the associate dean who should look at it,
+ * that person records a recommendation, and it comes back to the dean to
+ * approve or reject. Both dean steps are scoped to the applicant's own school,
+ * so a dean is never shown another school's file, and the associate dean step
+ * is held for the one person the dean named.
+ *
+ * Everything from HR onwards always advances: a negative verdict is recorded
  * and carried forward rather than closing the file, so the final eligibility
- * decision rests with HR and the Director alone. Every transition fans out to
- * the notifications the process calls for - to the applicant, and to whichever
- * team the file has landed on - which run alongside the step that carries the
- * application forward rather than in front of it.
+ * decision rests with HR and the Director alone, and the Director's word is the
+ * last one. Every transition fans out to the notifications the process calls
+ * for - to the applicant, and to whichever team the file has landed on - which
+ * run alongside the step that carries the application forward rather than in
+ * front of it.
  */
 export function defaultWorkflowGraph({
   roleIdByName,
   templateIdByName,
 }: DefaultGraphInput): WorkflowGraph {
   const outcomes = {
-    dean: createOutcome("Send to associate dean", "positive"),
-    associateDean: createOutcome("Forward to HR", "positive"),
+    delegate: createOutcome("Send to associate dean", "positive"),
+    recommend: createOutcome("Return to the dean", "positive"),
+    deanApprove: createOutcome("Approve", "positive"),
+    deanReject: createOutcome("Reject", "negative"),
     hrInitial: createOutcome("Forward to R&C", "positive"),
     rc: createOutcome("Forward to FD&W", "positive"),
     fdw: createOutcome("Forward to HR", "positive"),
@@ -1510,9 +1523,6 @@ export function defaultWorkflowGraph({
     ineligible: createOutcome("Not eligible", "negative"),
     approve: createOutcome("Approve", "positive"),
     reject: createOutcome("Reject", "negative"),
-    delegate: createOutcome("Send to associate director", "neutral", false),
-    associateDirectorApprove: createOutcome("Approve", "positive"),
-    associateDirectorReject: createOutcome("Reject", "negative"),
   };
 
   const role = (name: string) => roleIdByName[name] ?? null;
@@ -1539,13 +1549,18 @@ export function defaultWorkflowGraph({
     },
   });
 
-  /** An email addressed to whoever holds a role. */
+  /**
+   * An email addressed to whoever holds a role, optionally narrowed: to the
+   * holders attached to the applicant's own school, or to the one person the
+   * application has just been handed to.
+   */
   const toRole = (
     id: string,
     label: string,
     templateName: string,
     roleName: string,
     position: { x: number; y: number },
+    scope: RecipientScope = "all_holders",
   ): WorkflowNode => ({
     id,
     kind: "email",
@@ -1556,10 +1571,24 @@ export function defaultWorkflowGraph({
       templateId: template(templateName),
       recipientMode: "role",
       recipientRoleId: role(roleName),
-      recipientScope: "all_holders",
+      recipientScope: scope,
       recipientEmail: "",
     },
   });
+
+  /** Offered to everyone holding the role, wherever they sit. */
+  const anyHolder: StageAssignment = {
+    mode: "role",
+    pool: "role_holders",
+    scope: "all_holders",
+  };
+
+  /** Offered only to the holders attached to the applicant's own school. */
+  const schoolHolder: StageAssignment = {
+    mode: "role",
+    pool: "role_holders",
+    scope: "applicant_school",
+  };
 
   const COLUMN = 360;
   const column = (index: number) => index * COLUMN;
@@ -1588,6 +1617,7 @@ export function defaultWorkflowGraph({
       "Reviewer Assignment",
       "Dean",
       { x: column(1), y: 60 },
+      "applicant_school",
     ),
 
     {
@@ -1595,17 +1625,13 @@ export function defaultWorkflowGraph({
       kind: "stage",
       position: { x: column(2), y: 300 },
       data: {
-        label: "Dean Recommendation",
+        label: "Dean Delegation",
         description:
-          "The dean records a recommendation and names the associate dean who reviews it next.",
+          "The dean of the applicant's school names the associate dean who should look at this. Nothing is written up at this point - the dean has the last word once the recommendation comes back.",
         roleId: role("Dean"),
-        form: deanForm(),
-        outcomes: [outcomes.dean],
-        assignment: {
-          mode: "role",
-          pool: "role_holders",
-          scope: "all_holders",
-        },
+        form: emptyForm(),
+        outcomes: [outcomes.delegate],
+        assignment: schoolHolder,
       },
     },
     toApplicant(
@@ -1620,6 +1646,9 @@ export function defaultWorkflowGraph({
       "Reviewer Assignment",
       "Associate Dean",
       { x: column(3), y: 60 },
+      // Only the person the dean named: the rest of the school's associate
+      // deans are not being asked for anything.
+      "assigned_person",
     ),
 
     {
@@ -1627,11 +1656,12 @@ export function defaultWorkflowGraph({
       kind: "stage",
       position: { x: column(4), y: 300 },
       data: {
-        label: "Associate Dean Review",
-        description: "The associate dean the dean chose reviews it.",
+        label: "Associate Dean Recommendation",
+        description:
+          "The associate dean the dean named records a recommendation and their remarks, and sends it back to the dean.",
         roleId: role("Associate Dean"),
         form: associateDeanForm(),
-        outcomes: [outcomes.associateDean],
+        outcomes: [outcomes.recommend],
         // Not offered to the associate deans at large: the dean names one of
         // their own school's, and the file is held for that person alone.
         assignment: {
@@ -1643,22 +1673,68 @@ export function defaultWorkflowGraph({
     },
     toApplicant(
       "node_email_associate_dean_done",
-      "Tell Applicant: with HR",
+      "Tell Applicant: back with the dean",
       "Application Advanced",
       { x: column(5), y: 520 },
+    ),
+    toRole(
+      "node_email_dean_approval_assigned",
+      "Notify Dean: recommendation received",
+      "Reviewer Assignment",
+      "Dean",
+      { x: column(5), y: 60 },
+      "applicant_school",
+    ),
+
+    {
+      id: "node_stage_dean_approval",
+      kind: "stage",
+      position: { x: column(6), y: 300 },
+      data: {
+        label: "Dean Approval",
+        description:
+          "The dean reads the recommendation and either approves the application, sending it on to HR, or rejects it and closes the file.",
+        roleId: role("Dean"),
+        form: deanApprovalForm(),
+        outcomes: [outcomes.deanApprove, outcomes.deanReject],
+        assignment: schoolHolder,
+      },
+    },
+    toApplicant(
+      "node_email_dean_approved",
+      "Tell Applicant: with HR",
+      "Application Advanced",
+      { x: column(7), y: 520 },
     ),
     toRole(
       "node_email_hr_initial_assigned",
       "Notify HR",
       "Reviewer Assignment",
       "HR Officer",
-      { x: column(5), y: 60 },
+      { x: column(7), y: 60 },
     ),
+    toApplicant(
+      "node_email_dean_rejected",
+      "Tell Applicant: rejected by the dean",
+      "Application Rejected",
+      { x: column(7), y: 840 },
+    ),
+    {
+      id: "node_end_dean_rejected",
+      kind: "end",
+      position: { x: column(7), y: 700 },
+      data: {
+        label: "Closed - Rejected by the Dean",
+        description:
+          "The dean rejected the application after reading the associate dean's recommendation.",
+        result: "rejected",
+      },
+    },
 
     {
       id: "node_stage_hr_initial",
       kind: "stage",
-      position: { x: column(6), y: 300 },
+      position: { x: column(8), y: 300 },
       data: {
         label: "HR Initial Review",
         description:
@@ -1666,31 +1742,27 @@ export function defaultWorkflowGraph({
         roleId: role("HR Officer"),
         form: hrInitialForm(),
         outcomes: [outcomes.hrInitial],
-        assignment: {
-          mode: "role",
-          pool: "role_holders",
-          scope: "all_holders",
-        },
+        assignment: anyHolder,
       },
     },
     toApplicant(
       "node_email_hr_initial_done",
       "Tell Applicant: with R&C",
       "Application Advanced",
-      { x: column(7), y: 520 },
+      { x: column(9), y: 520 },
     ),
     toRole(
       "node_email_rc_assigned",
       "Notify R&C",
       "Reviewer Assignment",
       "R&C Officer",
-      { x: column(7), y: 60 },
+      { x: column(9), y: 60 },
     ),
 
     {
       id: "node_stage_rc",
       kind: "stage",
-      position: { x: column(8), y: 300 },
+      position: { x: column(10), y: 300 },
       data: {
         label: "R&C Research Evaluation",
         description:
@@ -1698,62 +1770,54 @@ export function defaultWorkflowGraph({
         roleId: role("R&C Officer"),
         form: rcForm(),
         outcomes: [outcomes.rc],
-        assignment: {
-          mode: "role",
-          pool: "role_holders",
-          scope: "all_holders",
-        },
+        assignment: anyHolder,
       },
     },
     toApplicant(
       "node_email_rc_done",
       "Tell Applicant: with FD&W",
       "Application Advanced",
-      { x: column(9), y: 520 },
+      { x: column(11), y: 520 },
     ),
     toRole(
       "node_email_fdw_assigned",
       "Notify FD&W",
       "Reviewer Assignment",
       "FDW Officer",
-      { x: column(9), y: 60 },
+      { x: column(11), y: 60 },
     ),
 
     {
       id: "node_stage_fdw",
       kind: "stage",
-      position: { x: column(10), y: 300 },
+      position: { x: column(12), y: 300 },
       data: {
         label: "FD&W Formal Evaluation",
         description: "The formal evaluation and eligibility statement.",
         roleId: role("FDW Officer"),
         form: fdwForm(),
         outcomes: [outcomes.fdw],
-        assignment: {
-          mode: "role",
-          pool: "role_holders",
-          scope: "all_holders",
-        },
+        assignment: anyHolder,
       },
     },
     toApplicant(
       "node_email_fdw_done",
       "Tell Applicant: back with HR",
       "Application Advanced",
-      { x: column(11), y: 520 },
+      { x: column(13), y: 520 },
     ),
     toRole(
       "node_email_hr_final_assigned",
       "Notify HR",
       "Reviewer Assignment",
       "HR Officer",
-      { x: column(11), y: 60 },
+      { x: column(13), y: 60 },
     ),
 
     {
       id: "node_stage_hr_final",
       kind: "stage",
-      position: { x: column(12), y: 300 },
+      position: { x: column(14), y: 300 },
       data: {
         label: "HR Final Eligibility Declaration",
         description:
@@ -1761,23 +1825,19 @@ export function defaultWorkflowGraph({
         roleId: role("HR Officer"),
         form: hrFinalForm(),
         outcomes: [outcomes.eligible, outcomes.ineligible],
-        assignment: {
-          mode: "role",
-          pool: "role_holders",
-          scope: "all_holders",
-        },
+        assignment: anyHolder,
       },
     },
     toApplicant(
       "node_email_declared_ineligible",
       "Tell Applicant: not eligible",
       "Application Rejected",
-      { x: column(13), y: 700 },
+      { x: column(15), y: 700 },
     ),
     {
       id: "node_end_ineligible",
       kind: "end",
-      position: { x: column(13), y: 560 },
+      position: { x: column(15), y: 560 },
       data: {
         label: "Closed - Not Eligible",
         description: "HR declared the applicant ineligible.",
@@ -1788,87 +1848,47 @@ export function defaultWorkflowGraph({
       "node_email_declared_eligible",
       "Tell Applicant: with the Director",
       "Application Advanced",
-      { x: column(13), y: -60 },
+      { x: column(15), y: -60 },
     ),
     toRole(
       "node_email_director_assigned",
       "Notify Director",
       "Reviewer Assignment",
       "Director",
-      { x: column(13), y: 60 },
+      { x: column(15), y: 60 },
     ),
 
     {
       id: "node_stage_director",
       kind: "stage",
-      position: { x: column(14), y: 220 },
+      position: { x: column(16), y: 220 },
       data: {
         label: "Director Review",
         description:
-          "The final institutional decision, or a hand-over to an associate director who takes it instead.",
+          "The final institutional decision. Nothing follows it either way.",
         roleId: role("Director"),
         form: directorForm(),
-        outcomes: [outcomes.approve, outcomes.reject, outcomes.delegate],
-        assignment: {
-          mode: "role",
-          pool: "role_holders",
-          scope: "all_holders",
-        },
-      },
-    },
-    toRole(
-      "node_email_associate_director_assigned",
-      "Notify Associate Director",
-      "Reviewer Assignment",
-      "Associate Director",
-      { x: column(15), y: 620 },
-    ),
-    toApplicant(
-      "node_email_associate_director_applicant",
-      "Tell Applicant: with the Associate Director",
-      "Application Advanced",
-      { x: column(15), y: 740 },
-    ),
-    {
-      id: "node_stage_associate_director",
-      kind: "stage",
-      position: { x: column(15), y: 480 },
-      data: {
-        label: "Associate Director Review",
-        description:
-          "Decides an application the Director handed over, in the Director's place.",
-        roleId: role("Associate Director"),
-        form: associateDirectorForm(),
-        outcomes: [
-          outcomes.associateDirectorApprove,
-          outcomes.associateDirectorReject,
-        ],
-        // The Director does not hand this to every associate director: they
-        // name one, and the decision is that person's to make.
-        assignment: {
-          mode: "nominated",
-          pool: "role_holders",
-          scope: "all_holders",
-        },
+        outcomes: [outcomes.approve, outcomes.reject],
+        assignment: anyHolder,
       },
     },
     toApplicant(
       "node_email_approved",
       "Tell Applicant: approved",
       "Application Approved",
-      { x: column(16), y: -120 },
+      { x: column(17), y: -120 },
     ),
     toRole(
       "node_email_archive",
       "Send to Institute HR for filing",
       "Archive Notice",
       "Institute HR",
-      { x: column(16), y: 0 },
+      { x: column(17), y: 0 },
     ),
     {
       id: "node_end_approved",
       kind: "end",
-      position: { x: column(16), y: 140 },
+      position: { x: column(17), y: 140 },
       data: {
         label: "Approved",
         description: "The promotion was approved by the Director.",
@@ -1879,19 +1899,19 @@ export function defaultWorkflowGraph({
       "node_email_rejected",
       "Tell Applicant: rejected",
       "Application Rejected",
-      { x: column(16), y: 420 },
+      { x: column(17), y: 420 },
     ),
     toRole(
       "node_email_hr_fyi",
       "Tell HR (for information)",
       "Application Rejected",
       "HR Officer",
-      { x: column(16), y: 540 },
+      { x: column(17), y: 540 },
     ),
     {
       id: "node_end_rejected",
       kind: "end",
-      position: { x: column(16), y: 290 },
+      position: { x: column(17), y: 290 },
       data: {
         label: "Closed - Rejected",
         description: "The Director rejected the application.",
@@ -1930,15 +1950,29 @@ export function defaultWorkflowGraph({
         "node_email_received",
         "node_email_dean_assigned",
       ]),
-      ...hop("node_stage_dean", outcomes.dean.id, "node_stage_associate_dean", [
-        "node_email_dean_done",
-        "node_email_associate_dean_assigned",
-      ]),
+      ...hop(
+        "node_stage_dean",
+        outcomes.delegate.id,
+        "node_stage_associate_dean",
+        ["node_email_dean_done", "node_email_associate_dean_assigned"],
+      ),
       ...hop(
         "node_stage_associate_dean",
-        outcomes.associateDean.id,
+        outcomes.recommend.id,
+        "node_stage_dean_approval",
+        ["node_email_associate_dean_done", "node_email_dean_approval_assigned"],
+      ),
+      ...hop(
+        "node_stage_dean_approval",
+        outcomes.deanApprove.id,
         "node_stage_hr_initial",
-        ["node_email_associate_dean_done", "node_email_hr_initial_assigned"],
+        ["node_email_dean_approved", "node_email_hr_initial_assigned"],
+      ),
+      ...hop(
+        "node_stage_dean_approval",
+        outcomes.deanReject.id,
+        "node_end_dean_rejected",
+        ["node_email_dean_rejected", "node_email_hr_fyi"],
       ),
       ...hop("node_stage_hr_initial", outcomes.hrInitial.id, "node_stage_rc", [
         "node_email_hr_initial_done",
@@ -1968,27 +2002,6 @@ export function defaultWorkflowGraph({
         "node_email_approved",
         "node_email_archive",
       ]),
-      ...hop(
-        "node_stage_director",
-        outcomes.delegate.id,
-        "node_stage_associate_director",
-        [
-          "node_email_associate_director_assigned",
-          "node_email_associate_director_applicant",
-        ],
-      ),
-      ...hop(
-        "node_stage_associate_director",
-        outcomes.associateDirectorApprove.id,
-        "node_end_approved",
-        ["node_email_approved", "node_email_archive"],
-      ),
-      ...hop(
-        "node_stage_associate_director",
-        outcomes.associateDirectorReject.id,
-        "node_end_rejected",
-        ["node_email_rejected", "node_email_hr_fyi"],
-      ),
       ...hop("node_stage_director", outcomes.reject.id, "node_end_rejected", [
         "node_email_rejected",
         "node_email_hr_fyi",

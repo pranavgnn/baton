@@ -128,9 +128,8 @@ export async function associateDeansOfSchool(
 /**
  * Everyone holding a role, as pickable people.
  *
- * Used where the candidates are not tied to a school - the associate directors
- * a director may hand an application to. Bounded by the size of one role, not
- * by the size of the institute.
+ * Used where the candidates are not tied to a school. Bounded by the size of
+ * one role, not by the size of the institute.
  */
 export async function holdersOfRole(roleId: string): Promise<SchoolPerson[]> {
   return db

@@ -20,12 +20,6 @@ export const ROLE_DESIGNATIONS = [
     description:
       "Given automatically to the associate deans of a school, and taken away when they hold no such post.",
   },
-  {
-    key: "associate_director",
-    label: "Associate director",
-    description:
-      "The pool the director may hand an application to instead of deciding it themselves.",
-  },
 ] as const;
 
 export type RoleDesignation = (typeof ROLE_DESIGNATIONS)[number]["key"];
