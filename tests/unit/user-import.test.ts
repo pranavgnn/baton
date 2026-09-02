@@ -81,7 +81,7 @@ describe("parseUserCsv", () => {
   });
 
   it("refuses a file with no email column", () => {
-    const { rows, issues } = parseUserCsv("name,department\nAnita,CSE");
+    const { rows, issues } = parseUserCsv("name,school\nAnita,CSE");
     expect(rows).toEqual([]);
     expect(issues[0].message).toContain('needs an "email" column');
   });
@@ -103,11 +103,13 @@ describe("parseUserCsv", () => {
     expect(rows).toHaveLength(1);
   });
 
-  it("keeps a department containing a comma intact", () => {
+  it("keeps a school name containing a comma intact", () => {
     const { rows } = parseUserCsv(
-      'email,department\na@b.edu,"Electronics, Communication"',
+      'email,school\na@b.edu,"School of Basic Sciences, Humanities & Management"',
     );
-    expect(rows[0].department).toBe("Electronics, Communication");
+    expect(rows[0].school).toBe(
+      "School of Basic Sciences, Humanities & Management",
+    );
   });
 });
 

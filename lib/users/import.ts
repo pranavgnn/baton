@@ -11,7 +11,7 @@ export type ImportRow = {
   email: string;
   name: string;
   employeeId: string;
-  department: string;
+  school: string;
   designation: string;
   /** Role names exactly as written; resolved to ids on the server. */
   roles: string[];
@@ -28,7 +28,7 @@ export const IMPORT_COLUMNS = [
   "email",
   "name",
   "employee_id",
-  "department",
+  "school",
   "designation",
   "roles",
 ] as const;
@@ -41,7 +41,7 @@ a.rao@manipal.edu,Dr. Anita Rao,MIT-4471,Computer Science & Engineering,Assistan
 const emailSchema = z.email();
 
 /**
- * Splits one CSV line, honouring double quotes so a department containing a
+ * Splits one CSV line, honouring double quotes so a school name containing a
  * comma survives the round trip.
  */
 export function splitCsvLine(line: string): string[] {
@@ -120,7 +120,7 @@ function collect(
       email,
       name: candidate.rest.name?.trim() || nameFromEmail(email),
       employeeId: candidate.rest.employeeId?.trim() ?? "",
-      department: candidate.rest.department?.trim() ?? "",
+      school: candidate.rest.school?.trim() ?? "",
       designation: candidate.rest.designation?.trim() ?? "",
       roles: candidate.rest.roles ?? [],
     });
@@ -174,7 +174,7 @@ export function parseUserCsv(text: string): ParsedImport {
       rest: {
         name: at(cells, "name"),
         employeeId: at(cells, "employee_id"),
-        department: at(cells, "department"),
+        school: at(cells, "school"),
         designation: at(cells, "designation"),
         roles: at(cells, "roles")
           .split(/[;|]/)

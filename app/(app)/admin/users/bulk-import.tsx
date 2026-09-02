@@ -82,7 +82,7 @@ export function BulkImportDialog({
           email: row.email,
           name: row.name,
           employeeId: row.employeeId,
-          department: row.department,
+          school: row.school,
           designation: row.designation,
           roles: row.roles,
         })),
@@ -257,7 +257,7 @@ export function BulkImportDialog({
                       </TableCell>
                       <TableCell className="text-sm">{row.name}</TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {row.department || "-"}
+                        {row.school || "-"}
                       </TableCell>
                       <TableCell>
                         <span className="flex flex-wrap gap-1">

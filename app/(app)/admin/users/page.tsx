@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 import { requirePermission } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { role, user, userRole } from "@/lib/db/schema";
+import { role, school, user, userRole } from "@/lib/db/schema";
 import { UsersManager, type UserRow } from "./users-manager";
 
 export const metadata: Metadata = { title: "Users" };
@@ -11,14 +11,15 @@ export const metadata: Metadata = { title: "Users" };
 export default async function UsersPage() {
   const current = await requirePermission("users.manage");
 
-  const [rows, roles] = await Promise.all([
+  const [rows, roles, schools] = await Promise.all([
     db
       .select({
         id: user.id,
         name: user.name,
         email: user.email,
         employeeId: user.employeeId,
-        department: user.department,
+        schoolId: user.schoolId,
+        schoolName: school.name,
         designation: user.designation,
         activated: user.activated,
         disabled: user.disabled,
@@ -27,10 +28,12 @@ export default async function UsersPage() {
         roleName: role.name,
       })
       .from(user)
+      .leftJoin(school, eq(school.id, user.schoolId))
       .leftJoin(userRole, eq(userRole.userId, user.id))
       .leftJoin(role, eq(role.id, userRole.roleId))
       .orderBy(user.name),
     db.select().from(role).orderBy(role.priority, role.name),
+    db.select().from(school).orderBy(school.name),
   ]);
 
   const byId = new Map<string, UserRow>();
@@ -40,7 +43,8 @@ export default async function UsersPage() {
       name: row.name,
       email: row.email,
       employeeId: row.employeeId ?? "",
-      department: row.department ?? "",
+      schoolId: row.schoolId ?? "",
+      schoolName: row.schoolName ?? "",
       designation: row.designation ?? "",
       activated: row.activated,
       disabled: row.disabled,
@@ -59,8 +63,8 @@ export default async function UsersPage() {
         <div>
           <h1 className="page-title">Users</h1>
           <p className="page-subtitle">
-            The portal is whitelist-only. Add an institute or departmental
-            address here and the holder activates it from the emailed link.
+            The portal is whitelist-only. Add an institute address here and the
+            holder activates it from the emailed link.
           </p>
         </div>
       </div>
@@ -68,6 +72,7 @@ export default async function UsersPage() {
       <UsersManager
         users={Array.from(byId.values())}
         roles={roles.map((r) => ({ id: r.id, name: r.name }))}
+        schools={schools.map((s) => ({ id: s.id, name: s.name }))}
         currentUserId={current.id}
       />
     </div>

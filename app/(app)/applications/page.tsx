@@ -17,7 +17,7 @@ export default async function ApplicationsPage() {
     status: app.status,
     applicantName: app.applicant.name,
     applicantEmail: app.applicant.email,
-    department: app.applicant.department ?? "",
+    school: app.applicant.school ?? "",
     stage: nodeById(app.graph, app.currentNodeId)?.data.label ?? "-",
     submittedAt: app.submittedAt?.toISOString() ?? null,
     updatedAt: app.updatedAt.toISOString(),

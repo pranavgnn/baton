@@ -8,66 +8,72 @@ import { eq } from "drizzle-orm";
 
 import { provisionUser } from "@/lib/auth/provision";
 import { db } from "@/lib/db";
-import { role, user, userRole } from "@/lib/db/schema";
+import { role, school, user, userRole } from "@/lib/db/schema";
 import { env } from "@/lib/env";
 
 export const DEMO_PASSWORD = "Portal@123";
 
+/**
+ * One account per role, named for what it is.
+ *
+ * Deliberately not plausible people: an invented name in a demo database ends
+ * up quoted in a screenshot or mistaken for a real member of staff.
+ */
 export const DEMO_USERS = [
   {
     email: "employee@manipal.edu",
-    name: "Dr. Meera Shenoy",
+    name: "Test Employee",
     roleName: "Employee",
-    employeeId: "MIT-5120",
-    department: "Computer Science & Engineering",
+    employeeId: "TEST-0001",
+    school: "School of Computer Engineering",
     designation: "Assistant Professor",
   },
   {
     email: "hod@manipal.edu",
-    name: "Prof. Ravi Kamath",
+    name: "Test HOD",
     roleName: "HOD",
-    employeeId: "MIT-2201",
-    department: "Computer Science & Engineering",
-    designation: "Professor & Head",
+    employeeId: "TEST-0002",
+    school: "School of Computer Engineering",
+    designation: "Head of Department",
   },
   {
     email: "hr@manipal.edu",
-    name: "Ms. Anita Rao",
+    name: "Test HR Officer",
     roleName: "HR Officer",
-    employeeId: "MIT-0311",
-    department: "Human Resources",
+    employeeId: "TEST-0003",
+    school: null,
     designation: "HR Officer",
   },
   {
     email: "rc@manipal.edu",
-    name: "Prof. Girish Bhat",
+    name: "Test R&C Officer",
     roleName: "R&C Officer",
-    employeeId: "MIT-0142",
-    department: "Research & Consultancy",
+    employeeId: "TEST-0004",
+    school: null,
     designation: "Associate Director (R&C)",
   },
   {
     email: "fdw@manipal.edu",
-    name: "Prof. Sunita Hegde",
+    name: "Test FDW Officer",
     roleName: "FDW Officer",
-    employeeId: "MIT-0158",
-    department: "Faculty Development & Welfare",
+    employeeId: "TEST-0005",
+    school: null,
     designation: "Associate Director (FD&W)",
   },
   {
     email: "director@manipal.edu",
-    name: "Prof. Latha Nayak",
+    name: "Test Director",
     roleName: "Director",
-    employeeId: "MIT-1002",
-    department: "Administration",
+    employeeId: "TEST-0006",
+    school: null,
     designation: "Director",
   },
   {
     email: "institutehr@manipal.edu",
-    name: "Mr. Suresh Pai",
+    name: "Test Institute HR",
     roleName: "Institute HR",
-    employeeId: "MIT-0007",
-    department: "Administration",
+    employeeId: "TEST-0007",
+    school: null,
     designation: "Institute HR",
   },
 ] as const;
@@ -79,12 +85,17 @@ async function main() {
 
   console.log("Seeding demo accounts");
 
+  const schools = await db.select().from(school);
+  const schoolIdByName = new Map(
+    schools.map((entry) => [entry.name, entry.id]),
+  );
+
   for (const demo of DEMO_USERS) {
     const provisioned = await provisionUser({
       email: demo.email,
       name: demo.name,
       employeeId: demo.employeeId,
-      department: demo.department,
+      schoolId: demo.school ? (schoolIdByName.get(demo.school) ?? null) : null,
       designation: demo.designation,
       password: DEMO_PASSWORD,
       activated: true,

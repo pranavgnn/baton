@@ -6,6 +6,7 @@ import {
   applicationEvent,
   applicationFile,
   role,
+  school,
   stageDraft,
   user,
   userRole,
@@ -78,7 +79,8 @@ export type ApplicationWithApplicant = Application & {
     id: string;
     name: string;
     email: string;
-    department: string | null;
+    schoolId: string | null;
+    school: string | null;
     designation: string | null;
   };
 };
@@ -167,11 +169,13 @@ export async function getApplicationById(
       applicantId: user.id,
       applicantName: user.name,
       applicantEmail: user.email,
-      applicantDepartment: user.department,
+      applicantSchoolId: user.schoolId,
+      applicantSchool: school.name,
       applicantDesignation: user.designation,
     })
     .from(application)
     .innerJoin(user, eq(user.id, application.applicantId))
+    .leftJoin(school, eq(school.id, user.schoolId))
     .where(eq(application.id, id))
     .limit(1);
 
@@ -184,7 +188,8 @@ export async function getApplicationById(
       id: row.applicantId,
       name: row.applicantName,
       email: row.applicantEmail,
-      department: row.applicantDepartment,
+      schoolId: row.applicantSchoolId,
+      school: row.applicantSchool,
       designation: row.applicantDesignation,
     },
   };
@@ -211,11 +216,13 @@ export async function getReviewQueue(
       applicantId: user.id,
       applicantName: user.name,
       applicantEmail: user.email,
-      applicantDepartment: user.department,
+      applicantSchoolId: user.schoolId,
+      applicantSchool: school.name,
       applicantDesignation: user.designation,
     })
     .from(application)
     .innerJoin(user, eq(user.id, application.applicantId))
+    .leftJoin(school, eq(school.id, user.schoolId))
     .where(eq(application.status, "in_progress"))
     .orderBy(desc(application.submittedAt));
 
@@ -238,7 +245,8 @@ export async function getReviewQueue(
         id: row.applicantId,
         name: row.applicantName,
         email: row.applicantEmail,
-        department: row.applicantDepartment,
+        schoolId: row.applicantSchoolId,
+        school: row.applicantSchool,
         designation: row.applicantDesignation,
       },
     });
@@ -291,11 +299,13 @@ export async function listAllApplications(): Promise<
       applicantId: user.id,
       applicantName: user.name,
       applicantEmail: user.email,
-      applicantDepartment: user.department,
+      applicantSchoolId: user.schoolId,
+      applicantSchool: school.name,
       applicantDesignation: user.designation,
     })
     .from(application)
     .innerJoin(user, eq(user.id, application.applicantId))
+    .leftJoin(school, eq(school.id, user.schoolId))
     .orderBy(desc(application.createdAt));
 
   return rows.map((row) => ({
@@ -304,7 +314,8 @@ export async function listAllApplications(): Promise<
       id: row.applicantId,
       name: row.applicantName,
       email: row.applicantEmail,
-      department: row.applicantDepartment,
+      schoolId: row.applicantSchoolId,
+      school: row.applicantSchool,
       designation: row.applicantDesignation,
     },
   }));

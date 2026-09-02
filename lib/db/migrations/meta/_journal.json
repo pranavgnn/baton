@@ -36,6 +36,20 @@
       "when": 1788286196357,
       "tag": "0004_bouncy_selene",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788337259457,
+      "tag": "0005_smiling_corsair",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1788337273839,
+      "tag": "0006_quiet_killmonger",
+      "breakpoints": true
     }
   ]
 }

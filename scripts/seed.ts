@@ -12,6 +12,7 @@ import { db } from "@/lib/db";
 import {
   emailTemplate,
   role,
+  school,
   user,
   userRole,
   workflow,
@@ -22,6 +23,7 @@ import { ensureBucket } from "@/lib/storage/s3";
 import {
   DEFAULT_EMAIL_TEMPLATES,
   DEFAULT_ROLES,
+  DEFAULT_SCHOOLS,
   defaultWorkflowGraph,
   SINGLETON_WORKFLOW_ID,
   SUPER_ADMIN_ROLE_NAME,
@@ -190,9 +192,38 @@ async function seedBucket() {
   }
 }
 
+/**
+ * The institute's schools. Named rather than numbered, so re-running the seed
+ * leaves an admin's own edits and additions alone.
+ */
+async function seedSchools(): Promise<Record<string, string>> {
+  console.log("\nSchools");
+  const idByName: Record<string, string> = {};
+
+  for (const entry of DEFAULT_SCHOOLS) {
+    const existing = await db.query.school.findFirst({
+      where: eq(school.name, entry.name),
+    });
+
+    if (existing) {
+      idByName[entry.name] = existing.id;
+      log("= kept", entry.name);
+      continue;
+    }
+
+    const id = crypto.randomUUID();
+    await db.insert(school).values({ id, name: entry.name, code: entry.code });
+    idByName[entry.name] = id;
+    log("+ created", entry.name);
+  }
+
+  return idByName;
+}
+
 async function main() {
   console.log("Seeding MIT Promotion Application Portal");
 
+  await seedSchools();
   const roleIdByName = await seedRoles();
   const templateIdByName = await seedTemplates();
   await seedWorkflow(roleIdByName, templateIdByName);

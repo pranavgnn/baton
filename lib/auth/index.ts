@@ -105,7 +105,7 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       employeeId: { type: "string", required: false, input: false },
-      department: { type: "string", required: false, input: false },
+      schoolId: { type: "string", required: false, input: false },
       designation: { type: "string", required: false, input: false },
       activated: {
         type: "boolean",
