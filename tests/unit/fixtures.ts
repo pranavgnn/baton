@@ -78,7 +78,7 @@ export function buildGraph(options: BuildOptions = {}) {
         roleId: ROLE_HOD,
         form: simpleForm(),
         outcomes: [approve, reject, sendBack],
-        nominatesNext: false,
+        assignment: { mode: "role", pool: "role_holders" },
       },
     },
     {

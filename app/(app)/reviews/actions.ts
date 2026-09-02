@@ -16,16 +16,13 @@ import { db } from "@/lib/db";
 import { stageDraft } from "@/lib/db/schema";
 import {
   associateDeansOfSchool,
+  holdersOfRole,
   usersHoldingRole,
   type SchoolPerson,
 } from "@/lib/schools/query";
 import { pruneToSchema, validateForm } from "@/lib/workflow/form";
-import { continuationNodeId, nodeById } from "@/lib/workflow/graph";
-import {
-  DEFAULT_SOURCE_HANDLE,
-  type SectionData,
-  type StageNode,
-} from "@/lib/workflow/types";
+import { nodeById, nominatedTarget } from "@/lib/workflow/graph";
+import { type SectionData, type StageNode } from "@/lib/workflow/types";
 
 type LoadedStage =
   | { ok: false; error: string }
@@ -60,37 +57,51 @@ async function loadActionableStage(
 }
 
 /**
- * Who a nominating stage may hand the application to.
+ * Who this outcome may hand the application to, or null when it goes to a
+ * whole role rather than to a person.
  *
- * The associate deans of the applicant's own school, narrowed to those who
- * actually hold the next stage's role - anyone else would be handed a file
- * they cannot open.
+ * The candidates come from the stage being entered - its pool and its role -
+ * so nothing here depends on what the browser sent, and an outcome that leads
+ * to an ordinary stage asks for nobody.
  */
 export async function nomineesFor(
   app: ApplicationWithApplicant,
   node: StageNode,
-): Promise<SchoolPerson[]> {
-  if (!node.data.nominatesNext) return [];
-  if (!app.applicant.schoolId) return [];
+  outcomeId: string,
+): Promise<SchoolPerson[] | null> {
+  const target = nominatedTarget(app.graph, node.id, outcomeId);
+  if (!target || !target.data.roleId) return null;
 
-  const nextNodeId = continuationNodeId(
-    app.graph,
-    node.id,
-    node.data.outcomes[0]?.id ?? DEFAULT_SOURCE_HANDLE,
-  );
-  const nextNode = nextNodeId ? nodeById(app.graph, nextNodeId) : null;
-  if (!nextNode || nextNode.kind !== "stage" || !nextNode.data.roleId) {
-    return [];
+  if (target.data.assignment.pool === "school_associate_deans") {
+    if (!app.applicant.schoolId) return [];
+
+    // Narrowed to those who actually hold the stage's role: anyone else would
+    // be handed a file they cannot open.
+    const candidates = await associateDeansOfSchool(app.applicant.schoolId);
+    if (candidates.length === 0) return [];
+
+    const holders = await usersHoldingRole(
+      target.data.roleId,
+      candidates.map((person) => person.id),
+    );
+    return candidates.filter((person) => holders.has(person.id));
   }
 
-  const candidates = await associateDeansOfSchool(app.applicant.schoolId);
-  if (candidates.length === 0) return [];
+  return holdersOfRole(target.data.roleId);
+}
 
-  const holders = await usersHoldingRole(
-    nextNode.data.roleId,
-    candidates.map((person) => person.id),
+/** Every outcome of a stage, with who it may be addressed to. */
+export async function nomineesByOutcome(
+  app: ApplicationWithApplicant,
+  node: StageNode,
+): Promise<Record<string, SchoolPerson[] | null>> {
+  const entries = await Promise.all(
+    node.data.outcomes.map(
+      async (outcome) =>
+        [outcome.id, await nomineesFor(app, node, outcome.id)] as const,
+    ),
   );
-  return candidates.filter((person) => holders.has(person.id));
+  return Object.fromEntries(entries);
 }
 
 /** Per-reviewer draft so two holders of a role never overwrite each other. */
@@ -191,17 +202,18 @@ export async function completeStage(
      * from the applicant's own school.
      */
     let nominee: { id: string; name: string } | null = null;
-    if (node.data.nominatesNext) {
-      const candidates = await nomineesFor(app, node);
+    const candidates = await nomineesFor(app, node, outcome.id);
+    if (candidates) {
+      const target = nominatedTarget(app.graph, node.id, outcome.id);
       if (candidates.length === 0) {
         return fail(
-          "This school has no associate dean who can review applications. Ask an administrator to assign one.",
+          `Nobody can take ${target?.data.label ?? "the next step"} for this application. Ask an administrator to appoint someone.`,
         );
       }
 
       const chosen = candidates.find((entry) => entry.id === nomineeId);
       if (!chosen) {
-        return fail("Choose which associate dean this goes to.");
+        return fail("Choose who this goes to.");
       }
       nominee = { id: chosen.id, name: chosen.name };
     }

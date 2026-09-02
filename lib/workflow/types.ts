@@ -218,6 +218,27 @@ export const stageOutcomeSchema = z.object({
 });
 export type StageOutcome = z.infer<typeof stageOutcomeSchema>;
 
+/**
+ * How a stage finds the person who acts on it.
+ *
+ * `role` offers it to everyone holding the stage's role, which is the ordinary
+ * case. `nominated` holds it for one person the previous reviewer names, drawn
+ * from `pool`: either the associate deans of the applicant's own school, or
+ * everyone holding this stage's role.
+ */
+export const NOMINEE_POOLS = [
+  "role_holders",
+  "school_associate_deans",
+] as const;
+export const nomineePoolSchema = z.enum(NOMINEE_POOLS);
+export type NomineePool = z.infer<typeof nomineePoolSchema>;
+
+export const stageAssignmentSchema = z.object({
+  mode: z.enum(["role", "nominated"]).default("role"),
+  pool: nomineePoolSchema.default("role_holders"),
+});
+export type StageAssignment = z.infer<typeof stageAssignmentSchema>;
+
 export const startNodeDataSchema = z.object({
   label: z.string().min(1).default("Applicant Submission"),
   description: z.string().optional().default(""),
@@ -233,11 +254,17 @@ export const stageNodeDataSchema = z.object({
   form: formSchemaSchema.default({ sections: [] }),
   outcomes: z.array(stageOutcomeSchema).default([]),
   /**
-   * When true the reviewer must name who takes the next step, chosen from the
-   * people who sign for the applicant's school. The application is then held
-   * for that person rather than offered to everyone holding the next role.
+   * Who takes this stage.
+   *
+   * It sits on the stage that is entered rather than on the one handing over,
+   * so a reviewer is asked for a name only on the branch that leads somewhere
+   * needing one: the director naming an associate director when they forward,
+   * and not when they decide it themselves.
    */
-  nominatesNext: z.boolean().default(false),
+  assignment: stageAssignmentSchema.default({
+    mode: "role",
+    pool: "role_holders",
+  }),
 });
 export type StageNodeData = z.infer<typeof stageNodeDataSchema>;
 

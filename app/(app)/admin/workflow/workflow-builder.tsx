@@ -407,7 +407,7 @@ function WorkflowCanvas({
                   createOutcome("Approve", "positive"),
                   createOutcome("Reject", "negative"),
                 ],
-                nominatesNext: false,
+                assignment: { mode: "role", pool: "role_holders" },
               },
             }
           : kind === "email"

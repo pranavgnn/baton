@@ -22,7 +22,7 @@ import {
 import { forbidden, requirePermission } from "@/lib/auth/session";
 import { nodeById, stageNodes, startNode } from "@/lib/workflow/graph";
 import { APPLICANT_NAMESPACE } from "@/lib/workflow/types";
-import { nomineesFor } from "../actions";
+import { nomineesByOutcome } from "../actions";
 import { ReviewForm } from "./review-form";
 
 export const metadata: Metadata = { title: "Review application" };
@@ -39,12 +39,15 @@ export default async function ReviewPage({
   const stage = nodeById(app.graph, app.currentNodeId);
   const actionable = canActOnCurrentStage(app, current);
 
-  // Reviewers who already signed off keep read access; everyone else is out.
+  // Resolved per outcome: only the branches that lead to a stage held for one
+  // person ask for a name, so the director is asked when forwarding and not
+  // when deciding it themselves.
   const nominees =
-    actionable && stage?.kind === "stage" && stage.data.nominatesNext
-      ? await nomineesFor(app, stage)
-      : null;
+    actionable && stage?.kind === "stage"
+      ? await nomineesByOutcome(app, stage)
+      : {};
 
+  // Reviewers who already signed off keep read access; everyone else is out.
   const previouslyActed = stageNodes(app.graph).some(
     (node) =>
       node.data.roleId !== null &&
@@ -113,7 +116,7 @@ export default async function ReviewPage({
               form={stage.data.form}
               outcomes={stage.data.outcomes}
               defaultValues={draft?.data ?? app.data?.[stage.id] ?? null}
-              nominees={nominees}
+              nomineesByOutcome={nominees}
             />
           </TabsContent>
         ) : null}

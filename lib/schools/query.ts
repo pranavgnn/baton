@@ -125,6 +125,22 @@ export async function associateDeansOfSchool(
     .orderBy(asc(user.name));
 }
 
+/**
+ * Everyone holding a role, as pickable people.
+ *
+ * Used where the candidates are not tied to a school - the associate directors
+ * a director may hand an application to. Bounded by the size of one role, not
+ * by the size of the institute.
+ */
+export async function holdersOfRole(roleId: string): Promise<SchoolPerson[]> {
+  return db
+    .select({ id: user.id, name: user.name, email: user.email })
+    .from(userRole)
+    .innerJoin(user, eq(user.id, userRole.userId))
+    .where(and(eq(userRole.roleId, roleId), eq(user.disabled, false)))
+    .orderBy(asc(user.name));
+}
+
 /** Which of these people hold the given role. */
 export async function usersHoldingRole(
   roleId: string,

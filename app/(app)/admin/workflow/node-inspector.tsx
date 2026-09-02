@@ -38,9 +38,49 @@ import type {
   FormSchema,
   OutcomeTone,
   RecipientMode,
+  StageAssignment,
   StageOutcome,
   WorkflowNode,
 } from "@/lib/workflow/types";
+
+/**
+ * The two dimensions of an assignment - whether a name is required and where
+ * the names come from - are one choice to an admin, so they are offered as one
+ * list and split apart again on the way into the node.
+ */
+const ASSIGNMENT_CHOICES = [
+  {
+    value: "role",
+    label: "Anyone holding the role",
+    description:
+      "The application appears in every holder's queue and the first to act moves it on.",
+  },
+  {
+    value: "nominated:role_holders",
+    label: "One person, named by the previous reviewer",
+    description:
+      "Whoever routes the application here must choose a holder of this role, and it is held for them alone.",
+  },
+  {
+    value: "nominated:school_associate_deans",
+    label: "One associate dean of the applicant's school",
+    description:
+      "The candidates are the associate deans of the applicant's own school who hold this role.",
+  },
+] as const;
+
+function assignmentValue(assignment: StageAssignment): string {
+  return assignment.mode === "role" ? "role" : `nominated:${assignment.pool}`;
+}
+
+function parseAssignment(value: string): StageAssignment {
+  if (value === "role") return { mode: "role", pool: "role_holders" };
+  const pool = value.slice("nominated:".length);
+  return {
+    mode: "nominated",
+    pool: pool === "school_associate_deans" ? pool : "role_holders",
+  };
+}
 
 export type RoleOption = { id: string; name: string };
 export type TemplateOption = { id: string; name: string };
@@ -141,6 +181,39 @@ export function NodeInspector({
                   <FieldDescription>
                     Every holder of this role sees the application in their
                     queue; the first to act moves it on.
+                  </FieldDescription>
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="node-assignment">Taken by</FieldLabel>
+                  <Select
+                    value={assignmentValue(node.data.assignment)}
+                    onValueChange={(value) =>
+                      patch({ assignment: parseAssignment(value) })
+                    }
+                  >
+                    <SelectTrigger
+                      id="node-assignment"
+                      data-testid="node-assignment"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ASSIGNMENT_CHOICES.map((choice) => (
+                        <SelectItem key={choice.value} value={choice.value}>
+                          {choice.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FieldDescription>
+                    {
+                      ASSIGNMENT_CHOICES.find(
+                        (choice) =>
+                          choice.value ===
+                          assignmentValue(node.data.assignment),
+                      )?.description
+                    }
                   </FieldDescription>
                 </Field>
 
