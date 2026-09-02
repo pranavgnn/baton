@@ -16,6 +16,7 @@ import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { school, schoolAssociateDean, user } from "@/lib/db/schema";
 import { searchUsers, type SchoolPerson } from "@/lib/schools/query";
+import { syncDesignatedRoles } from "@/lib/schools/sync";
 
 const schoolInput = z.object({
   name: z
@@ -71,6 +72,9 @@ export async function createSchool(input: SchoolInput): Promise<ActionResult> {
       deanId: parsed.data.deanId || null,
     });
     await setAssociateDeans(id, parsed.data.associateDeanIds);
+    // Naming someone dean is what makes them one, so the role follows the
+    // posting rather than waiting for an admin to grant it separately.
+    await syncDesignatedRoles();
 
     await recordAudit({
       action: "school.created",
@@ -83,6 +87,7 @@ export async function createSchool(input: SchoolInput): Promise<ActionResult> {
 
     revalidatePath("/admin/schools");
     revalidatePath("/admin/users");
+    revalidatePath("/admin/roles");
     return ok();
   } catch (error) {
     return failFrom(error);
@@ -119,6 +124,7 @@ export async function updateSchool(
       })
       .where(eq(school.id, id));
     await setAssociateDeans(id, parsed.data.associateDeanIds);
+    await syncDesignatedRoles();
 
     await recordAudit({
       action: "school.updated",
@@ -135,6 +141,7 @@ export async function updateSchool(
 
     revalidatePath("/admin/schools");
     revalidatePath("/admin/users");
+    revalidatePath("/admin/roles");
     return ok();
   } catch (error) {
     return failFrom(error);
@@ -164,6 +171,7 @@ export async function deleteSchool(id: string): Promise<ActionResult> {
     }
 
     await db.delete(school).where(eq(school.id, id));
+    await syncDesignatedRoles();
 
     await recordAudit({
       action: "school.deleted",
@@ -176,6 +184,7 @@ export async function deleteSchool(id: string): Promise<ActionResult> {
 
     revalidatePath("/admin/schools");
     revalidatePath("/admin/users");
+    revalidatePath("/admin/roles");
     return ok();
   } catch (error) {
     return failFrom(error);

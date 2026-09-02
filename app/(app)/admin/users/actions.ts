@@ -45,11 +45,26 @@ async function assertRolesExist(roleIds: string[]) {
 }
 
 async function setRoles(userId: string, roleIds: string[]) {
+  // The list is rewritten wholesale, so how each retained role was granted has
+  // to be carried across: a role held because the person is dean of a school
+  // must not quietly become a hand-granted one that outlives the posting.
+  const before = await db
+    .select({ roleId: userRole.roleId, source: userRole.source })
+    .from(userRole)
+    .where(eq(userRole.userId, userId));
+  const sourceOf = new Map(before.map((row) => [row.roleId, row.source]));
+
   await db.delete(userRole).where(eq(userRole.userId, userId));
   if (roleIds.length === 0) return;
   await db
     .insert(userRole)
-    .values(roleIds.map((roleId) => ({ userId, roleId })))
+    .values(
+      roleIds.map((roleId) => ({
+        userId,
+        roleId,
+        source: sourceOf.get(roleId) ?? "manual",
+      })),
+    )
     .onConflictDoNothing();
 }
 

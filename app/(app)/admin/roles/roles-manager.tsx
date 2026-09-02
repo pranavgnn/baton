@@ -48,7 +48,19 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  ROLE_DESIGNATIONS,
+  designationLabel,
+  type RoleDesignation,
+} from "@/lib/auth/designations";
 import {
   PERMISSIONS,
   PERMISSION_GROUPS,
@@ -67,7 +79,12 @@ export type RoleRow = {
   priority: number;
   isSystem: boolean;
   memberCount: number;
+  /** A key from `lib/auth/designations`, or "" for an ordinary role. */
+  designation: string;
 };
+
+/** Radix forbids an empty item value, so "no post" carries a sentinel. */
+const NO_DESIGNATION = "none";
 
 type EditorState = {
   open: boolean;
@@ -140,6 +157,14 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
                     {item.id === defaultRoleId ? (
                       <Badge title="Given to users when no role is named">
                         Default
+                      </Badge>
+                    ) : null}
+                    {item.designation ? (
+                      <Badge
+                        variant="outline"
+                        title="Held automatically by whoever fills this post"
+                      >
+                        {designationLabel(item.designation)}
                       </Badge>
                     ) : null}
                     <Badge variant="secondary">
@@ -257,6 +282,9 @@ function RoleEditor({
   const [permissions, setPermissions] = useState<string[]>(
     role?.permissions ?? [],
   );
+  const [designation, setDesignation] = useState<RoleDesignation | "">(
+    (role?.designation ?? "") as RoleDesignation | "",
+  );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSaving, startSave] = useTransition();
 
@@ -276,6 +304,7 @@ function RoleEditor({
       const payload = {
         name,
         description,
+        designation,
         permissions: permissions.filter(
           (value): value is PermissionKey => value !== SUPER_ADMIN_PERMISSION,
         ),
@@ -327,6 +356,37 @@ function RoleEditor({
               placeholder="What this role is responsible for"
               onChange={(event) => setDescription(event.target.value)}
             />
+          </Field>
+
+          <Field>
+            <FieldLabel htmlFor="role-designation">Stands for</FieldLabel>
+            <Select
+              value={designation || NO_DESIGNATION}
+              onValueChange={(value) =>
+                setDesignation(
+                  value === NO_DESIGNATION ? "" : (value as RoleDesignation),
+                )
+              }
+            >
+              <SelectTrigger id="role-designation" data-testid="designation">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_DESIGNATION}>
+                  Nothing in particular
+                </SelectItem>
+                {ROLE_DESIGNATIONS.map((item) => (
+                  <SelectItem key={item.key} value={item.key}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FieldDescription>
+              {ROLE_DESIGNATIONS.find((item) => item.key === designation)
+                ?.description ??
+                "Naming a post here is what lets the portal grant this role by itself. Only one role may stand for each."}
+            </FieldDescription>
           </Field>
 
           <Field>

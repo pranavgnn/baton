@@ -50,6 +50,13 @@
       "when": 1788337273839,
       "tag": "0006_quiet_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1788349038934,
+      "tag": "0007_even_korg",
+      "breakpoints": true
     }
   ]
 }

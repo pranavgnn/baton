@@ -46,6 +46,14 @@ async function seedRoles(): Promise<Record<string, string>> {
 
     if (existing) {
       byName[definition.name] = existing.id;
+      // An install seeded before designations existed still needs to know
+      // which role stands for which post.
+      if (definition.designation && !existing.designation) {
+        await db
+          .update(role)
+          .set({ designation: definition.designation })
+          .where(eq(role.id, existing.id));
+      }
       log("· exists", definition.name);
       continue;
     }
@@ -59,6 +67,7 @@ async function seedRoles(): Promise<Record<string, string>> {
       // Position in the list is the priority; the first is the default role.
       priority: index,
       isSystem: definition.isSystem,
+      designation: definition.designation,
     });
     byName[definition.name] = id;
     log("+ created", definition.name);

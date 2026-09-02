@@ -19,6 +19,7 @@ export default async function RolesPage() {
       permissions: role.permissions,
       priority: role.priority,
       isSystem: role.isSystem,
+      designation: role.designation,
       memberCount: count(userRole.userId),
     })
     .from(role)
@@ -43,6 +44,7 @@ export default async function RolesPage() {
           ...row,
           description: row.description ?? "",
           permissions: row.permissions ?? [],
+          designation: row.designation ?? "",
         }))}
       />
     </div>
