@@ -54,7 +54,6 @@ export function buildVariables(context: VariableContext): TemplateVariables {
     submitted_at: context.app.submittedAt
       ? dateFormatter.format(context.app.submittedAt)
       : dateFormatter.format(new Date()),
-    portal_url: portalUrl("/dashboard"),
     application_url: portalUrl(`/applications/${context.app.id}`),
   };
 }

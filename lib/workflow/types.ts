@@ -448,13 +448,12 @@ export const TEMPLATE_VARIABLES = [
     description: "Date the application was submitted",
   },
   {
-    key: "portal_url",
-    description: "Link to the portal home page",
-  },
-  {
     key: "application_url",
     description: "Direct link to this application",
   },
+  // There is deliberately no variable for the portal itself: a link that
+  // always points at the same place is just a link, and the editor lets an
+  // author write whichever one they mean.
 ] as const;
 
 export type TemplateVariableKey = (typeof TEMPLATE_VARIABLES)[number]["key"];

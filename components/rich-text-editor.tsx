@@ -24,9 +24,19 @@ import {
   Underline as UnderlineIcon,
   Undo2,
 } from "lucide-react";
-import { useCallback, type ComponentType } from "react";
+import { useState, type ComponentType } from "react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Toggle } from "@/components/ui/toggle";
 import {
@@ -64,29 +74,45 @@ export function RichTextEditor({
     },
   });
 
-  const setLink = useCallback(() => {
-    if (!editor) return;
-    const previous = editor.getAttributes("link").href as string | undefined;
-    const url = window.prompt("Link URL", previous ?? "https://");
-    if (url === null) return;
-    if (url === "") {
-      editor.chain().focus().extendMarkRange("link").unsetLink().run();
-      return;
-    }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
-  }, [editor]);
+  /**
+   * Link and button targets are typed into a dialog rather than a
+   * `window.prompt`: the address is arbitrary - any page, any host, a
+   * `mailto:` - and a prompt gives no room to say so, no validation and no
+   * keyboard handling.
+   */
+  const [linkDialog, setLinkDialog] = useState<LinkDialogState | null>(null);
 
-  const insertButton = useCallback(() => {
+  function openLinkDialog() {
     if (!editor) return;
-    const label = window.prompt("Button text", "Open the portal");
-    if (!label) return;
-    const href = window.prompt(
-      "Where should it go? A placeholder such as {{application_url}} works too.",
-      "{{application_url}}",
-    );
-    if (!href) return;
-    editor.chain().focus().setEmailButton({ href, label }).run();
-  }, [editor]);
+    setLinkDialog({
+      kind: "link",
+      href: (editor.getAttributes("link").href as string) ?? "",
+      label: "",
+    });
+  }
+
+  function openButtonDialog() {
+    setLinkDialog({ kind: "button", href: "", label: "Open the portal" });
+  }
+
+  function applyLinkDialog(state: LinkDialogState) {
+    if (!editor) return;
+    const href = state.href.trim();
+
+    if (state.kind === "button") {
+      editor
+        .chain()
+        .focus()
+        .setEmailButton({ href, label: state.label.trim() || "Open" })
+        .run();
+    } else if (href === "") {
+      editor.chain().focus().extendMarkRange("link").unsetLink().run();
+    } else {
+      editor.chain().focus().extendMarkRange("link").setLink({ href }).run();
+    }
+
+    setLinkDialog(null);
+  }
 
   if (!editor) {
     return <div className="rich-text-editor" aria-busy="true" />;
@@ -216,7 +242,7 @@ export function RichTextEditor({
           icon={Link2}
           label="Add link"
           active={editor.isActive("link")}
-          onClick={setLink}
+          onClick={openLinkDialog}
         />
         <ToolbarButton
           icon={Link2Off}
@@ -227,7 +253,7 @@ export function RichTextEditor({
         <ToolbarButton
           icon={SquareMousePointer}
           label="Insert button"
-          onClick={insertButton}
+          onClick={openButtonDialog}
         />
 
         <Separator orientation="vertical" className="mx-1 h-6" />
@@ -249,7 +275,116 @@ export function RichTextEditor({
       {toolbarExtras ? toolbarExtras(editor) : null}
 
       <EditorContent editor={editor} className="rich-text-editor" />
+
+      <LinkDialog
+        state={linkDialog}
+        onCancel={() => setLinkDialog(null)}
+        onApply={applyLinkDialog}
+      />
     </div>
+  );
+}
+
+type LinkDialogState = {
+  kind: "link" | "button";
+  href: string;
+  label: string;
+};
+
+function LinkDialog({
+  state,
+  onCancel,
+  onApply,
+}: {
+  state: LinkDialogState | null;
+  onCancel: () => void;
+  onApply: (state: LinkDialogState) => void;
+}) {
+  return (
+    <Dialog open={Boolean(state)} onOpenChange={(open) => !open && onCancel()}>
+      {/* Keyed on the kind so each opening starts from its own draft. */}
+      {state ? (
+        <LinkDialogBody
+          key={state.kind}
+          initial={state}
+          onCancel={onCancel}
+          onApply={onApply}
+        />
+      ) : null}
+    </Dialog>
+  );
+}
+
+function LinkDialogBody({
+  initial,
+  onCancel,
+  onApply,
+}: {
+  initial: LinkDialogState;
+  onCancel: () => void;
+  onApply: (state: LinkDialogState) => void;
+}) {
+  const [href, setHref] = useState(initial.href);
+  const [label, setLabel] = useState(initial.label);
+
+  const isButton = initial.kind === "button";
+  const apply = () => onApply({ kind: initial.kind, href, label });
+
+  return (
+    <DialogContent className="sm:max-w-md">
+      <DialogHeader>
+        <DialogTitle>{isButton ? "Insert a button" : "Add a link"}</DialogTitle>
+        <DialogDescription>
+          Any address will do - a page of this portal, an intranet form, a
+          public site, or a <code>mailto:</code> address.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="form-stack">
+        {isButton ? (
+          <Field>
+            <FieldLabel htmlFor="link-label">Button text</FieldLabel>
+            <Input
+              id="link-label"
+              value={label}
+              onChange={(event) => setLabel(event.target.value)}
+              data-testid="link-label"
+            />
+          </Field>
+        ) : null}
+
+        <Field>
+          <FieldLabel htmlFor="link-href">Address</FieldLabel>
+          <Input
+            id="link-href"
+            value={href}
+            placeholder="https://portal.manipal.edu/applications"
+            onChange={(event) => setHref(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                apply();
+              }
+            }}
+            data-testid="link-href"
+          />
+          <FieldDescription>
+            {isButton
+              ? "A placeholder such as {{application_url}} works here too, and resolves per application."
+              : "Leave it empty to remove the link from the selected text."}
+          </FieldDescription>
+        </Field>
+      </div>
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>
+          Cancel
+        </Button>
+        <Button onClick={apply} data-testid="link-apply">
+          {isButton ? "Insert button" : "Save link"}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
   );
 }
 
