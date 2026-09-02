@@ -154,6 +154,18 @@ export const columnFieldSchema = z.object({
   validation: fieldValidationSchema.default({}),
   /** Half-width fields sit two-per-row on desktop. */
   width: z.enum(["full", "half"]).default("full"),
+  /**
+   * Filled in from the applicant's own account, naming a key from
+   * `lib/users/profile.ts`. A field whose account value is there is shown
+   * read-only; one the account cannot answer stays an ordinary question, so
+   * nobody is ever stuck unable to say something the portal did not know.
+   */
+  prefill: z.string().nullable().default(null),
+  /**
+   * Worked out from the answers beside it rather than typed - see
+   * `lib/workflow/calc.ts`. Number fields only.
+   */
+  formula: z.string().nullable().default(null),
   /** Shown only while this holds. Null means always. */
   visibleWhen: conditionGroupSchema.nullable().default(null),
   /** Required only while this holds. Null falls back to `required`. */

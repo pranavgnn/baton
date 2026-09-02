@@ -26,7 +26,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { formulaError } from "@/lib/workflow/calc";
 import { createField, newId } from "@/lib/workflow/defaults";
+import { PREFILL_SOURCES } from "@/lib/users/profile";
 import {
   CONDITION_OPERATORS,
   FIELD_TYPES,
@@ -41,6 +43,9 @@ import {
   type FormField,
 } from "@/lib/workflow/types";
 import { cn } from "@/lib/utils";
+
+/** Radix forbids an empty item value, so "ask for it" carries a sentinel. */
+const NO_PREFILL = "__ask__";
 
 /** Machine-key suggestion derived from the label, e.g. "Full name" -> full_name. */
 export function slugifyKey(label: string): string {
@@ -79,6 +84,7 @@ export function FieldEditor({
   const isText = field.type === "text" || field.type === "textarea";
   const isNumber = field.type === "number";
   const isRepeating = field.type === "repeater";
+  const formulaComplaint = field.formula ? formulaError(field.formula) : null;
   const supportsChoices = hasChoices(field.type);
   const supportsValidation = isText || isNumber || isFile || isRepeating;
 
@@ -284,6 +290,66 @@ export function FieldEditor({
                   it
                 </span>
               </label>
+
+              {/* Answers the form can provide for itself, rather than ask
+                  for: from the person's own account, or from the answers
+                  beside it. */}
+              <Field>
+                <FieldLabel htmlFor={`${field.id}-prefill`}>
+                  Fill in from the account
+                </FieldLabel>
+                <Select
+                  value={field.prefill ?? NO_PREFILL}
+                  onValueChange={(value) =>
+                    update({ prefill: value === NO_PREFILL ? null : value })
+                  }
+                >
+                  <SelectTrigger
+                    id={`${field.id}-prefill`}
+                    data-testid="field-prefill"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={NO_PREFILL}>
+                      Ask for it - fill in nothing
+                    </SelectItem>
+                    {PREFILL_SOURCES.map((source) => (
+                      <SelectItem key={source.key} value={source.key}>
+                        {source.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  {field.prefill
+                    ? "Shown read-only when the account has a value, and asked for as usual when it does not."
+                    : "The account already holds the particulars on the first page of the form."}
+                </FieldDescription>
+              </Field>
+
+              {isNumber ? (
+                <Field data-invalid={Boolean(formulaComplaint)}>
+                  <FieldLabel htmlFor={`${field.id}-formula`}>
+                    Work it out instead of asking
+                  </FieldLabel>
+                  <Input
+                    id={`${field.id}-formula`}
+                    value={field.formula ?? ""}
+                    placeholder="indexed + non_indexed"
+                    className="font-mono text-sm"
+                    aria-invalid={Boolean(formulaComplaint)}
+                    data-testid="field-formula"
+                    onChange={(event) =>
+                      update({ formula: event.target.value || null })
+                    }
+                  />
+                  <FieldDescription>
+                    {formulaComplaint ??
+                      "Use the data keys of other questions on this form with + - * / and brackets. The applicant sees the answer, and cannot type over it."}
+                  </FieldDescription>
+                </Field>
+              ) : null}
             </>
           )}
 

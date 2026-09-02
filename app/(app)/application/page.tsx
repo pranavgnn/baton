@@ -23,6 +23,7 @@ import {
   refreshDraftToPublished,
 } from "@/lib/applications/service";
 import { requirePermission } from "@/lib/auth/session";
+import { accountProfile } from "@/lib/users/account-profile";
 import { nodeById, startNode } from "@/lib/workflow/graph";
 import {
   buildProgressGraph,
@@ -40,10 +41,11 @@ export const metadata: Metadata = { title: "My application" };
 export default async function ApplicationPage() {
   const current = await requirePermission("applications.apply");
 
-  const [published, existing, history] = await Promise.all([
+  const [published, existing, history, profile] = await Promise.all([
     getPublishedWorkflow(),
     getOpenApplicationFor(current.id),
     listApplicationsFor(current.id),
+    accountProfile(current.id),
   ]);
 
   // A draft has not entered the workflow yet, so it should be filled in
@@ -160,6 +162,7 @@ export default async function ApplicationPage() {
         <ApplicationWizard
           form={start.data.form}
           defaultValues={open.data?.[APPLICANT_NAMESPACE] ?? null}
+          profile={profile}
         />
 
         {timeline.length > 1 ? (

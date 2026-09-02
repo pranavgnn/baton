@@ -34,6 +34,8 @@ export function createField(
     validation: {},
     width: "full",
     fields: [],
+    prefill: null,
+    formula: null,
     visibleWhen: null,
     requiredWhen: null,
     ...overrides,
@@ -353,6 +355,7 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "text",
             key: "full_name",
+            prefill: "name",
             label: "Full name",
             required: true,
             width: "half",
@@ -360,6 +363,7 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "text",
             key: "employee_code",
+            prefill: "employeeId",
             label: "Employee code",
             required: true,
             width: "half",
@@ -367,6 +371,7 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "date",
             key: "date_of_birth",
+            prefill: "dateOfBirth",
             label: "Date of birth",
             required: true,
             width: "half",
@@ -374,6 +379,7 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "text",
             key: "present_designation",
+            prefill: "designation",
             label: "Present designation",
             required: true,
             width: "half",
@@ -381,13 +387,15 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "text",
             key: "department",
-            label: "Department",
+            prefill: "school",
+            label: "School",
             required: true,
             width: "half",
           }),
           createField({
             type: "text",
             key: "institution",
+            prefill: "institution",
             label: "Institution",
             required: true,
             width: "half",
@@ -395,6 +403,7 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "date",
             key: "date_of_joining",
+            prefill: "dateOfJoining",
             label: "Date of joining",
             required: true,
             width: "half",
@@ -402,6 +411,7 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "date",
             key: "date_of_last_promotion",
+            prefill: "dateOfLastPromotion",
             label: "Date of last promotion",
             required: true,
             width: "half",
@@ -414,7 +424,7 @@ export function defaultApplicantForm(): FormSchema {
             width: "half",
           }),
         ],
-        "Your identity and current appointment, as they appear on institute records.",
+        "Taken from your account where the portal already knows it. Anything blank or wrong should be corrected by an administrator.",
       ),
 
       createSection(
@@ -546,6 +556,9 @@ export function defaultApplicantForm(): FormSchema {
             required: true,
             width: "half",
             validation: { min: 0 },
+            // Added up rather than asked for: the paper form asks for all
+            // three and the totals disagree often enough to be a nuisance.
+            formula: "total_indexed + total_non_indexed",
           }),
           createField({
             type: "number",

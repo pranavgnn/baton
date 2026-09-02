@@ -20,7 +20,9 @@ import {
   usersHoldingRole,
   type SchoolPerson,
 } from "@/lib/schools/query";
+import { applyCalculations, applyPrefill } from "@/lib/workflow/autofill";
 import { pruneToSchema, validateForm } from "@/lib/workflow/form";
+import { accountProfile } from "@/lib/users/account-profile";
 import { nodeById, nominatedTarget } from "@/lib/workflow/graph";
 import { type SectionData, type StageNode } from "@/lib/workflow/types";
 
@@ -218,7 +220,14 @@ export async function completeStage(
       nominee = { id: chosen.id, name: chosen.name };
     }
 
-    const pruned = pruneToSchema(node.data.form, data);
+    const pruned = applyCalculations(
+      node.data.form,
+      applyPrefill(
+        node.data.form,
+        pruneToSchema(node.data.form, data),
+        await accountProfile(current.id),
+      ),
+    );
 
     // Outcomes such as "Send back" can be configured to skip the form so a
     // reviewer is not forced to score an application they are returning.

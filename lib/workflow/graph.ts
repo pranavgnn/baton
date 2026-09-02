@@ -1,3 +1,4 @@
+import { formulaError, formulaKeys } from "./calc";
 import {
   DEFAULT_SOURCE_HANDLE,
   type AnyField,
@@ -211,6 +212,22 @@ function danglingConditions(
   availableKeys: Set<string>,
 ): string[] {
   const messages: string[] = [];
+
+  // A formula is subject to the same rule as a condition, and to being
+  // readable at all: either failure silently produces no answer.
+  if (field.formula) {
+    const error = formulaError(field.formula);
+    if (error) {
+      messages.push(`The formula on "${field.label}" cannot be read: ${error}`);
+    } else {
+      for (const key of formulaKeys(field.formula)) {
+        if (availableKeys.has(key)) continue;
+        messages.push(
+          `"${field.label}" is worked out from "${key}", which is not a question on the same form.`,
+        );
+      }
+    }
+  }
 
   for (const [what, group] of [
     ["shown", field.visibleWhen],

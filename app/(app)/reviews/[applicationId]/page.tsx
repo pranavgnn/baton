@@ -21,6 +21,7 @@ import {
   getTimeline,
 } from "@/lib/applications/service";
 import { forbidden, requirePermission } from "@/lib/auth/session";
+import { accountProfile } from "@/lib/users/account-profile";
 import { nodeById, stageNodes, startNode } from "@/lib/workflow/graph";
 import { APPLICANT_NAMESPACE } from "@/lib/workflow/types";
 import { nomineesByOutcome } from "../actions";
@@ -58,11 +59,12 @@ export default async function ReviewPage({
   if (!actionable && !previouslyActed && !current.isSuperAdmin) forbidden();
 
   const start = startNode(app.graph);
-  const [timeline, draft] = await Promise.all([
+  const [timeline, draft, profile] = await Promise.all([
     getTimeline(app.id),
     actionable && stage
       ? getStageDraft(app.id, stage.id, current.id)
       : Promise.resolve(undefined),
+    accountProfile(current.id),
   ]);
 
   const earlierReviews = stageNodes(app.graph)
@@ -121,6 +123,7 @@ export default async function ReviewPage({
               outcomes={stage.data.outcomes}
               defaultValues={draft?.data ?? app.data?.[stage.id] ?? null}
               nomineesByOutcome={nominees}
+              profile={profile}
             />
           </TabsContent>
         ) : null}

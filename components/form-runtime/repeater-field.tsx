@@ -12,6 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { FieldError } from "@/components/ui/field";
 import { emptyRow, valueColumns } from "@/lib/workflow/form";
+import type { PrefillProfile } from "@/lib/workflow/autofill";
 import type { AnyField } from "@/lib/workflow/types";
 import { FieldRenderer } from "./field-renderer";
 
@@ -21,6 +22,7 @@ export type RepeaterFieldProps = {
   /** Where this group sits in the form, e.g. `qualifications`. */
   name: string;
   disabled?: boolean;
+  profile?: PrefillProfile | null;
 };
 
 /**
@@ -37,6 +39,7 @@ export function RepeaterField({
   control,
   name,
   disabled,
+  profile,
 }: RepeaterFieldProps) {
   const columns = valueColumns(field);
   const {
@@ -97,6 +100,7 @@ export function RepeaterField({
                     control={control}
                     disabled={disabled}
                     name={`${name}.${index}.${column.key}`}
+                    profile={profile}
                   />
                 ))}
               </div>

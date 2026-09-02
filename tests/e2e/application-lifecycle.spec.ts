@@ -24,8 +24,11 @@ const FIXTURE_CV = path.join(__dirname, "fixtures", "curriculum-vitae.pdf");
  */
 test.describe.configure({ mode: "serial", retries: 0 });
 
-/** What the applicant types into the form's own "Full name" field. */
-const APPLICANT = "Test Applicant";
+/**
+ * The name on the form, which is no longer typed at all: section A is filled
+ * in from the applicant's own account.
+ */
+const APPLICANT = "Test Employee";
 
 /**
  * Queues and listings identify an application by its account holder, not by
@@ -97,22 +100,19 @@ async function fillPostApplied(page: Page) {
   await choose(page, "post_applied_for", "Associate Professor");
 }
 
+/**
+ * Section A asks almost nothing: the account already holds the particulars, so
+ * they arrive filled in and locked. Only what the portal cannot know is typed.
+ */
 async function fillPersonalDetails(page: Page) {
-  const values: [string, string][] = [
-    ["full_name", APPLICANT],
-    ["employee_code", "MIT-7788"],
-    ["date_of_birth", "1984-02-11"],
-    ["present_designation", "Assistant Professor"],
-    ["department", "Computer Science & Engineering"],
-    ["institution", "Manipal Institute of Technology"],
-    ["date_of_joining", "2017-06-01"],
-    ["date_of_last_promotion", "2021-07-01"],
-    ["scopus_id", "57200000001"],
-  ];
+  await expect(input(page, "full_name")).toHaveValue(APPLICANT);
+  await expect(input(page, "full_name")).toHaveAttribute("readonly", "");
+  await expect(input(page, "date_of_joining")).toHaveValue("2017-06-01");
+  await expect(input(page, "department")).toHaveValue(
+    "School of Computer Engineering",
+  );
 
-  for (const [key, value] of values) {
-    await input(page, key).fill(value);
-  }
+  await input(page, "scopus_id").fill("57200000001");
 }
 
 async function fillQualifications(page: Page) {
@@ -156,7 +156,6 @@ async function fillAppointments(page: Page) {
 
 async function fillPublications(page: Page) {
   const values: [string, string][] = [
-    ["total_publications", "21"],
     ["total_indexed", "17"],
     ["total_non_indexed", "4"],
     ["indexed_last_three_years", "8"],
@@ -331,7 +330,7 @@ test.describe("1. the applicant fills in and submits", () => {
     // the ones before them are complete - so walk forward rather than jumping.
     await page.getByTestId("wizard-next").click();
     await expect(input(page, "full_name")).toHaveValue(APPLICANT);
-    await expect(input(page, "employee_code")).toHaveValue("MIT-7788");
+    await expect(input(page, "scopus_id")).toHaveValue("57200000001");
   });
 
   test("completes every section, previews and submits", async ({ page }) => {
