@@ -66,7 +66,7 @@ export default async function ReviewPage({
           <h1 className="page-title">{app.reference}</h1>
           <p className="page-subtitle">
             {app.applicant.name} · {app.applicant.email}
-            {app.applicant.department ? ` · ${app.applicant.department}` : ""}
+            {app.applicant.school ? ` · ${app.applicant.school}` : ""}
           </p>
         </div>
         <StatusBadge status={app.status} />

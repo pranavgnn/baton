@@ -16,7 +16,7 @@ import {
 import { provisionUser, sendActivationLink } from "@/lib/auth/provision";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { application, role, user, userRole } from "@/lib/db/schema";
+import { application, role, school, user, userRole } from "@/lib/db/schema";
 
 const userInput = z.object({
   email: z.email("Enter a valid email address").trim().toLowerCase(),
@@ -26,7 +26,7 @@ const userInput = z.object({
     .min(2, "Use at least 2 characters")
     .max(120, "Use at most 120 characters"),
   employeeId: z.string().trim().max(40).optional().default(""),
-  department: z.string().trim().max(120).optional().default(""),
+  schoolId: z.string().trim().optional().default(""),
   designation: z.string().trim().max(120).optional().default(""),
   roleIds: z.array(z.string().min(1)).default([]),
   /** Sends the activation email immediately after provisioning. */
@@ -81,7 +81,7 @@ export async function inviteUser(input: UserInput): Promise<ActionResult> {
       email: parsed.data.email,
       name: parsed.data.name,
       employeeId: parsed.data.employeeId || null,
-      department: parsed.data.department || null,
+      schoolId: parsed.data.schoolId || null,
       designation: parsed.data.designation || null,
     });
 
@@ -144,7 +144,7 @@ export async function updateUser(
       .set({
         name: parsed.data.name,
         employeeId: parsed.data.employeeId || null,
-        department: parsed.data.department || null,
+        schoolId: parsed.data.schoolId || null,
         designation: parsed.data.designation || null,
       })
       .where(eq(user.id, id));
@@ -172,7 +172,7 @@ const importRowSchema = z.object({
   email: z.email().trim().toLowerCase(),
   name: z.string().trim().max(120),
   employeeId: z.string().trim().max(40).optional().default(""),
-  department: z.string().trim().max(120).optional().default(""),
+  school: z.string().trim().max(200).optional().default(""),
   designation: z.string().trim().max(120).optional().default(""),
   roles: z.array(z.string().trim()).default([]),
 });
@@ -210,6 +210,15 @@ export async function bulkImportUsers(
       .select({ id: role.id, name: role.name, priority: role.priority })
       .from(role)
       .orderBy(role.priority, role.name);
+
+    // A row names its school in words; unknown names are left unset rather
+    // than failing the row, so one typo does not cost a 400-line import.
+    const schools = await db
+      .select({ id: school.id, name: school.name })
+      .from(school);
+    const schoolIdByName = new Map(
+      schools.map((entry) => [entry.name.trim().toLowerCase(), entry.id]),
+    );
 
     if (allRoles.length === 0) {
       return fail("Create at least one role before importing users.");
@@ -253,7 +262,7 @@ export async function bulkImportUsers(
           email: row.email,
           name: row.name,
           employeeId: row.employeeId || null,
-          department: row.department || null,
+          schoolId: schoolIdByName.get(row.school.trim().toLowerCase()) ?? null,
           designation: row.designation || null,
         });
 

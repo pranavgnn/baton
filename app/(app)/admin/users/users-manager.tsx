@@ -51,6 +51,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -72,7 +79,8 @@ export type UserRow = {
   name: string;
   email: string;
   employeeId: string;
-  department: string;
+  schoolId: string;
+  schoolName: string;
   designation: string;
   activated: boolean;
   disabled: boolean;
@@ -81,15 +89,21 @@ export type UserRow = {
 };
 
 export type RoleOption = { id: string; name: string };
+export type SchoolOption = { id: string; name: string };
+
+/** Shown in the school select when someone belongs to no school yet. */
+const NO_SCHOOL = "__none__";
 
 export function UsersManager({
   users,
   roles,
+  schools,
   currentUserId,
 }: {
   users: UserRow[];
   /** In priority order, so the first is the default for unnamed users. */
   roles: RoleOption[];
+  schools: SchoolOption[];
   currentUserId: string;
 }) {
   const [query, setQuery] = useState("");
@@ -103,7 +117,7 @@ export function UsersManager({
     const needle = query.trim().toLowerCase();
     if (!needle) return users;
     return users.filter((item) =>
-      [item.name, item.email, item.employeeId, item.department]
+      [item.name, item.email, item.employeeId, item.schoolName]
         .join(" ")
         .toLowerCase()
         .includes(needle),
@@ -131,7 +145,7 @@ export function UsersManager({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name, email, employee ID or department"
+            placeholder="Search by name, email, employee ID or school"
             className="pl-8"
             aria-label="Search users"
           />
@@ -201,7 +215,7 @@ export function UsersManager({
                         </div>
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
-                        {item.department || "-"}
+                        {item.schoolName || "-"}
                       </TableCell>
                       <TableCell>
                         {item.disabled ? (
@@ -290,6 +304,7 @@ export function UsersManager({
         open={inviting || Boolean(editing)}
         user={editing}
         roles={roles}
+        schools={schools}
         onOpenChange={(open) => {
           if (!open) {
             setInviting(false);
@@ -343,17 +358,19 @@ function UserEditor({
   open,
   user,
   roles,
+  schools,
   onOpenChange,
 }: {
   open: boolean;
   user: UserRow | null;
   roles: RoleOption[];
+  schools: SchoolOption[];
   onOpenChange: (open: boolean) => void;
 }) {
   const [email, setEmail] = useState(user?.email ?? "");
   const [name, setName] = useState(user?.name ?? "");
   const [employeeId, setEmployeeId] = useState(user?.employeeId ?? "");
-  const [department, setDepartment] = useState(user?.department ?? "");
+  const [schoolId, setSchoolId] = useState(user?.schoolId || NO_SCHOOL);
   const [designation, setDesignation] = useState(user?.designation ?? "");
   const [roleIds, setRoleIds] = useState<string[]>(
     user?.roles.map((role) => role.id) ?? [],
@@ -365,7 +382,13 @@ function UserEditor({
   function handleSave() {
     setFieldErrors({});
     startSave(async () => {
-      const base = { name, employeeId, department, designation, roleIds };
+      const base = {
+        name,
+        employeeId,
+        schoolId: schoolId === NO_SCHOOL ? "" : schoolId,
+        designation,
+        roleIds,
+      };
       const result = user
         ? await updateUser(user.id, base)
         : await inviteUser({ ...base, email, sendInvite });
@@ -438,12 +461,20 @@ function UserEditor({
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="user-department">Department</FieldLabel>
-              <Input
-                id="user-department"
-                value={department}
-                onChange={(event) => setDepartment(event.target.value)}
-              />
+              <FieldLabel htmlFor="user-school">School</FieldLabel>
+              <Select value={schoolId} onValueChange={setSchoolId}>
+                <SelectTrigger id="user-school" data-testid="user-school">
+                  <SelectValue placeholder="No school" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NO_SCHOOL}>No school</SelectItem>
+                  {schools.map((option) => (
+                    <SelectItem key={option.id} value={option.id}>
+                      {option.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
           </div>
 

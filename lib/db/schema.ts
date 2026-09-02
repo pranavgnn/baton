@@ -10,6 +10,7 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 import type {
@@ -38,7 +39,15 @@ export const user = pgTable("user", {
 
   /* Portal-specific columns. */
   employeeId: text("employee_id"),
-  department: text("department"),
+  /**
+   * The school the person belongs to. What used to be a typed department name
+   * is a reference now, because the promotion route depends on it: an
+   * application goes to the dean of this school, and from there to one of its
+   * associate deans.
+   */
+  schoolId: text("school_id").references((): AnyPgColumn => school.id, {
+    onDelete: "set null",
+  }),
   designation: text("designation"),
   /** False until the invitee completes the password-reset activation flow. */
   activated: boolean("activated").default(false).notNull(),
@@ -112,6 +121,54 @@ export const verification = pgTable(
       .notNull(),
   },
   (table) => [index("verification_identifier_idx").on(table.identifier)],
+);
+
+/* -------------------------------------------------------------------------- */
+/*  Schools                                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A school of the institute, with the people who sign for it.
+ *
+ * The dean is a single named person; the associate deans are a set, because a
+ * school has several and the dean chooses which of them reviews a given
+ * application. Both are references rather than names so removing an account
+ * cannot leave a school pointing at somebody who is gone.
+ */
+export const school = pgTable(
+  "school",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    /** Short form used where the full name will not fit, e.g. SCCE. */
+    code: text("code"),
+    deanId: text("dean_id").references((): AnyPgColumn => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at")
+      .defaultNow()
+      .$onUpdate(() => new Date())
+      .notNull(),
+  },
+  (table) => [uniqueIndex("school_name_uidx").on(table.name)],
+);
+
+export const schoolAssociateDean = pgTable(
+  "school_associate_dean",
+  {
+    schoolId: text("school_id")
+      .notNull()
+      .references(() => school.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.schoolId, table.userId] }),
+    index("school_associate_dean_user_id_idx").on(table.userId),
+  ],
 );
 
 /* -------------------------------------------------------------------------- */
@@ -285,6 +342,14 @@ export const application = pgTable(
     workflowVersion: integer("workflow_version").notNull(),
     /** Node the application is currently parked on. */
     currentNodeId: text("current_node_id"),
+    /**
+     * Who the current stage was nominated to, when the previous reviewer chose
+     * a person rather than leaving it to the whole role. Null means anyone
+     * holding the stage's role may act.
+     */
+    assignedToId: text("assigned_to_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
     /**
      * Namespaced form data: `applicant` holds the submission node payload and
      * every other key is a stage node id.
@@ -461,12 +526,33 @@ export const auditLog = pgTable(
 /*  Relations                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export const userRelations = relations(user, ({ many }) => ({
+export const userRelations = relations(user, ({ many, one }) => ({
   sessions: many(session),
   accounts: many(account),
   roles: many(userRole),
   applications: many(application),
+  school: one(school, { fields: [user.schoolId], references: [school.id] }),
 }));
+
+export const schoolRelations = relations(school, ({ one, many }) => ({
+  dean: one(user, { fields: [school.deanId], references: [user.id] }),
+  associateDeans: many(schoolAssociateDean),
+  members: many(user),
+}));
+
+export const schoolAssociateDeanRelations = relations(
+  schoolAssociateDean,
+  ({ one }) => ({
+    school: one(school, {
+      fields: [schoolAssociateDean.schoolId],
+      references: [school.id],
+    }),
+    user: one(user, {
+      fields: [schoolAssociateDean.userId],
+      references: [user.id],
+    }),
+  }),
+);
 
 export const sessionRelations = relations(session, ({ one }) => ({
   user: one(user, { fields: [session.userId], references: [user.id] }),
@@ -527,6 +613,7 @@ export const applicationFileRelations = relations(
 /* -------------------------------------------------------------------------- */
 
 export type User = typeof user.$inferSelect;
+export type School = typeof school.$inferSelect;
 export type Role = typeof role.$inferSelect;
 export type Workflow = typeof workflow.$inferSelect;
 export type WorkflowVersion = typeof workflowVersion.$inferSelect;

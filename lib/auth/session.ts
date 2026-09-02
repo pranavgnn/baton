@@ -13,7 +13,7 @@ import {
   type PermissionKey,
 } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
-import { role, user, userRole } from "@/lib/db/schema";
+import { role, school, user, userRole } from "@/lib/db/schema";
 
 export type SessionRole = {
   id: string;
@@ -26,7 +26,8 @@ export type CurrentUser = {
   name: string;
   email: string;
   employeeId: string | null;
-  department: string | null;
+  schoolId: string | null;
+  schoolName: string | null;
   designation: string | null;
   activated: boolean;
   disabled: boolean;
@@ -49,7 +50,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       name: user.name,
       email: user.email,
       employeeId: user.employeeId,
-      department: user.department,
+      schoolId: user.schoolId,
+      schoolName: school.name,
       designation: user.designation,
       activated: user.activated,
       disabled: user.disabled,
@@ -58,6 +60,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       rolePermissions: role.permissions,
     })
     .from(user)
+    .leftJoin(school, eq(school.id, user.schoolId))
     .leftJoin(userRole, eq(userRole.userId, user.id))
     .leftJoin(role, eq(role.id, userRole.roleId))
     .where(eq(user.id, session.user.id));
@@ -83,7 +86,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     name: first.name,
     email: first.email,
     employeeId: first.employeeId,
-    department: first.department,
+    schoolId: first.schoolId,
+    schoolName: first.schoolName,
     designation: first.designation,
     activated: first.activated,
     disabled: first.disabled,

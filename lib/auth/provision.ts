@@ -15,7 +15,7 @@ export type ProvisionUserInput = {
   email: string;
   name: string;
   employeeId?: string | null;
-  department?: string | null;
+  schoolId?: string | null;
   designation?: string | null;
   /** Only supplied by the seed script; invitees choose their own. */
   password?: string;
@@ -43,7 +43,7 @@ export async function provisionUser(
       name: input.name.trim(),
       emailVerified: false,
       employeeId: input.employeeId ?? null,
-      department: input.department ?? null,
+      schoolId: input.schoolId ?? null,
       designation: input.designation ?? null,
       activated: input.activated ?? false,
       disabled: false,

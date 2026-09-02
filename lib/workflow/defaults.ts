@@ -174,6 +174,19 @@ export type DefaultTemplateName =
 /*  Default roles                                                              */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * The schools a fresh install starts with, as MIT Manipal lists them.
+ *
+ * A starting point rather than the whole institute: schools are administered
+ * from the portal, so anything missing is added there.
+ */
+export const DEFAULT_SCHOOLS = [
+  { name: "School of Basic Sciences, Humanities & Management", code: "SBHM" },
+  { name: "School of Civil & Chemical Engineering", code: "SCCE" },
+  { name: "School of Computer Engineering", code: "SOCE" },
+  { name: "School of Electrical Engineering", code: "SEE" },
+] as const;
+
 export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
 
 /**
