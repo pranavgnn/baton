@@ -108,8 +108,8 @@ pnpm dev                      # Next.js and the email worker together
 
 Sign in as `superadmin@manipal.edu` / `SuperAdmin@123`. The demo seed adds one account per
 role - `employee@`, `dean@`, `associatedean@`, `associatedean2@`, `hr@`, `rc@`,
-`fdw@`, `director@`, `associatedirector@` and `institutehr@manipal.edu` - all
-with the password `Portal@123`.
+`fdw@`, `director@` and `institutehr@manipal.edu` - all with the password
+`Portal@123`.
 
 Nothing leaves the machine in development: Mailpit captures every email, so
 the activation and workflow messages can be read at
