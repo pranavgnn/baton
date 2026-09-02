@@ -249,12 +249,31 @@ test.describe("pagination", () => {
 
     // One page of results, so there is nowhere to go.
     await page.goto("/admin/users");
-    await expect(page.getByTestId("page-indicator")).toContainText("1 /");
+    await expect(page.getByTestId("page-number")).toHaveValue("1");
     await expect(page.getByTestId("page-previous")).toBeDisabled();
 
     await page.getByRole("combobox", { name: "Rows per page" }).click();
     await page.getByRole("option", { name: "10 per page" }).click();
     await expect(page.getByTestId("page-indicator")).toBeVisible();
+  });
+
+  test("goes to a page that is typed in, and refuses one that is not there", async ({
+    page,
+  }) => {
+    await page.goto("/admin/users");
+    await page.getByRole("combobox", { name: "Rows per page" }).click();
+    await page.getByRole("option", { name: "10 per page" }).click();
+
+    const number = page.getByTestId("page-number");
+    await number.fill("2");
+    await number.press("Enter");
+    await expect(number).toHaveValue("2");
+    await expect(page.getByTestId("page-previous")).toBeEnabled();
+
+    // Past the end is clamped to the last page rather than showing nothing.
+    await number.fill("999");
+    await number.press("Enter");
+    await expect(page.getByTestId("page-next")).toBeDisabled();
   });
 });
 

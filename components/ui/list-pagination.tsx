@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -103,7 +104,12 @@ export function ListPagination({ pagination, label }: ListPaginationProps) {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-1">
+        <div
+          className="flex items-center gap-1"
+          data-testid="page-indicator"
+          // Read as one control: "page 3 of 12", however it is reached.
+          aria-label={`Page ${page} of ${pageCount}`}
+        >
           <Button
             variant="outline"
             size="icon"
@@ -114,11 +120,9 @@ export function ListPagination({ pagination, label }: ListPaginationProps) {
           >
             <ChevronLeft className="size-4" />
           </Button>
-          <span
-            className="px-2 text-sm tabular-nums"
-            data-testid="page-indicator"
-          >
-            {page} / {pageCount}
+          <PageNumberInput page={page} pageCount={pageCount} onGo={setPage} />
+          <span className="pr-1 text-sm text-muted-foreground tabular-nums">
+            / {pageCount}
           </span>
           <Button
             variant="outline"
@@ -133,5 +137,55 @@ export function ListPagination({ pagination, label }: ListPaginationProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * The page number, typed rather than stepped through.
+ *
+ * Twelve pages in, clicking next eleven times is nobody's idea of navigation.
+ * The field holds what is being typed rather than the page itself - otherwise
+ * clearing it to type "12" would jump to page 1 on the way - and commits on
+ * Enter or on leaving, clamped to a page that exists.
+ */
+function PageNumberInput({
+  page,
+  pageCount,
+  onGo,
+}: {
+  page: number;
+  pageCount: number;
+  onGo: (page: number) => void;
+}) {
+  const [typed, setTyped] = useState<string | null>(null);
+
+  const commit = () => {
+    if (typed === null) return;
+    const wanted = Number.parseInt(typed, 10);
+    setTyped(null);
+    if (Number.isNaN(wanted)) return;
+    onGo(Math.min(Math.max(wanted, 1), pageCount));
+  };
+
+  return (
+    <Input
+      // A spinner beside a number that already has arrows either side of it
+      // is one control too many.
+      type="text"
+      inputMode="numeric"
+      className="h-9 w-14 px-2 text-center tabular-nums"
+      aria-label="Page number"
+      data-testid="page-number"
+      value={typed ?? String(page)}
+      onChange={(event) => setTyped(event.target.value.replace(/[^0-9]/g, ""))}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          commit();
+          event.currentTarget.blur();
+        }
+      }}
+    />
   );
 }
