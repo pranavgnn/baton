@@ -22,6 +22,66 @@ import { provisionUser, sendActivationLink } from "@/lib/auth/provision";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { application, role, school, user, userRole } from "@/lib/db/schema";
+import { USER_TYPE_KEYS, type UserType } from "@/lib/users/profile";
+
+const isoDay = z
+  .union([z.literal(""), z.iso.date("Enter a date")])
+  .optional()
+  .default("");
+
+/**
+ * The particulars an account carries beyond its name and address. Shared by
+ * the invite form, the edit form and the importer so the three cannot drift.
+ */
+const profileInput = {
+  employeeId: z.string().trim().max(40).optional().default(""),
+  schoolId: z.string().trim().optional().default(""),
+  designation: z.string().trim().max(120).optional().default(""),
+  institution: z.string().trim().max(160).optional().default(""),
+  userType: z
+    .union([z.literal(""), z.enum(USER_TYPE_KEYS as [UserType, ...UserType[]])])
+    .optional()
+    .default(""),
+  /** ISO days, as an `<input type="date">` produces. */
+  dateOfBirth: isoDay,
+  dateOfJoining: isoDay,
+  dateOfLastPromotion: isoDay,
+  phone: z.string().trim().max(40).optional().default(""),
+  personalEmail: z
+    .union([z.literal(""), z.email("Enter a valid email address")])
+    .optional()
+    .default(""),
+  address: z.string().trim().max(400).optional().default(""),
+};
+
+/** What the profile fields become in the database: "" means "not recorded". */
+function profileColumns(input: {
+  employeeId: string;
+  schoolId: string;
+  designation: string;
+  institution: string;
+  userType: string;
+  dateOfBirth: string;
+  dateOfJoining: string;
+  dateOfLastPromotion: string;
+  phone: string;
+  personalEmail: string;
+  address: string;
+}) {
+  return {
+    employeeId: input.employeeId || null,
+    schoolId: input.schoolId || null,
+    designation: input.designation || null,
+    institution: input.institution || null,
+    userType: (input.userType || null) as UserType | null,
+    dateOfBirth: input.dateOfBirth || null,
+    dateOfJoining: input.dateOfJoining || null,
+    dateOfLastPromotion: input.dateOfLastPromotion || null,
+    phone: input.phone || null,
+    personalEmail: input.personalEmail || null,
+    address: input.address || null,
+  };
+}
 
 const userInput = z.object({
   email: z.email("Enter a valid email address").trim().toLowerCase(),
@@ -30,9 +90,7 @@ const userInput = z.object({
     .trim()
     .min(2, "Use at least 2 characters")
     .max(120, "Use at most 120 characters"),
-  employeeId: z.string().trim().max(40).optional().default(""),
-  schoolId: z.string().trim().optional().default(""),
-  designation: z.string().trim().max(120).optional().default(""),
+  ...profileInput,
   roleIds: z.array(z.string().min(1)).default([]),
   /** Sends the activation email immediately after provisioning. */
   sendInvite: z.boolean().default(true),
@@ -104,9 +162,7 @@ export async function inviteUser(input: UserInput): Promise<ActionResult> {
     const provisioned = await provisionUser({
       email: parsed.data.email,
       name: parsed.data.name,
-      employeeId: parsed.data.employeeId || null,
-      schoolId: parsed.data.schoolId || null,
-      designation: parsed.data.designation || null,
+      ...profileColumns(parsed.data),
     });
 
     // No role named means the default: the lowest-priority role.
@@ -165,12 +221,7 @@ export async function updateUser(
 
     await db
       .update(user)
-      .set({
-        name: parsed.data.name,
-        employeeId: parsed.data.employeeId || null,
-        schoolId: parsed.data.schoolId || null,
-        designation: parsed.data.designation || null,
-      })
+      .set({ name: parsed.data.name, ...profileColumns(parsed.data) })
       .where(eq(user.id, id));
 
     await setRoles(id, parsed.data.roleIds);
@@ -196,8 +247,20 @@ const importRowSchema = z.object({
   email: z.email().trim().toLowerCase(),
   name: z.string().trim().max(120),
   employeeId: z.string().trim().max(40).optional().default(""),
+  /** Named in words and matched against the schools the portal holds. */
   school: z.string().trim().max(200).optional().default(""),
   designation: z.string().trim().max(120).optional().default(""),
+  institution: z.string().trim().max(160).optional().default(""),
+  userType: z.string().trim().max(20).optional().default(""),
+  dateOfBirth: isoDay,
+  dateOfJoining: isoDay,
+  dateOfLastPromotion: isoDay,
+  phone: z.string().trim().max(40).optional().default(""),
+  personalEmail: z
+    .union([z.literal(""), z.email()])
+    .optional()
+    .default(""),
+  address: z.string().trim().max(400).optional().default(""),
   roles: z.array(z.string().trim()).default([]),
 });
 
@@ -285,9 +348,10 @@ export async function bulkImportUsers(
         const provisioned = await provisionUser({
           email: row.email,
           name: row.name,
-          employeeId: row.employeeId || null,
-          schoolId: schoolIdByName.get(row.school.trim().toLowerCase()) ?? null,
-          designation: row.designation || null,
+          ...profileColumns({
+            ...row,
+            schoolId: schoolIdByName.get(row.school.trim().toLowerCase()) ?? "",
+          }),
         });
 
         await setRoles(provisioned.id, roleIds);

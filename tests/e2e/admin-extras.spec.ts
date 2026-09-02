@@ -81,9 +81,16 @@ async function dragRole(page: Page, name: string, places: number) {
   ).toBeVisible();
 }
 
+/** Points one portal field at a column of the uploaded file. */
+async function mapColumn(page: Page, field: string, column: string) {
+  await page.getByTestId(`map-${field}`).click();
+  await page.getByRole("option", { name: column, exact: true }).click();
+}
+
 test.describe("bulk user import", () => {
   const IMPORTED = "bulk.one@manipal.edu";
   const SECOND = "bulk.two@manipal.edu";
+  const FOURTH = "bulk.four@manipal.edu";
 
   test("previews a pasted CSV before writing anything", async ({ page }) => {
     await page.goto("/admin/users");
@@ -159,10 +166,40 @@ test.describe("bulk user import", () => {
     await expectToast(page, /Imported 1/);
   });
 
+  test("maps columns by hand when a file names them its own way", async ({
+    page,
+  }) => {
+    await page.goto("/admin/users");
+    await page.getByTestId("bulk-import").click();
+
+    // An institute's own export: no column is named anything the portal
+    // recognises, and they are in the wrong order.
+    await page
+      .getByTestId("import-csv")
+      .fill(`staff no,who,mail id\nMIT-9001,Bulk Four,${FOURTH}`);
+
+    // Nothing is guessed, so nothing imports until the columns are named.
+    await expect(page.getByTestId("import-mapping")).toBeVisible();
+    await expect(page.getByTestId("confirm-import")).toBeDisabled();
+
+    await mapColumn(page, "email", "mail id");
+    await mapColumn(page, "name", "who");
+    await mapColumn(page, "employeeId", "staff no");
+
+    await expect(page.getByTestId("import-preview")).toContainText("Bulk Four");
+    await page.getByTestId("confirm-import").click();
+    await expectToast(page, /Imported 1/);
+
+    // The employee code came through, so the mapping reached the database and
+    // not just the preview.
+    await page.getByRole("textbox", { name: "Search users" }).fill("MIT-9001");
+    await expect(page.getByTestId(`user-${FOURTH}`)).toBeVisible();
+  });
+
   test("cleans up the imported accounts", async ({ page }) => {
     await page.goto("/admin/users");
 
-    for (const email of [IMPORTED, SECOND, "bulk.three@manipal.edu"]) {
+    for (const email of [IMPORTED, SECOND, "bulk.three@manipal.edu", FOURTH]) {
       await page.getByRole("textbox", { name: "Search users" }).fill(email);
       const row = page.getByTestId(`user-${email}`);
       await row.getByRole("button", { name: /Actions for/ }).click();

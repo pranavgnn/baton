@@ -38,6 +38,14 @@ export const DEMO_USERS = [
     employeeId: "TEST-0001",
     school: "School of Computer Engineering",
     designation: "Assistant Professor",
+    // Enough of a service record for the application form to fill itself in,
+    // which is the point of holding these on the account at all.
+    userType: "regular",
+    institution: "Manipal Institute of Technology",
+    dateOfBirth: "1984-02-11",
+    dateOfJoining: "2017-06-01",
+    dateOfLastPromotion: "2021-07-01",
+    phone: "+91 98450 00000",
   },
   {
     email: "dean@manipal.edu",
@@ -132,6 +140,13 @@ async function main() {
       employeeId: demo.employeeId,
       schoolId: demo.school ? (schoolIdByName.get(demo.school) ?? null) : null,
       designation: demo.designation,
+      userType: "userType" in demo ? demo.userType : null,
+      institution: "institution" in demo ? demo.institution : null,
+      dateOfBirth: "dateOfBirth" in demo ? demo.dateOfBirth : null,
+      dateOfJoining: "dateOfJoining" in demo ? demo.dateOfJoining : null,
+      dateOfLastPromotion:
+        "dateOfLastPromotion" in demo ? demo.dateOfLastPromotion : null,
+      phone: "phone" in demo ? demo.phone : null,
       password: DEMO_PASSWORD,
       activated: true,
     });
