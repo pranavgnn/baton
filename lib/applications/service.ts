@@ -268,6 +268,58 @@ export type StageAccessInput = Pick<
   "graph" | "currentNodeId" | "status" | "assignedToId"
 > & { applicant: { schoolId: string | null } };
 
+/**
+ * One review this person signed off, most recent first.
+ *
+ * Keyed on who actually acted rather than on which role they hold: a reviewer
+ * asking "what have I decided" means the decisions they took, not everything
+ * their role has ever seen. A stage a person takes twice - the dean, who
+ * delegates and then decides - is two entries, because it was two decisions.
+ */
+export type CompletedReview = {
+  eventId: string;
+  applicationId: string;
+  reference: string;
+  applicantName: string;
+  applicantEmail: string;
+  school: string | null;
+  status: ApplicationStatus;
+  stageLabel: string | null;
+  outcomeLabel: string | null;
+  reviewedAt: Date;
+};
+
+export async function listReviewsBy(
+  userId: string,
+): Promise<CompletedReview[]> {
+  const rows = await db
+    .select({
+      eventId: applicationEvent.id,
+      applicationId: application.id,
+      reference: application.reference,
+      status: application.status,
+      stageLabel: applicationEvent.nodeLabel,
+      outcomeLabel: applicationEvent.outcomeLabel,
+      reviewedAt: applicationEvent.createdAt,
+      applicantName: user.name,
+      applicantEmail: user.email,
+      school: school.name,
+    })
+    .from(applicationEvent)
+    .innerJoin(application, eq(application.id, applicationEvent.applicationId))
+    .innerJoin(user, eq(user.id, application.applicantId))
+    .leftJoin(school, eq(school.id, user.schoolId))
+    .where(
+      and(
+        eq(applicationEvent.actorId, userId),
+        eq(applicationEvent.type, "stage_completed"),
+      ),
+    )
+    .orderBy(desc(applicationEvent.createdAt));
+
+  return rows;
+}
+
 /** True when the viewer may act on the application's current stage. */
 export function canActOnCurrentStage(
   app: StageAccessInput,

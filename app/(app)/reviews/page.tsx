@@ -1,4 +1,8 @@
+import { History } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
+
+import { Button } from "@/components/ui/button";
 
 import { getReviewQueue } from "@/lib/applications/service";
 import { requirePermission } from "@/lib/auth/session";
@@ -32,6 +36,12 @@ export default async function ReviewsPage() {
             moves the application forward.
           </p>
         </div>
+        <Button asChild variant="outline" data-testid="open-review-history">
+          <Link href="/reviews/history">
+            <History className="size-4" />
+            Your reviews
+          </Link>
+        </Button>
       </div>
 
       <ReviewsTable queue={rows} />
