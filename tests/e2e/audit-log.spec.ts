@@ -112,6 +112,36 @@ test.describe("audit log", () => {
     await expect(page.getByTestId("audit-empty")).toBeVisible();
   });
 
+  test("goes to a page that is typed in, and clamps one that is not there", async ({
+    page,
+  }) => {
+    await page.goto("/admin/audit");
+    await page.getByRole("combobox", { name: "Rows per page" }).click();
+    await page.getByRole("option", { name: "25 per page" }).click();
+
+    // However many pages a run has produced, the last one is reachable by
+    // typing its number rather than by pressing Next until it stops.
+    const pages = Number(
+      (await page.getByTestId("audit-page").innerText()).replace(/\D/g, ""),
+    );
+    expect(pages).toBeGreaterThan(1);
+
+    const number = page.getByTestId("page-number");
+    await number.fill(String(pages));
+    await number.press("Enter");
+    await expect(number).toHaveValue(String(pages));
+    await expect(page.getByTestId("audit-next")).toBeDisabled();
+
+    // Past the end lands on the last page rather than on nothing at all.
+    await number.fill("999");
+    await number.press("Enter");
+    await expect(number).toHaveValue(String(pages));
+
+    await number.fill("1");
+    await number.press("Enter");
+    await expect(page.getByTestId("audit-previous")).toBeDisabled();
+  });
+
   test("exports what the filters select", async ({ page }) => {
     await page.goto("/admin/audit?actions=role.created");
 

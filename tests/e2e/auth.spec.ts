@@ -89,7 +89,11 @@ test.describe("reviewer permissions", () => {
 
   test("gets the review queue but not the admin area", async ({ page }) => {
     await page.goto("/dashboard");
-    await expect(page.getByRole("link", { name: "Reviews" })).toBeVisible();
+    // Exactly, since the dashboard also links to the reviews they have
+    // already recorded.
+    await expect(
+      page.getByRole("link", { name: "Reviews", exact: true }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
 
     await page.goto("/admin");

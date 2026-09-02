@@ -36,14 +36,18 @@ import { clearStageDraft, completeStage, saveStageDraft } from "../actions";
 export type Nominee = { id: string; name: string; email: string };
 
 /**
- * What the confirmation asks. An outcome is admin-defined, so the two the
- * process almost always has - one that carries on and one that stops - are
- * named for what they do, and anything else is quoted as it was written.
+ * What the confirmation asks.
+ *
+ * An outcome is admin-defined, so this reads its label rather than its tone -
+ * a tone is a colour, and "Send to associate dean" is a positive step that is
+ * not an approval. The two words the process almost always uses are named for
+ * what they mean; anything else is quoted back as it was written.
  */
 function confirmTitle(outcome: StageOutcome): string {
-  if (outcome.tone === "positive") return "Confirm approval";
-  if (outcome.tone === "negative") return "Confirm rejection";
-  return `Confirm "${outcome.label}"`;
+  const label = outcome.label.trim().toLowerCase();
+  if (label === "approve") return "Confirm approval";
+  if (label === "reject") return "Confirm rejection";
+  return `Confirm “${outcome.label}”`;
 }
 
 export function ReviewForm({
@@ -84,8 +88,8 @@ export function ReviewForm({
       form={form}
       defaultValues={defaultValues}
       profile={profile}
-      submitHeading={`Confirm your ${stageLabel.toLowerCase()}`}
-      submitDescription="Choose the outcome that decides where this application goes next."
+      submitHeading="Your decision"
+      submitDescription={`You are acting as ${stageLabel}. Choose the outcome that decides where this application goes next.`}
       onSaveDraft={(data) => saveStageDraft(applicationId, data)}
       onClear={() => clearStageDraft(applicationId)}
       renderSubmitActions={({ getValues, validate, busy, setBusy }) => (
@@ -185,9 +189,9 @@ export function ReviewForm({
                         {confirmTitle(outcome)}
                       </AlertDialogTitle>
                       <AlertDialogDescription>
-                        This records &ldquo;{outcome.label}&rdquo; against{" "}
-                        {stageLabel.toLowerCase()} and moves the application on.
-                        It cannot be undone.
+                        This records &ldquo;{outcome.label}&rdquo; at{" "}
+                        {stageLabel} and moves the application on. It cannot be
+                        undone.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

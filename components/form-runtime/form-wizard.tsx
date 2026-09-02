@@ -251,11 +251,16 @@ export function FormWizard({
     step < previewStep ? currentSection?.description : submitDescription;
 
   return (
-    <div className="wizard">
+    <div className={cn("wizard", previewStep === 0 && "wizard-railless")}>
       {/* The rail is the whole map of the form: sixteen sections is too many
           to read as a row of chips, and an applicant needs to see where they
-          are in it without counting. */}
-      <nav className="wizard-rail" aria-label="Form progress">
+          are in it without counting. A step whose form asks nothing - a hand-
+          over, say - has no map to draw, so it is not given one. */}
+      <nav
+        className="wizard-rail"
+        aria-label="Form progress"
+        hidden={previewStep === 0}
+      >
         <div className="wizard-rail-header">
           <p className="wizard-rail-count">
             Step {Math.min(step + 1, previewStep + 1)} of {previewStep + 1}
@@ -367,15 +372,17 @@ export function FormWizard({
 
         <div className={cn("wizard-actions", preview && "wizard-actions-bare")}>
           <div className="toolbar">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={goBack}
-              disabled={step === 0 || busy}
-            >
-              <ArrowLeft className="size-4" />
-              Back
-            </Button>
+            {previewStep > 0 ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={goBack}
+                disabled={step === 0 || busy}
+              >
+                <ArrowLeft className="size-4" />
+                Back
+              </Button>
+            ) : null}
             {step < previewStep ? (
               <Button
                 type="button"

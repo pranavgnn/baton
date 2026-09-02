@@ -322,10 +322,9 @@ test.describe("one account, in full", () => {
     await expect(detail).toContainText("TEST-0001");
     await expect(detail).toContainText("School of Computer Engineering");
     await expect(detail).toContainText("Regular");
-    // Their applications - the point of opening the record at all.
-    await expect(detail.getByTestId("user-applications")).toContainText(
-      "PROM-",
-    );
+    // What they have applied for is the point of opening the record; whether
+    // they have applied yet depends on what else has run.
+    await expect(detail).toContainText("Their applications");
 
     // And straight from reading into changing.
     await detail.getByTestId("edit-from-detail").click();

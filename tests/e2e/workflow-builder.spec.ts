@@ -14,12 +14,12 @@ async function openBuilder(page: Page) {
 }
 
 /**
- * The seeded process: one submission, seven review stages, three endings and
+ * The seeded process: one submission, eight review stages, four endings and
  * the notifications that ride alongside each hand-off. Declared here so a
  * change to the seeded workflow fails in one obvious place.
  */
-const NODE_COUNT = 33;
-const EDGE_COUNT = 38;
+const NODE_COUNT = 35;
+const EDGE_COUNT = 35;
 
 const nodes = (page: Page) => page.locator(".react-flow__node");
 const edges = (page: Page) => page.locator(".react-flow__edge");
@@ -50,8 +50,9 @@ test.describe("workflow builder canvas", () => {
 
     await expect(page.getByTestId("node-start")).toBeVisible();
     for (const stage of [
-      "Dean Recommendation",
-      "Associate Dean Review",
+      "Dean Delegation",
+      "Associate Dean Recommendation",
+      "Dean Approval",
       "HR Initial Review",
       "R&C Research Evaluation",
       "FD&W Formal Evaluation",
@@ -61,11 +62,14 @@ test.describe("workflow builder canvas", () => {
       await expect(page.getByTestId(`node-stage-${stage}`)).toBeVisible();
     }
 
-    await expect(page.getByTestId("node-end-Approved")).toBeVisible();
-    await expect(page.getByTestId("node-end-Closed - Rejected")).toBeVisible();
-    await expect(
-      page.getByTestId("node-end-Closed - Not Eligible"),
-    ).toBeVisible();
+    for (const ending of [
+      "Approved",
+      "Closed - Rejected",
+      "Closed - Not Eligible",
+      "Closed - Rejected by the Dean",
+    ]) {
+      await expect(page.getByTestId(`node-end-${ending}`)).toBeVisible();
+    }
   });
 
   test("labels each outcome edge so branching is readable", async ({
@@ -73,7 +77,7 @@ test.describe("workflow builder canvas", () => {
   }) => {
     for (const label of [
       "Send to associate dean",
-      "Forward to HR",
+      "Return to the dean",
       "Forward to R&C",
       "Forward to FD&W",
       "Eligible",
@@ -120,7 +124,7 @@ test.describe("workflow builder canvas", () => {
     await page.getByTestId("node-stage-Director Review").click();
     await page.getByTestId("add-outcome").click();
     await page
-      .getByRole("textbox", { name: "Outcome 4 label" })
+      .getByRole("textbox", { name: "Outcome 3 label" })
       .fill("Defer to next cycle");
     await closeOverlays(page);
 

@@ -604,6 +604,11 @@
     @apply h-12 min-w-40 flex-1 px-8 text-base font-semibold sm:flex-none;
   }
 
+  /* A form that asks nothing - a hand-over step - is one column, not two. */
+  .wizard-railless {
+    @apply lg:grid-cols-1;
+  }
+
   /* The same actions in a preview, where a bar pinned to the bottom of a
      panel inside a dialog is a box floating in a box. */
   .wizard-actions-bare {

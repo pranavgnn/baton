@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/command";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageNumberInput } from "@/components/ui/list-pagination";
 import {
   Popover,
   PopoverContent,
@@ -387,8 +388,19 @@ export function AuditTable({
           >
             Previous
           </Button>
-          <span className="text-sm" data-testid="audit-page">
-            {page + 1} / {pages}
+          {/* The same control as every client-side list, over a query the
+              server answers: typing a page is how anyone reaches page 40 of
+              an audit trail. */}
+          <PageNumberInput
+            page={page + 1}
+            pageCount={pages}
+            onGo={(wanted) => apply({ page: String(wanted - 1) })}
+          />
+          <span
+            className="text-sm text-muted-foreground tabular-nums"
+            data-testid="audit-page"
+          >
+            / {pages}
           </span>
           <Button
             variant="outline"

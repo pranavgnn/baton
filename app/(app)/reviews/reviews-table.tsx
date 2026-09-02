@@ -77,7 +77,7 @@ export function ReviewsTable({ queue }: { queue: ReviewRow[] }) {
                 <TableRow>
                   <TableHead>Reference</TableHead>
                   <TableHead>Applicant</TableHead>
-                  <TableHead>Department</TableHead>
+                  <TableHead>School</TableHead>
                   <TableHead>Stage</TableHead>
                   <TableHead>Submitted</TableHead>
                   <TableHead className="w-24" />

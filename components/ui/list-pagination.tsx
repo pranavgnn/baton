@@ -148,11 +148,12 @@ export function ListPagination({ pagination, label }: ListPaginationProps) {
  * clearing it to type "12" would jump to page 1 on the way - and commits on
  * Enter or on leaving, clamped to a page that exists.
  */
-function PageNumberInput({
+export function PageNumberInput({
   page,
   pageCount,
   onGo,
 }: {
+  /** One-based, as it is read. */
   page: number;
   pageCount: number;
   onGo: (page: number) => void;

@@ -370,7 +370,7 @@ test.describe("1. the applicant fills in and submits", () => {
     await expect(submission).toContainText("Moved on");
 
     // The step it is sitting on has arrived but not moved on.
-    const stage = page.getByTestId("progress-dates-Dean Recommendation");
+    const stage = page.getByTestId("progress-dates-Dean Delegation");
     await expect(stage).toContainText("Arrived");
     await expect(stage).not.toContainText("Moved on");
 
@@ -797,6 +797,24 @@ test.describe("9. the outcome is visible to everyone entitled to it", () => {
       const reviewed = page.getByTestId("reviewed-by-you");
       await expect(reviewed).toContainText("Dean Approval: Approve");
       await expect(reviewed).toContainText(APPLICANT);
+    });
+  });
+
+  test.describe("to an administrator", () => {
+    test.use({ storageState: storageStatePath("superAdmin") });
+
+    test("shows on the applicant's own record", async ({ page }) => {
+      await page.goto("/admin/users");
+      await page
+        .getByRole("textbox", { name: "Search users" })
+        .fill(APPLICANT_EMAIL);
+      await page.getByTestId(`open-user-${APPLICANT_EMAIL}`).click();
+
+      const applications = page
+        .getByTestId("user-detail")
+        .getByTestId("user-applications");
+      await expect(applications).toContainText("PROM-");
+      await expect(applications).toContainText("Decided");
     });
   });
 
