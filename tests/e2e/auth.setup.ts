@@ -23,6 +23,7 @@ const ROLES: AccountName[] = [
   "rc",
   "fdw",
   "director",
+  "associateDirector",
   "instituteHr",
 ];
 

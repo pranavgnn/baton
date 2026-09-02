@@ -6,7 +6,7 @@ test.describe.configure({ mode: "serial", retries: 0 });
 test.use({ storageState: storageStatePath("superAdmin") });
 
 test.describe("role priority", () => {
-  test("lists roles in priority order with the default marked", async ({
+  test("saves a reordered list, and the default follows it", async ({
     page,
   }) => {
     await page.goto("/admin/roles");
@@ -23,14 +23,6 @@ test.describe("role priority", () => {
     await expect(rows.first()).toContainText("Employee");
     await expect(rows.first()).toContainText("Default");
 
-    await closeOverlays(page);
-  });
-
-  test("saves a reordered list, and the default follows it", async ({
-    page,
-  }) => {
-    await page.goto("/admin/roles");
-    await page.getByTestId("open-role-priority").click();
     await dragRole(page, "Employee", 1);
 
     await page.getByTestId("save-priority").click();
@@ -230,34 +222,25 @@ test.describe("pagination", () => {
 });
 
 test.describe("account", () => {
-  test("rejects a change with the wrong current password", async ({ page }) => {
+  test("refuses a change it cannot accept", async ({ page }) => {
     await page.goto("/dashboard");
     await page.getByRole("button", { name: "Account menu" }).click();
     await page.getByTestId("change-password").click();
-
     await expect(page.getByTestId("change-password-dialog")).toBeVisible();
-    await page.getByLabel("Current password").fill("DefinitelyWrong1");
-    await page.getByLabel("New password", { exact: true }).fill("Newpass@123");
-    await page.getByLabel("Confirm new password").fill("Newpass@123");
-    await page.getByTestId("save-password").click();
 
-    await expect(
-      page.getByTestId("change-password-dialog").getByRole("alert"),
-    ).toBeVisible();
-  });
-
-  test("refuses a new password that does not match its confirmation", async ({
-    page,
-  }) => {
-    await page.goto("/dashboard");
-    await page.getByRole("button", { name: "Account menu" }).click();
-    await page.getByTestId("change-password").click();
-
+    // Caught in the browser, before anything is sent.
     await page.getByLabel("Current password").fill("SuperAdmin@123");
     await page.getByLabel("New password", { exact: true }).fill("Newpass@123");
     await page.getByLabel("Confirm new password").fill("Different@123");
     await page.getByTestId("save-password").click();
-
     await expect(page.getByText("Passwords do not match")).toBeVisible();
+
+    // And caught by the server, which is the one that matters.
+    await page.getByLabel("Current password").fill("DefinitelyWrong1");
+    await page.getByLabel("Confirm new password").fill("Newpass@123");
+    await page.getByTestId("save-password").click();
+    await expect(
+      page.getByTestId("change-password-dialog").getByRole("alert"),
+    ).toBeVisible();
   });
 });

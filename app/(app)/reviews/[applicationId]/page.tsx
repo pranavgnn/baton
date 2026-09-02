@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { ApplicationTimeline } from "@/components/application-timeline";
 import { FormPreview } from "@/components/form-runtime/form-preview";
+import { ExportPdfButton } from "@/components/export-pdf-button";
 import { StatusBadge } from "@/components/status-badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -78,7 +79,10 @@ export default async function ReviewPage({
             {app.applicant.school ? ` · ${app.applicant.school}` : ""}
           </p>
         </div>
-        <StatusBadge status={app.status} />
+        <div className="toolbar">
+          <ExportPdfButton applicationId={app.id} />
+          <StatusBadge status={app.status} />
+        </div>
       </div>
 
       {!actionable ? (

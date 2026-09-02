@@ -69,15 +69,13 @@ async function reconcile(roleId: string, shouldHold: string[]): Promise<void> {
 
   const missing = shouldHold.filter((userId) => !held.has(userId));
   if (missing.length > 0) {
-    await db
-      .insert(userRole)
-      .values(
-        missing.map((userId) => ({
-          userId,
-          roleId,
-          source: "school" as const,
-        })),
-      );
+    await db.insert(userRole).values(
+      missing.map((userId) => ({
+        userId,
+        roleId,
+        source: "school" as const,
+      })),
+    );
   }
 
   // Withdrawn only from people this granted it to: `source` is what separates

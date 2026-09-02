@@ -59,6 +59,11 @@ export const AUDIT_ACTIONS = [
     label: "File downloaded",
     group: "Applications",
   },
+  {
+    key: "application.exported",
+    label: "Application exported",
+    group: "Applications",
+  },
 
   /* User and role administration ------------------------------------------ */
   { key: "user.invited", label: "User invited", group: "Administration" },

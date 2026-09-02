@@ -14,12 +14,12 @@ async function openBuilder(page: Page) {
 }
 
 /**
- * The seeded process: one submission, six review stages, three endings and the
- * notifications that ride alongside each hand-off. Declared here so a change
- * to the seeded workflow fails in one obvious place.
+ * The seeded process: one submission, seven review stages, three endings and
+ * the notifications that ride alongside each hand-off. Declared here so a
+ * change to the seeded workflow fails in one obvious place.
  */
-const NODE_COUNT = 30;
-const EDGE_COUNT = 29;
+const NODE_COUNT = 33;
+const EDGE_COUNT = 38;
 
 const nodes = (page: Page) => page.locator(".react-flow__node");
 const edges = (page: Page) => page.locator(".react-flow__edge");
@@ -120,7 +120,7 @@ test.describe("workflow builder canvas", () => {
     await page.getByTestId("node-stage-Director Review").click();
     await page.getByTestId("add-outcome").click();
     await page
-      .getByRole("textbox", { name: "Outcome 3 label" })
+      .getByRole("textbox", { name: "Outcome 4 label" })
       .fill("Defer to next cycle");
     await closeOverlays(page);
 
@@ -243,44 +243,26 @@ test.describe("workflow builder canvas", () => {
 
     await expectToast(page, `Published version ${version + 1}.`);
     await expect(subtitle).toContainText(`Published version ${version + 1}`);
-  });
 
-  test("the memo is optional", async ({ page }) => {
-    const subtitle = page.locator(".page-subtitle");
-    const version = Number((await subtitle.innerText()).match(/\d+/)![0]);
-
+    // And the memo is optional: the next publish goes through without one.
     await page.getByTestId("publish-workflow").click();
     await page.getByTestId("confirm-publish").click();
-
-    await expectToast(page, `Published version ${version + 1}.`);
+    await expectToast(page, `Published version ${version + 2}.`);
   });
 
-  test("the history lists published revisions and can restore one", async ({
-    page,
-  }) => {
+  test("lists every revision and protects the live one", async ({ page }) => {
     await page.getByTestId("open-version-history").click();
     const history = page.getByTestId("version-history");
     await expect(history).toBeVisible();
 
     // The seed publishes version 1 with a memo of its own.
-    await expect(page.getByTestId("version-1")).toBeVisible();
     await expect(page.getByTestId("version-1")).toContainText(
-      "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director.",
+      "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director, who may hand the decision to an associate director.",
     );
-
-    await closeOverlays(page);
-  });
-
-  test("refuses to delete the version that is live", async ({ page }) => {
-    await page.getByTestId("open-version-history").click();
 
     // The live revision offers neither restoring nor deleting: it is what the
     // portal is running.
-    const live = page
-      .getByTestId("version-history")
-      .locator("li")
-      .filter({ hasText: "Live" })
-      .first();
+    const live = history.locator("li").filter({ hasText: "Live" }).first();
     await expect(live).toBeVisible();
     await expect(live.getByRole("button", { name: "Delete" })).toHaveCount(0);
 
