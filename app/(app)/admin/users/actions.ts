@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, inArray } from "drizzle-orm";
+import { desc, eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
@@ -21,7 +21,16 @@ import { refusalMessage, refuseImpersonation } from "@/lib/auth/impersonation";
 import { provisionUser, sendActivationLink } from "@/lib/auth/provision";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { application, role, school, user, userRole } from "@/lib/db/schema";
+import {
+  application,
+  role,
+  school,
+  schoolAssociateDean,
+  user,
+  userRole,
+  type ApplicationStatus,
+} from "@/lib/db/schema";
+import { nodeById } from "@/lib/workflow/graph";
 import { USER_TYPE_KEYS, type UserType } from "@/lib/users/profile";
 
 const isoDay = z
@@ -548,4 +557,86 @@ async function getUserForImpersonation(id: string) {
       new Set(rows.flatMap((row) => row.permissions ?? [])),
     ),
   };
+}
+
+/* -------------------------------------------------------------------------- */
+/*  One account, in full                                                       */
+/* -------------------------------------------------------------------------- */
+
+export type UserApplication = {
+  id: string;
+  reference: string;
+  status: ApplicationStatus;
+  stageLabel: string;
+  createdAt: string;
+  submittedAt: string | null;
+  completedAt: string | null;
+};
+
+export type UserDetail = {
+  applications: UserApplication[];
+  /** Schools this person signs for, as dean or as an associate dean. */
+  signsFor: string[];
+};
+
+/**
+ * What an administrator wants when they click a name: everything the account
+ * has done, rather than everything it holds - the fields are already on the
+ * row and in the editor.
+ *
+ * Fetched on opening for the same reason a role's members are: it is one
+ * person's worth of history, wanted one person at a time.
+ */
+export async function getUserDetail(
+  userId: string,
+): Promise<ActionResult<UserDetail>> {
+  try {
+    await requirePermissionAction("users.manage");
+
+    const [applications, schools] = await Promise.all([
+      db
+        .select()
+        .from(application)
+        .where(eq(application.applicantId, userId))
+        .orderBy(desc(application.createdAt)),
+      schoolsSignedForBy(userId),
+    ]);
+
+    return ok({
+      signsFor: schools,
+      applications: applications.map((row) => ({
+        id: row.id,
+        reference: row.reference,
+        status: row.status,
+        // Read from the application's own snapshot, so a step since renamed
+        // still reads as it did when the file passed through it.
+        stageLabel: nodeById(row.graph, row.currentNodeId)?.data.label ?? "",
+        createdAt: row.createdAt.toISOString(),
+        submittedAt: row.submittedAt?.toISOString() ?? null,
+        completedAt: row.completedAt?.toISOString() ?? null,
+      })),
+    });
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+/** The names of the schools one person is dean or associate dean of. */
+async function schoolsSignedForBy(userId: string): Promise<string[]> {
+  const [asDean, asAssociate] = await Promise.all([
+    db
+      .select({ name: school.name })
+      .from(school)
+      .where(eq(school.deanId, userId)),
+    db
+      .select({ name: school.name })
+      .from(schoolAssociateDean)
+      .innerJoin(school, eq(school.id, schoolAssociateDean.schoolId))
+      .where(eq(schoolAssociateDean.userId, userId)),
+  ]);
+
+  return [
+    ...asDean.map((row) => `Dean of ${row.name}`),
+    ...asAssociate.map((row) => `Associate dean of ${row.name}`),
+  ];
 }

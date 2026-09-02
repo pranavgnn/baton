@@ -79,6 +79,7 @@ import {
   updateUser,
 } from "./actions";
 import { BulkImportDialog } from "./bulk-import";
+import { UserDetailDialog } from "./user-detail";
 
 export type UserRow = {
   id: string;
@@ -116,14 +117,20 @@ export function UsersManager({
   roles,
   schools,
   currentUserId,
+  openEmail,
 }: {
   users: UserRow[];
   /** In priority order, so the first is the default for unnamed users. */
   roles: RoleOption[];
   schools: SchoolOption[];
   currentUserId: string;
+  /** Someone another page linked here to look at, by address. */
+  openEmail?: string | null;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(openEmail ?? "");
+  const [viewing, setViewing] = useState<UserRow | null>(
+    () => users.find((item) => item.email === openEmail) ?? null,
+  );
   const [importing, setImporting] = useState(false);
   const [editing, setEditing] = useState<UserRow | null>(null);
   const [inviting, setInviting] = useState(false);
@@ -211,12 +218,19 @@ export function UsersManager({
                   pagination.items.map((item) => (
                     <TableRow key={item.id} data-testid={`user-${item.email}`}>
                       <TableCell>
-                        <div className="flex flex-col">
+                        {/* The whole account opens from the name: what they
+                            have applied for is not something a row can say. */}
+                        <button
+                          type="button"
+                          className="row-opener"
+                          onClick={() => setViewing(item)}
+                          data-testid={`open-user-${item.email}`}
+                        >
                           <span className="font-medium">{item.name}</span>
                           <span className="text-xs text-muted-foreground">
                             {item.email}
                           </span>
-                        </div>
+                        </button>
                       </TableCell>
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
@@ -340,6 +354,17 @@ export function UsersManager({
       </Card>
 
       <ListPagination pagination={pagination} label="users" />
+
+      {/* Keyed so a second account opens with its own history. */}
+      <UserDetailDialog
+        key={viewing?.id ?? "none"}
+        user={viewing}
+        onOpenChange={(open) => !open && setViewing(null)}
+        onEdit={() => {
+          setEditing(viewing);
+          setViewing(null);
+        }}
+      />
 
       <BulkImportDialog
         open={importing}
