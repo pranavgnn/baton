@@ -8,6 +8,7 @@ import {
   gte,
   ilike,
   inArray,
+  isNotNull,
   lte,
   or,
   type SQL,
@@ -111,17 +112,60 @@ export async function listAuditForExport(
     .limit(AUDIT_EXPORT_LIMIT);
 }
 
-/** Distinct actors who appear in the log, for the actor filter. */
-export async function listAuditActors(): Promise<
-  { id: string; name: string }[]
-> {
+export type AuditActor = { id: string; name: string; email: string | null };
+
+/**
+ * Actors matching what has been typed, newest activity first.
+ *
+ * Deliberately not "every user": an institute has thousands, and a select
+ * holding all of them is unusable. The search is over who actually appears in
+ * the log, and always bounded.
+ */
+export async function searchAuditActors(
+  query: string,
+  limit = 10,
+): Promise<AuditActor[]> {
+  const trimmed = query.trim();
+
   const rows = await db
-    .selectDistinct({ id: auditLog.actorId, name: auditLog.actorName })
-    .from(auditLog);
+    .selectDistinct({
+      id: auditLog.actorId,
+      name: auditLog.actorName,
+      email: auditLog.actorEmail,
+    })
+    .from(auditLog)
+    .where(
+      trimmed
+        ? and(
+            isNotNull(auditLog.actorId),
+            or(
+              ilike(auditLog.actorName, `%${trimmed}%`),
+              ilike(auditLog.actorEmail, `%${trimmed}%`),
+            ),
+          )
+        : isNotNull(auditLog.actorId),
+    )
+    .limit(limit);
 
   return rows
-    .filter((row): row is { id: string; name: string } =>
+    .filter((row): row is AuditActor & { id: string; name: string } =>
       Boolean(row.id && row.name),
     )
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** One actor by id, so a filter restored from a URL can name who it means. */
+export async function findAuditActor(id: string): Promise<AuditActor | null> {
+  const [row] = await db
+    .selectDistinct({
+      id: auditLog.actorId,
+      name: auditLog.actorName,
+      email: auditLog.actorEmail,
+    })
+    .from(auditLog)
+    .where(eq(auditLog.actorId, id))
+    .limit(1);
+
+  if (!row?.id || !row.name) return null;
+  return { id: row.id, name: row.name, email: row.email };
 }

@@ -31,30 +31,63 @@ test.describe("audit log", () => {
   test("records signing in", async ({ page }) => {
     await page.goto("/admin/audit");
     await page.getByTestId("audit-search").fill("signed in");
-    await page.getByRole("button", { name: "Search" }).click();
+    await page.getByTestId("audit-search").press("Enter");
 
     await expect(page.getByTestId("audit-table")).toContainText("Signed in");
   });
 
-  test("filters by action, and keeps the filter in the URL", async ({
+  test("filters by several actions at once, and says so in the URL", async ({
     page,
   }) => {
     await page.goto("/admin/audit");
 
+    // Both are chosen while the panel is open; closing it applies them.
     await page.getByTestId("audit-action-filter").click();
-    await page.getByRole("option", { name: "Role created" }).click();
+    await page.getByTestId("audit-action-role.created").click();
+    await page.getByTestId("audit-action-auth.signed_in").click();
+    await page.keyboard.press("Escape");
 
-    await expect(page).toHaveURL(/actions=role\.created/);
-    await expect(page.getByTestId("audit-table")).toContainText("Role created");
-    await expect(page.getByTestId("audit-table")).not.toContainText(
-      "Signed in",
-    );
+    await expect(page).toHaveURL(/actions=role\.created%2Cauth\.signed_in/);
+
+    const table = page.getByTestId("audit-table");
+    await expect(table).toContainText("Role created");
+    await expect(table).toContainText("Signed in");
+    await expect(table).not.toContainText("Workflow published");
+
+    // Each is listed as its own chip, and can be dropped on its own.
+    const chips = page.getByTestId("audit-active-filters");
+    await expect(chips).toContainText("Role created");
+    await expect(chips).toContainText("Signed in");
 
     // The URL is the whole state, so the view survives a reload and can be
     // sent to a colleague.
     await page.reload();
-    await expect(page.getByTestId("audit-table")).toContainText("Role created");
-    await expect(page.getByTestId("audit-clear-filters")).toBeVisible();
+    await expect(table).toContainText("Role created");
+
+    await chips
+      .getByRole("button", { name: "Remove filter: Signed in" })
+      .click();
+    await expect(page).toHaveURL(/actions=role\.created(?!%2C)/);
+    await expect(table).not.toContainText("Signed in");
+  });
+
+  test("finds a person by typing rather than listing everyone", async ({
+    page,
+  }) => {
+    await page.goto("/admin/audit");
+
+    await page.getByTestId("audit-actor-filter").click();
+    await page.getByTestId("audit-actor-search").fill("superadmin");
+
+    await page.getByTestId("audit-actor-superadmin@manipal.edu").click();
+
+    await expect(page).toHaveURL(/actor=/);
+    await expect(page.getByTestId("audit-active-filters")).toContainText(
+      "by Super Admin",
+    );
+    await expect(page.getByTestId("audit-table")).toContainText(
+      "superadmin@manipal.edu",
+    );
   });
 
   test("reports honestly when nothing matches", async ({ page }) => {
@@ -62,7 +95,7 @@ test.describe("audit log", () => {
     await page
       .getByTestId("audit-search")
       .fill("this string appears in no entry at all");
-    await page.getByRole("button", { name: "Search" }).click();
+    await page.getByTestId("audit-search").press("Enter");
 
     await expect(page.getByTestId("audit-empty")).toBeVisible();
     await expect(page.getByTestId("audit-count")).toContainText("0 entries");

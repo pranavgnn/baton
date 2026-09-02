@@ -5,7 +5,9 @@ import { requirePermissionAction } from "@/lib/auth/session";
 import { auditCsv } from "@/lib/audit/csv";
 import {
   listAuditForExport,
+  searchAuditActors,
   AUDIT_EXPORT_LIMIT,
+  type AuditActor,
   type AuditFilters,
 } from "@/lib/audit/query";
 
@@ -36,6 +38,23 @@ export async function exportAuditLog(
       rows: rows.length,
       truncated: rows.length === AUDIT_EXPORT_LIMIT,
     });
+  } catch (error) {
+    return failFrom(error);
+  }
+}
+
+/**
+ * People to choose from in the actor filter, matching what has been typed.
+ *
+ * Searched rather than listed: the portal is meant for an institute, so a
+ * select holding every account would be thousands long and useless.
+ */
+export async function findAuditActors(
+  query: string,
+): Promise<ActionResult<{ actors: AuditActor[] }>> {
+  try {
+    await requirePermissionAction("audit.view");
+    return ok({ actors: await searchAuditActors(query) });
   } catch (error) {
     return failFrom(error);
   }
