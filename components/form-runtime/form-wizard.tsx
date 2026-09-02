@@ -44,8 +44,11 @@ export type WizardActionResult = { ok: boolean; error?: string };
 export type FormWizardProps = {
   form: FormSchema;
   defaultValues: SectionData | null | undefined;
-  /** Persists partially-filled data. Called on step change and on a timer. */
-  onSaveDraft: (data: SectionData) => Promise<WizardActionResult>;
+  /**
+   * Persists partially-filled data. Called on step change and on a timer.
+   * Omit in `preview`, where there is nothing to persist.
+   */
+  onSaveDraft?: (data: SectionData) => Promise<WizardActionResult>;
   /** Wipes the draft and resets every field. Omit to hide the action. */
   onClear?: () => Promise<WizardActionResult>;
   /**
@@ -67,6 +70,16 @@ export type FormWizardProps = {
    * also what is stored.
    */
   profile?: PrefillProfile | null;
+  /**
+   * A rehearsal rather than a form: the builder showing an admin what they
+   * have written.
+   *
+   * Nothing is saved, nothing is cleared, and every step is reachable without
+   * answering anything - an admin checking the wording of section G should not
+   * have to fill in sections A to F to see it. The validation itself is not
+   * turned off; it simply stops being a gate.
+   */
+  preview?: boolean;
 };
 
 export function FormWizard({
@@ -79,6 +92,7 @@ export function FormWizard({
   submitDescription = "Check every answer. Once submitted the application moves to the next stage and can no longer be edited.",
   disabled,
   profile,
+  preview = false,
 }: FormWizardProps) {
   const sections = form.sections;
   const previewStep = sections.length;
@@ -124,7 +138,7 @@ export function FormWizard({
 
   const saveDraft = useCallback(
     async (options: { silent?: boolean } = {}) => {
-      if (disabled) return true;
+      if (disabled || !onSaveDraft) return true;
       setSavingDraft(true);
       try {
         const values = getValues() as SectionData;
@@ -146,7 +160,7 @@ export function FormWizard({
 
   // Background autosave so a closed browser never loses work.
   useEffect(() => {
-    if (disabled) return;
+    if (disabled || !onSaveDraft) return;
     const timer = setInterval(() => {
       const snapshot = JSON.stringify(getValues());
       if (snapshot === lastPersisted.current) return;
@@ -154,7 +168,7 @@ export function FormWizard({
       void saveDraft({ silent: true });
     }, AUTOSAVE_DELAY_MS);
     return () => clearInterval(timer);
-  }, [saveDraft, getValues, disabled]);
+  }, [saveDraft, getValues, disabled, onSaveDraft]);
 
   /* -- Navigation --------------------------------------------------------- */
 
@@ -162,6 +176,8 @@ export function FormWizard({
 
   /** Validates the step being left; false means stay put. */
   async function leaveCurrentStep(): Promise<boolean> {
+    // In a preview the steps are pages to look at, not a form to get through.
+    if (preview) return true;
     if (!currentSection) return true;
     const keys = valueFields(currentSection).map((field) => field.key);
     const valid = await trigger(keys, { shouldFocus: true });
@@ -266,7 +282,9 @@ export function FormWizard({
                 <button
                   type="button"
                   onClick={() => void jumpTo(index)}
-                  disabled={disabled || (index > furthest && index > step)}
+                  disabled={
+                    disabled || (!preview && index > furthest && index > step)
+                  }
                   aria-current={index === step ? "step" : undefined}
                   data-testid={`wizard-step-${index}`}
                   className={cn(
@@ -287,7 +305,7 @@ export function FormWizard({
             <button
               type="button"
               onClick={() => void jumpTo(previewStep)}
-              disabled={disabled || previewStep > furthest}
+              disabled={disabled || (!preview && previewStep > furthest)}
               aria-current={step === previewStep ? "step" : undefined}
               data-testid="wizard-step-preview"
               className={cn(
@@ -303,7 +321,7 @@ export function FormWizard({
           </li>
         </ol>
 
-        {lastSavedAt ? (
+        {lastSavedAt && !preview ? (
           <p className="wizard-saved" data-testid="wizard-last-saved">
             Draft saved at {lastSavedAt.toLocaleTimeString()}. You can close
             this page and resume later.
@@ -347,7 +365,7 @@ export function FormWizard({
           />
         )}
 
-        <div className="wizard-actions">
+        <div className={cn("wizard-actions", preview && "wizard-actions-bare")}>
           <div className="toolbar">
             <Button
               type="button"
@@ -378,7 +396,7 @@ export function FormWizard({
             )}
           </div>
 
-          {step < previewStep ? (
+          {step < previewStep && !preview ? (
             <div className="toolbar">
               {onClear ? (
                 <AlertDialog>

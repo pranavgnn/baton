@@ -259,6 +259,54 @@ test.describe("user administration", () => {
   });
 });
 
+test.describe("who may apply", () => {
+  test("closes the form to someone on contract, and opens it again", async ({
+    page,
+  }) => {
+    async function setEmployment(type: string) {
+      await page.goto("/admin/users");
+      await page
+        .getByRole("textbox", { name: "Search users" })
+        .fill("employee@manipal.edu");
+      await page
+        .getByTestId("user-employee@manipal.edu")
+        .getByRole("button", { name: /Actions for/ })
+        .click();
+      await page
+        .getByRole("menuitem", { name: "Edit details and roles" })
+        .click();
+      await page.getByTestId("user-type").click();
+      await page.getByRole("option", { name: type, exact: true }).click();
+      await page.getByRole("button", { name: "Save changes" }).click();
+      await expectToast(page, "User updated.");
+    }
+
+    await setEmployment("Contract");
+
+    // Seen from their own account: said plainly, with no button that would
+    // only fail.
+    await page
+      .getByTestId("user-employee@manipal.edu")
+      .getByRole("button", { name: /Actions for/ })
+      .click();
+    await page.getByRole("menuitem", { name: "View as this user" }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await expect(page.getByTestId("dashboard-primary-action")).toBeDisabled();
+
+    await page.goto("/application");
+    await expect(page.getByTestId("not-eligible")).toContainText(
+      "appointed on contract are not eligible",
+    );
+    await expect(page.getByTestId("start-application")).toHaveCount(0);
+
+    await page.getByTestId("stop-impersonating").click();
+    await expect(page.getByTestId("impersonation-banner")).toHaveCount(0);
+
+    // Put back, so the rest of the suite has somebody who can apply.
+    await setEmployment("Regular");
+  });
+});
+
 test.describe("one account, in full", () => {
   test("opens from the row and shows what they have applied for", async ({
     page,
