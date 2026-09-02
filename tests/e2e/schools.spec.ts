@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 import { closeOverlays, expectToast, storageStatePath } from "./helpers";
 
@@ -6,6 +6,13 @@ test.describe.configure({ mode: "serial", retries: 0 });
 test.use({ storageState: storageStatePath("superAdmin") });
 
 const NEW_SCHOOL = "School of Test Engineering";
+
+/** One account's row in user administration, which carries its role badges. */
+async function rowFor(page: Page, email: string) {
+  await page.goto("/admin/users");
+  await page.getByRole("textbox", { name: "Search users" }).fill(email);
+  return page.getByTestId(`user-${email}`);
+}
 
 test.describe("schools", () => {
   test("lists the schools a fresh install starts with", async ({ page }) => {
@@ -26,19 +33,25 @@ test.describe("schools", () => {
     await page.getByLabel("Name").fill(NEW_SCHOOL);
     await page.getByLabel("Short form").fill("STE");
 
-    // Both pickers search rather than listing every account.
+    // Both pickers search rather than listing every account. The people
+    // chosen here are ones no other spec reviews as, because being appointed
+    // grants them the dean and associate dean roles for as long as the school
+    // exists.
     await page.getByTestId("school-dean").click();
-    await page.getByTestId("school-dean-search").fill("director@");
-    await page.getByTestId("school-dean-director@manipal.edu").click();
+    await page.getByTestId("school-dean-search").fill("superadmin@");
+    await page.getByTestId("school-dean-superadmin@manipal.edu").click();
 
-    for (const email of ["hr@manipal.edu", "rc@manipal.edu"]) {
+    for (const email of [
+      "institutehr@manipal.edu",
+      "associatedirector@manipal.edu",
+    ]) {
       await page.getByTestId("school-associate-dean").click();
       await page.getByTestId("school-associate-dean-search").fill(email);
       await page.getByTestId(`school-associate-dean-${email}`).click();
     }
 
     await expect(page.getByTestId("chosen-associate-deans")).toContainText(
-      "Test HR Officer",
+      "Test Institute HR",
     );
 
     await page.getByTestId("save-school").click();
@@ -47,11 +60,19 @@ test.describe("schools", () => {
     const card = page.getByTestId(`school-card-${NEW_SCHOOL}`);
     await expect(card).toBeVisible();
     await expect(page.getByTestId(`dean-${NEW_SCHOOL}`)).toContainText(
-      "Test Director",
+      "Super Admin",
     );
     await expect(
       page.getByTestId(`associate-deans-${NEW_SCHOOL}`),
-    ).toContainText("Test R&C Officer");
+    ).toContainText("Test Associate Director");
+  });
+
+  test("gives the people it appoints the roles that go with the post", async ({
+    page,
+  }) => {
+    await expect(await rowFor(page, "institutehr@manipal.edu")).toContainText(
+      "Associate Dean",
+    );
   });
 
   test("refuses a duplicate name", async ({ page }) => {
@@ -111,5 +132,10 @@ test.describe("schools", () => {
 
     await expectToast(page, `Deleted "${NEW_SCHOOL}".`);
     await expect(page.getByTestId(`school-card-${NEW_SCHOOL}`)).toHaveCount(0);
+
+    // And the roles that came with the posts go with them.
+    await expect(
+      await rowFor(page, "institutehr@manipal.edu"),
+    ).not.toContainText("Associate Dean");
   });
 });

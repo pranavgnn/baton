@@ -263,16 +263,24 @@ test.describe("email templates", () => {
       .getByRole("button", { name: "Edit template" })
       .click();
 
-    // The editor asks for the label and the destination in turn.
-    const answers = ["Open your application", "{{application_url}}"];
-    page.on("dialog", (dialog) => void dialog.accept(answers.shift()));
-
     const body = page.getByTestId("rich-text-body");
     await body.click();
     await page.getByRole("button", { name: "Insert button" }).click();
 
+    // Any address will do: the author types one rather than picking from a
+    // fixed list of portal links.
+    await page.getByTestId("link-label").fill("Open your application");
+    await page
+      .getByTestId("link-href")
+      .fill("http://localhost:3000/applications");
+    await page.getByTestId("link-apply").click();
+
     const button = body.locator("[data-email-button]");
     await expect(button).toHaveText("Open your application");
+    await expect(button).toHaveAttribute(
+      "href",
+      "http://localhost:3000/applications",
+    );
 
     await page.getByTestId("save-template").click();
     await expectToast(page, "Template saved.");

@@ -243,44 +243,26 @@ test.describe("workflow builder canvas", () => {
 
     await expectToast(page, `Published version ${version + 1}.`);
     await expect(subtitle).toContainText(`Published version ${version + 1}`);
-  });
 
-  test("the memo is optional", async ({ page }) => {
-    const subtitle = page.locator(".page-subtitle");
-    const version = Number((await subtitle.innerText()).match(/\d+/)![0]);
-
+    // And the memo is optional: the next publish goes through without one.
     await page.getByTestId("publish-workflow").click();
     await page.getByTestId("confirm-publish").click();
-
-    await expectToast(page, `Published version ${version + 1}.`);
+    await expectToast(page, `Published version ${version + 2}.`);
   });
 
-  test("the history lists published revisions and can restore one", async ({
-    page,
-  }) => {
+  test("lists every revision and protects the live one", async ({ page }) => {
     await page.getByTestId("open-version-history").click();
     const history = page.getByTestId("version-history");
     await expect(history).toBeVisible();
 
     // The seed publishes version 1 with a memo of its own.
-    await expect(page.getByTestId("version-1")).toBeVisible();
     await expect(page.getByTestId("version-1")).toContainText(
       "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director.",
     );
 
-    await closeOverlays(page);
-  });
-
-  test("refuses to delete the version that is live", async ({ page }) => {
-    await page.getByTestId("open-version-history").click();
-
     // The live revision offers neither restoring nor deleting: it is what the
     // portal is running.
-    const live = page
-      .getByTestId("version-history")
-      .locator("li")
-      .filter({ hasText: "Live" })
-      .first();
+    const live = history.locator("li").filter({ hasText: "Live" }).first();
     await expect(live).toBeVisible();
     await expect(live.getByRole("button", { name: "Delete" })).toHaveCount(0);
 

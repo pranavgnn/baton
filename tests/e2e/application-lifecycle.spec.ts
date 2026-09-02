@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { expect, test, type Page } from "@playwright/test";
@@ -401,7 +402,9 @@ test.describe("2. the dean recommends and chooses an associate dean", () => {
     await page.getByTestId("wizard-next").click();
 
     // The outcome is refused until an associate dean is chosen.
-    await expect(page.getByTestId("nominee-field")).toBeVisible();
+    await expect(
+      page.getByTestId("nominee-field-Send to associate dean"),
+    ).toBeVisible();
     await expect(
       page.getByTestId("outcome-Send to associate dean"),
     ).toBeDisabled();
@@ -422,7 +425,7 @@ test.describe("2. the dean recommends and chooses an associate dean", () => {
     await page.getByTestId("wizard-next").click();
 
     // Only this school's associate deans are on offer.
-    await page.getByTestId("nominee").click();
+    await page.getByTestId("nominee-Send to associate dean").click();
     await expect(
       page.getByRole("option", { name: "Test Associate Dean Two" }),
     ).toBeVisible();
@@ -650,8 +653,63 @@ test.describe("7. HR declares the candidate eligible", () => {
   });
 });
 
-test.describe("8. the Director approves", () => {
+test.describe("8. the Director hands the decision to an associate director", () => {
   test.use({ storageState: storageStatePath("director") });
+
+  test("is asked for a name only on the branch that needs one", async ({
+    page,
+  }) => {
+    await page.goto("/reviews");
+    await applicationRow(page).getByRole("link", { name: "Review" }).click();
+
+    await page.getByRole("tab", { name: "Your review" }).click();
+    await input(page, "remarks").fill("Endorsed at every stage.");
+    await page.getByTestId("wizard-next").click();
+
+    // Deciding it personally asks nobody; handing it over asks who.
+    await expect(page.getByTestId("outcome-Approve")).toBeEnabled();
+    await expect(
+      page.getByTestId("nominee-field-Send to associate director"),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("outcome-Send to associate director"),
+    ).toBeDisabled();
+  });
+
+  test("sends it to the associate director it names", async ({ page }) => {
+    await clearMailbox();
+    await page.goto("/reviews");
+    await applicationRow(page).getByRole("link", { name: "Review" }).click();
+
+    await page.getByRole("tab", { name: "Your review" }).click();
+    await input(page, "remarks").fill(
+      "Endorsed at every stage. Passed to the Associate Director to decide.",
+    );
+    await page.getByTestId("wizard-next").click();
+
+    await page.getByTestId("nominee-Send to associate director").click();
+    await page
+      .getByRole("option", { name: "Test Associate Director", exact: true })
+      .click();
+    await page.getByTestId("outcome-Send to associate director").click();
+    await expect(page).toHaveURL(/\/reviews$/);
+
+    const mail = await waitForEmail((message) =>
+      message.Subject.includes("awaits your review"),
+    );
+    expect(mail.To).toContain("associatedirector@manipal.edu");
+  });
+
+  test("no longer shows it in the queue", async ({ page }) => {
+    await page.goto("/reviews");
+    await expect(
+      page.getByText("Nothing is waiting on you right now."),
+    ).toBeVisible();
+  });
+});
+
+test.describe("9. the associate director decides in the Director's place", () => {
+  test.use({ storageState: storageStatePath("associateDirector") });
 
   test("approves, and the file goes to Institute HR", async ({ page }) => {
     await clearMailbox();
@@ -659,8 +717,15 @@ test.describe("8. the Director approves", () => {
     await review(page, {
       outcome: "Approve",
       fill: async (page) => {
+        // The Director's own remarks travel with it.
+        await page.getByRole("tab", { name: "Earlier reviews" }).click();
+        await expect(
+          page.getByText("Passed to the Associate Director"),
+        ).toBeVisible();
+        await page.getByRole("tab", { name: "Your review" }).click();
+
         await input(page, "remarks").fill(
-          "Approved. A strong record, endorsed at every stage.",
+          "Approved on the Director's referral. A strong record.",
         );
       },
     });
@@ -675,36 +740,46 @@ test.describe("8. the Director approves", () => {
     );
     expect(archive.To).toContain("institutehr@manipal.edu");
   });
-
-  test("no longer shows it in the queue", async ({ page }) => {
-    await page.goto("/reviews");
-    await expect(
-      page.getByText("Nothing is waiting on you right now."),
-    ).toBeVisible();
-  });
 });
 
 /* -------------------------------------------------------------------------- */
 /*  8. The outcome                                                             */
 /* -------------------------------------------------------------------------- */
 
-test.describe("9. the outcome is visible to everyone entitled to it", () => {
+test.describe("10. the outcome is visible to everyone entitled to it", () => {
   test.describe("to the applicant", () => {
     test.use({ storageState: storageStatePath("employee") });
 
-    test("shows the approved status on the dashboard", async ({ page }) => {
+    test("shows the approved status, dated, on the dashboard", async ({
+      page,
+    }) => {
       await page.goto("/dashboard");
       await expect(page.getByTestId("status-approved").first()).toBeVisible();
-    });
-
-    test("dates the application on the dashboard", async ({ page }) => {
-      await page.goto("/dashboard");
 
       const past = page.getByTestId("past-applications");
       await expect(past).toContainText("Submitted");
       await expect(past).toContainText("Decided");
-      // A real date, not the placeholder for a missing one.
+      // Real dates, not the placeholder for a missing one.
       await expect(past).not.toContainText("Submitted —");
+    });
+
+    test("downloads the whole file as a PDF", async ({ page }) => {
+      await page.goto("/applications");
+      await applicationRow(page).getByRole("link", { name: "View" }).click();
+
+      const download = await Promise.all([
+        page.waitForEvent("download"),
+        page.getByTestId("export-pdf").click(),
+      ]).then(([event]) => event);
+
+      expect(download.suggestedFilename()).toMatch(/^PROM-.*\.pdf$/);
+
+      const file = await download.path();
+      const bytes = await readFile(file);
+      // A real document: the header, and enough of it to hold the form, every
+      // review and the enclosed CV.
+      expect(bytes.subarray(0, 5).toString()).toBe("%PDF-");
+      expect(bytes.byteLength).toBeGreaterThan(20_000);
     });
   });
 
@@ -730,6 +805,7 @@ test.describe("9. the outcome is visible to everyone entitled to it", () => {
         "Forward to R&C",
         "Forward to FD&W",
         "Eligible",
+        "Send to associate director",
         "Approve",
         "Completed",
       ]) {
