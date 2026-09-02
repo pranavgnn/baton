@@ -26,14 +26,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
   applyCalculations,
   applyPrefill,
   type PrefillProfile,
@@ -238,80 +230,135 @@ export function FormWizard({
 
   /* -- Render ------------------------------------------------------------- */
 
+  const heading = step < previewStep ? currentSection?.title : submitHeading;
+  const description =
+    step < previewStep ? currentSection?.description : submitDescription;
+
   return (
-    <div className="section-stack">
-      <ol className="wizard-steps" aria-label="Form progress">
-        {sections.map((section, index) => (
-          <li key={section.id}>
+    <div className="wizard">
+      {/* The rail is the whole map of the form: sixteen sections is too many
+          to read as a row of chips, and an applicant needs to see where they
+          are in it without counting. */}
+      <nav className="wizard-rail" aria-label="Form progress">
+        <div className="wizard-rail-header">
+          <p className="wizard-rail-count">
+            Step {Math.min(step + 1, previewStep + 1)} of {previewStep + 1}
+          </p>
+          <div
+            className="wizard-progress"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={previewStep + 1}
+            aria-valuenow={step + 1}
+          >
+            <div
+              className="wizard-progress-bar"
+              style={{ width: `${((step + 1) / (previewStep + 1)) * 100}%` }}
+            />
+          </div>
+        </div>
+
+        <ol className="wizard-steps">
+          {sections.map((section, index) => {
+            const done = index < furthest && index !== step;
+            return (
+              <li key={section.id}>
+                <button
+                  type="button"
+                  onClick={() => void jumpTo(index)}
+                  disabled={disabled || (index > furthest && index > step)}
+                  aria-current={index === step ? "step" : undefined}
+                  data-testid={`wizard-step-${index}`}
+                  className={cn(
+                    "wizard-step",
+                    index === step && "wizard-step-active",
+                    done && "wizard-step-done",
+                  )}
+                >
+                  <span className="wizard-step-marker">
+                    {done ? <Check className="size-3" /> : index + 1}
+                  </span>
+                  <span className="wizard-step-title">{section.title}</span>
+                </button>
+              </li>
+            );
+          })}
+          <li>
             <button
               type="button"
-              onClick={() => void jumpTo(index)}
-              disabled={disabled || (index > furthest && index > step)}
-              aria-current={index === step ? "step" : undefined}
-              data-testid={`wizard-step-${index}`}
+              onClick={() => void jumpTo(previewStep)}
+              disabled={disabled || previewStep > furthest}
+              aria-current={step === previewStep ? "step" : undefined}
+              data-testid="wizard-step-preview"
               className={cn(
                 "wizard-step",
-                index === step && "wizard-step-active",
-                index < step && "wizard-step-done",
-                "disabled:cursor-not-allowed disabled:opacity-60",
+                step === previewStep && "wizard-step-active",
               )}
             >
-              <span>{index + 1}</span>
-              {section.title}
+              <span className="wizard-step-marker">
+                <Check className="size-3" />
+              </span>
+              <span className="wizard-step-title">Review and submit</span>
             </button>
           </li>
-        ))}
-        <li>
-          <button
-            type="button"
-            onClick={() => void jumpTo(previewStep)}
-            disabled={disabled || previewStep > furthest}
-            aria-current={step === previewStep ? "step" : undefined}
-            data-testid="wizard-step-preview"
-            className={cn(
-              "wizard-step",
-              step === previewStep && "wizard-step-active",
-              "disabled:cursor-not-allowed disabled:opacity-60",
-            )}
-          >
-            <Check className="size-3" />
-            Preview
-          </button>
-        </li>
-      </ol>
+        </ol>
 
-      {step < previewStep && currentSection ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>{currentSection.title}</CardTitle>
-            {currentSection.description ? (
-              <CardDescription>{currentSection.description}</CardDescription>
-            ) : null}
-          </CardHeader>
-          <CardContent>
-            <div className="field-grid">
-              {currentSection.fields.map((field) => (
-                <FieldRenderer
-                  key={field.id}
-                  field={field}
-                  control={control}
-                  disabled={disabled}
-                  profile={profile}
-                />
-              ))}
-            </div>
-          </CardContent>
-          <CardFooter className="flex-wrap justify-between gap-3">
-            <div className="toolbar">
+        {lastSavedAt ? (
+          <p className="wizard-saved" data-testid="wizard-last-saved">
+            Draft saved at {lastSavedAt.toLocaleTimeString()}. You can close
+            this page and resume later.
+          </p>
+        ) : null}
+      </nav>
+
+      <div className="wizard-panel">
+        <header className="wizard-heading">
+          <h2 className="wizard-heading-title">{heading}</h2>
+          {description ? <p className="page-subtitle">{description}</p> : null}
+        </header>
+
+        {step < previewStep && currentSection ? (
+          <div className="field-grid">
+            {currentSection.fields.map((field) => (
+              <FieldRenderer
+                key={field.id}
+                field={field}
+                control={control}
+                disabled={disabled}
+                profile={profile}
+              />
+            ))}
+          </div>
+        ) : (
+          <FormPreview
+            form={form}
+            data={liveValues}
+            renderSectionAction={(index) => (
               <Button
                 type="button"
-                variant="outline"
-                onClick={goBack}
-                disabled={step === 0}
+                variant="ghost"
+                size="sm"
+                onClick={() => setStep(index)}
+                data-testid={`preview-edit-${index}`}
               >
-                <ArrowLeft className="size-4" />
-                Back
+                Edit
               </Button>
+            )}
+          />
+        )}
+
+        <div className="wizard-actions">
+          <div className="toolbar">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={goBack}
+              disabled={step === 0 || busy}
+            >
+              <ArrowLeft className="size-4" />
+              Back
+            </Button>
+            {step < previewStep ? (
               <Button
                 type="button"
                 onClick={() => void goNext()}
@@ -321,8 +368,17 @@ export function FormWizard({
                 {step === previewStep - 1 ? "Review" : "Next"}
                 <ArrowRight className="size-4" />
               </Button>
-            </div>
+            ) : (
+              renderSubmitActions({
+                getValues: () => getValues() as SectionData,
+                validate: validateAll,
+                busy,
+                setBusy,
+              })
+            )}
+          </div>
 
+          {step < previewStep ? (
             <div className="toolbar">
               {onClear ? (
                 <AlertDialog>
@@ -378,66 +434,9 @@ export function FormWizard({
                 Save draft
               </Button>
             </div>
-          </CardFooter>
-        </Card>
-      ) : (
-        <div className="section-stack">
-          <Card>
-            <CardHeader>
-              <CardTitle>{submitHeading}</CardTitle>
-              <CardDescription>{submitDescription}</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <FormPreview
-            form={form}
-            data={liveValues}
-            renderSectionAction={(index) => (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => setStep(index)}
-                data-testid={`preview-edit-${index}`}
-              >
-                Edit
-              </Button>
-            )}
-          />
-
-          <Card>
-            <CardFooter className="flex-wrap justify-between gap-3 pt-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={goBack}
-                disabled={busy}
-              >
-                <ArrowLeft className="size-4" />
-                Back to last section
-              </Button>
-              <div className="toolbar">
-                {renderSubmitActions({
-                  getValues: () => getValues() as SectionData,
-                  validate: validateAll,
-                  busy,
-                  setBusy,
-                })}
-              </div>
-            </CardFooter>
-          </Card>
+          ) : null}
         </div>
-      )}
-
-      {lastSavedAt ? (
-        <p
-          className="text-xs text-muted-foreground"
-          data-testid="wizard-last-saved"
-        >
-          Draft saved at {lastSavedAt.toLocaleTimeString()}. You can close this
-          page and resume later.
-        </p>
-      ) : null}
+      </div>
     </div>
   );
 }
