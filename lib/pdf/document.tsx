@@ -221,8 +221,11 @@ export function ApplicationPdf({ model, images }: ApplicationPdfProps) {
             {model.reference} · generated {model.generatedAt}
           </Text>
           <Text
+            // Counted over the form itself: the enclosures that follow are
+            // the original documents, and carry whatever numbering they came
+            // with.
             render={({ pageNumber, totalPages }) =>
-              `Page ${pageNumber} of ${totalPages}`
+              `Form page ${pageNumber} of ${totalPages}`
             }
           />
         </View>

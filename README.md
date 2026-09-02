@@ -106,9 +106,10 @@ pnpm dev                      # Next.js and the email worker together
 | MinIO console                | http://localhost:9001 (`minioadmin` / `minioadmin`) |
 | Kafka broker                 | localhost:9092                                      |
 
-Sign in as `superadmin@manipal.edu` / `SuperAdmin@123`. The demo seed adds
-`faculty@`, `hod@`, `dean@` and `registrar@manipal.edu`, all with the password
-`Portal@123`.
+Sign in as `superadmin@manipal.edu` / `SuperAdmin@123`. The demo seed adds one account per
+role - `employee@`, `dean@`, `associatedean@`, `associatedean2@`, `hr@`, `rc@`,
+`fdw@`, `director@`, `associatedirector@` and `institutehr@manipal.edu` - all
+with the password `Portal@123`.
 
 Nothing leaves the machine in development: Mailpit captures every email, so
 the activation and workflow messages can be read at

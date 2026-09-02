@@ -19,8 +19,9 @@ decisions behind it. What follows is what to keep in mind while changing code.
 layout belongs there as a token or a component class. Call sites use semantic
 utilities (`bg-card`, `text-muted-foreground`, `.app-shell`, `.flow-node`) —
 never hex values, arbitrary Tailwind values or inline styles. The one
-exception is `lib/mail/`: email clients ignore stylesheets and CSS variables,
-so those files inline literal colours, and that is deliberate.
+exceptions are `lib/mail/` and `lib/pdf/`: email clients ignore stylesheets and
+CSS variables, and the PDF renderer has a stylesheet implementation of its own,
+so those files carry literal colours and sizes, and that is deliberate.
 
 React Flow's stylesheet is imported unlayered, so its overrides sit _outside_
 `@layer components` at the bottom of `globals.css`. Moving them into the layer
@@ -71,6 +72,24 @@ the continuation and hands the emails to Kafka (`lib/mail/queue.ts`), which
 blocks a transition: a broker that is down records an `email_failed` event and
 the application still advances.
 
+**A role's name means nothing; its designation does.** Admins rename roles, so
+schools and the workflow key off `role.designation` (`lib/auth/designations.ts`)
+instead. Appointing someone dean or associate dean of a school grants them the
+designated role and removing them withdraws it - reconciled wholesale in
+`lib/schools/sync.ts`, so someone who signs for two schools keeps it when they
+leave one. `userRole.source` is what separates a grant a posting made from one
+an admin made by hand: only the former is ever taken back.
+
+**A stage says who takes it, not who hands it over.** `assignment` on a stage
+node decides whether the application is offered to everyone holding its role or
+held for one person the previous reviewer names, and where those candidates
+come from. Because it sits on the stage being entered, a reviewer is asked for
+a name only on the branch that leads somewhere needing one - the Director when
+they hand a decision to an associate director, and not when they take it
+themselves. Candidates are always re-derived on the server in
+`app/(app)/reviews/actions.ts`; the id the browser sends is only ever checked
+against them.
+
 **Editing questions is not the same permission as rewiring the flow.**
 `forms.manage` may change a stage's form; `workflow.manage` may add, remove or
 reconnect nodes. `saveWorkflowDraft` compares `structureSignature` before and
@@ -119,22 +138,31 @@ changing it changes what the institute sees on day one. It now says what the pap
 says: the tables are repeating groups with typed columns, and the questions
 marked conditional carry the rule that makes them so.
 
+**An application can be printed at any point.** `/api/applications/[id]/pdf`
+renders whatever has been signed off so far - the submission plus each
+completed review as its own signed part - laid out from the form definition
+rather than from a fixed template, so it survives an admin editing the
+questions. Uploaded PDFs are appended after an enclosure index and images are
+drawn where they were answered.
+
 ## Layout
 
-| Path                         | Contents                                                                                                                       |
-| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `lib/workflow/`              | Domain: graph types, validation, transition engine, form-to-Zod compiler. Pure and unit-tested — keep it free of DB and React. |
-| `lib/applications/`          | Queries and the transition runtime (DB writes, email dispatch, timeline).                                                      |
-| `lib/auth/`                  | Better Auth config, session helpers, permission vocabulary, provisioning.                                                      |
-| `lib/mail/`                  | `template.ts` is pure text (tested); `render.ts` and `layout.tsx` add the React shell.                                         |
-| `lib/mail/job.ts`            | The pure Kafka job contract, split from `queue.ts` so tests need no env.                                                       |
-| `lib/users/import.ts`        | Pure CSV and address-list parsing for the bulk user import.                                                                    |
-| `lib/audit/`                 | Audit vocabulary, the recorder, the filtered query and the CSV export. `csv.ts` and `actions.ts` are pure and unit-tested.     |
-| `lib/workflow/conditions.ts` | When a question applies, given the answers around it. Pure; used by the compiler, the runtime and the preview alike.           |
-| `lib/schools/`               | Schools, their dean and associate deans, and the searches that find people without listing everybody.                          |
-| `components/form-runtime/`   | Renders admin-defined forms for applicants and reviewers.                                                                      |
-| `components/form-builder/`   | The dnd-kit editor admins use to define those forms.                                                                           |
-| `app/(app)/admin/workflow/`  | React Flow canvas, custom nodes, node inspector.                                                                               |
+| Path                         | Contents                                                                                                                                                     |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lib/workflow/`              | Domain: graph types, validation, transition engine, form-to-Zod compiler. Pure and unit-tested — keep it free of DB and React.                               |
+| `lib/applications/`          | Queries and the transition runtime (DB writes, email dispatch, timeline).                                                                                    |
+| `lib/auth/`                  | Better Auth config, session helpers, permission vocabulary, provisioning.                                                                                    |
+| `lib/mail/`                  | `template.ts` is pure text (tested); `render.ts` and `layout.tsx` add the React shell.                                                                       |
+| `lib/mail/job.ts`            | The pure Kafka job contract, split from `queue.ts` so tests need no env.                                                                                     |
+| `lib/users/import.ts`        | Pure CSV and address-list parsing for the bulk user import.                                                                                                  |
+| `lib/audit/`                 | Audit vocabulary, the recorder, the filtered query and the CSV export. `csv.ts` and `actions.ts` are pure and unit-tested.                                   |
+| `lib/workflow/conditions.ts` | When a question applies, given the answers around it. Pure; used by the compiler, the runtime and the preview alike.                                         |
+| `lib/schools/`               | Schools, their dean and associate deans, and the searches that find people without listing everybody. `sync.ts` reconciles the roles those posts carry.      |
+| `lib/auth/designations.ts`   | Which role stands for which standing post, and how a grant records where it came from.                                                                       |
+| `lib/pdf/`                   | `model.ts` turns a form and its answers into a printable model (pure, tested); `document.tsx` draws it; `render.tsx` fetches the enclosures and merges them. |
+| `components/form-runtime/`   | Renders admin-defined forms for applicants and reviewers.                                                                                                    |
+| `components/form-builder/`   | The dnd-kit editor admins use to define those forms.                                                                                                         |
+| `app/(app)/admin/workflow/`  | React Flow canvas, custom nodes, node inspector.                                                                                                             |
 
 ## Before you push
 

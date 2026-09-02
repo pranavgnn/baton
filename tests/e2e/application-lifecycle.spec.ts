@@ -764,8 +764,14 @@ test.describe("10. the outcome is visible to everyone entitled to it", () => {
     });
 
     test("downloads the whole file as a PDF", async ({ page }) => {
-      await page.goto("/applications");
-      await applicationRow(page).getByRole("link", { name: "View" }).click();
+      // The applicant reaches their own file from the dashboard; the listing
+      // of everybody's is for overseers.
+      await page.goto("/dashboard");
+      await page
+        .getByTestId("past-applications")
+        .getByRole("link", { name: "View" })
+        .first()
+        .click();
 
       const download = await Promise.all([
         page.waitForEvent("download"),

@@ -14,12 +14,12 @@ async function openBuilder(page: Page) {
 }
 
 /**
- * The seeded process: one submission, six review stages, three endings and the
- * notifications that ride alongside each hand-off. Declared here so a change
- * to the seeded workflow fails in one obvious place.
+ * The seeded process: one submission, seven review stages, three endings and
+ * the notifications that ride alongside each hand-off. Declared here so a
+ * change to the seeded workflow fails in one obvious place.
  */
-const NODE_COUNT = 30;
-const EDGE_COUNT = 29;
+const NODE_COUNT = 33;
+const EDGE_COUNT = 38;
 
 const nodes = (page: Page) => page.locator(".react-flow__node");
 const edges = (page: Page) => page.locator(".react-flow__edge");
@@ -120,7 +120,7 @@ test.describe("workflow builder canvas", () => {
     await page.getByTestId("node-stage-Director Review").click();
     await page.getByTestId("add-outcome").click();
     await page
-      .getByRole("textbox", { name: "Outcome 3 label" })
+      .getByRole("textbox", { name: "Outcome 4 label" })
       .fill("Defer to next cycle");
     await closeOverlays(page);
 
@@ -257,7 +257,7 @@ test.describe("workflow builder canvas", () => {
 
     // The seed publishes version 1 with a memo of its own.
     await expect(page.getByTestId("version-1")).toContainText(
-      "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director.",
+      "Initial process: submission, dean, associate dean, HR, R&C, FD&W, HR final and the Director, who may hand the decision to an associate director.",
     );
 
     // The live revision offers neither restoring nor deleting: it is what the
