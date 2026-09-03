@@ -150,8 +150,8 @@ export function WhitelistClient({
       if (result.ok) {
         toast.success(
           sendInvite
-            ? `${email} added to whitelist and invitation link sent.`
-            : `${email} added to whitelist.`,
+            ? `${email} whitelisted and invitation link sent.`
+            : `${email} whitelisted.`,
         );
         broadcastUserUpdate();
         router.push("/admin/users");
@@ -506,8 +506,12 @@ export function WhitelistClient({
             </div>
 
             <div className="mt-8 flex items-center justify-end gap-3 border-t pt-4">
-              <Button asChild variant="outline">
-                <Link href="/admin/users">Cancel</Link>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push("/admin/users")}
+              >
+                Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {isSubmitting ? (
@@ -733,8 +737,12 @@ export function WhitelistClient({
             </label>
 
             <div className="mt-8 flex items-center justify-end gap-3 border-t pt-4">
-              <Button asChild variant="outline">
-                <Link href="/admin/users">Cancel</Link>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => router.push("/admin/users")}
+              >
+                Cancel
               </Button>
               <Button
                 type="button"
