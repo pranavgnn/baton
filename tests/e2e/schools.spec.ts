@@ -88,6 +88,7 @@ test.describe("schools", () => {
       .getByRole("textbox", { name: "Search users" })
       .fill("employee@manipal.edu");
 
+    const editPagePromise = page.context().waitForEvent("page");
     await page
       .getByTestId("user-employee@manipal.edu")
       .getByRole("button", { name: /Actions for/ })
@@ -95,17 +96,20 @@ test.describe("schools", () => {
     await page
       .getByRole("menuitem", { name: "Edit details and roles" })
       .click();
+    const editPage = await editPagePromise;
 
     // Seeded with a school, and the others are there to move them to.
-    await expect(page.getByTestId("user-school")).toContainText(
+    await expect(editPage.getByTestId("user-school")).toContainText(
       "School of Computer Engineering",
     );
-    await page.getByTestId("user-school").click();
+    await editPage.getByTestId("user-school").click();
     await expect(
-      page.getByRole("option", { name: "School of Electrical Engineering" }),
+      editPage.getByRole("option", {
+        name: "School of Electrical Engineering",
+      }),
     ).toBeVisible();
 
-    await closeOverlays(page);
+    await editPage.close();
   });
 
   test("refuses to delete a school that still holds accounts", async ({

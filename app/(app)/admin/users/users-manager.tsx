@@ -162,13 +162,13 @@ export function UsersManager({
         </div>
         <div className="toolbar">
           <Button asChild variant="outline" data-testid="bulk-import">
-            <Link href="/admin/users/whitelist?tab=import" target="_blank">
+            <Link href="/admin/users/whitelist?tab=import">
               <Upload className="size-4" />
               Import
             </Link>
           </Button>
           <Button asChild data-testid="invite-user">
-            <Link href="/admin/users/whitelist" target="_blank">
+            <Link href="/admin/users/whitelist">
               <UserPlus className="size-4" />
               Add to whitelist
             </Link>

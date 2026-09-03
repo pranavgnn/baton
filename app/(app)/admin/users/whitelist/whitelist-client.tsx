@@ -530,27 +530,16 @@ export function WhitelistClient({
               </p>
             </div>
 
-            <div className="flex gap-2 border-b pb-4">
-              <Button
-                type="button"
-                variant={importMode === "csv" ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setImportMode("csv")}
-              >
-                CSV spreadsheet
-              </Button>
-              <Button
-                type="button"
-                variant={importMode === "list" ? "secondary" : "outline"}
-                size="sm"
-                onClick={() => setImportMode("list")}
-              >
-                Plain address list
-              </Button>
-            </div>
+            <Tabs
+              value={importMode}
+              onValueChange={(v) => setImportMode(v as "csv" | "list")}
+            >
+              <TabsList className="mb-4">
+                <TabsTrigger value="csv">CSV spreadsheet</TabsTrigger>
+                <TabsTrigger value="list">Paste addresses</TabsTrigger>
+              </TabsList>
 
-            {importMode === "csv" ? (
-              <div className="section-stack">
+              <TabsContent value="csv" className="section-stack">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
                     <Button
@@ -598,10 +587,11 @@ export function WhitelistClient({
                   placeholder="name,email,employeeId,school,designation..."
                   rows={5}
                   className="font-mono text-xs"
+                  data-testid="import-csv"
                 />
 
                 {table && table.header.length > 0 ? (
-                  <div className="section-stack">
+                  <div className="section-stack" data-testid="import-mapping">
                     <h3 className="text-sm font-semibold">Column Mappings</h3>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                       {USER_FIELD_LIST.map((field) => {
@@ -630,7 +620,10 @@ export function WhitelistClient({
                                 })
                               }
                             >
-                              <SelectTrigger className="h-8 text-xs">
+                              <SelectTrigger
+                                className="h-8 text-xs"
+                                data-testid={`map-${field.key}`}
+                              >
                                 <SelectValue placeholder="Map to column" />
                               </SelectTrigger>
                               <SelectContent>
@@ -650,9 +643,9 @@ export function WhitelistClient({
                     </div>
                   </div>
                 ) : null}
-              </div>
-            ) : (
-              <div className="section-stack">
+              </TabsContent>
+
+              <TabsContent value="list" className="section-stack">
                 <FieldLabel htmlFor="import-list-text">
                   Paste addresses and names
                 </FieldLabel>
@@ -662,13 +655,14 @@ export function WhitelistClient({
                   onChange={(e) => setListText(e.target.value)}
                   placeholder="john@manipal.edu, John Doe&#10;jane@manipal.edu"
                   rows={6}
+                  data-testid="import-list"
                 />
-              </div>
-            )}
+              </TabsContent>
+            </Tabs>
 
             {/* Validation Issues */}
             {parsed.issues.length > 0 ? (
-              <Alert variant="destructive">
+              <Alert variant="destructive" data-testid="import-issues">
                 <AlertTriangle className="size-4" />
                 <AlertTitle>
                   {parsed.issues.length} parsing issues found
@@ -690,7 +684,7 @@ export function WhitelistClient({
 
             {/* Preview Table */}
             {parsed.rows.length > 0 ? (
-              <div className="section-stack">
+              <div className="section-stack" data-testid="import-preview">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold">
                     Preview: Ready to import ({parsed.rows.length} users)
@@ -746,6 +740,7 @@ export function WhitelistClient({
                 type="button"
                 onClick={handleBulkSubmit}
                 disabled={isBulkImporting || parsed.rows.length === 0}
+                data-testid="confirm-import"
               >
                 {isBulkImporting ? (
                   <Loader2 className="size-4 animate-spin" />
