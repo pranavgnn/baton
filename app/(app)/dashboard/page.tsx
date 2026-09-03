@@ -2,6 +2,7 @@ import {
   ArrowRight,
   CalendarClock,
   ClipboardList,
+  GraduationCap,
   History,
   KeyRound,
   Mail,
@@ -453,6 +454,22 @@ function AdminPanel({
             <Link href="/admin/roles">
               <KeyRound className="size-4" />
               Roles
+            </Link>
+          </Button>
+        ) : null}
+        {can(current, "users.manage") ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href="/admin/schools">
+              <GraduationCap className="size-4" />
+              Schools
+            </Link>
+          </Button>
+        ) : null}
+        {can(current, "audit.view") ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href="/admin/audit">
+              <History className="size-4" />
+              Audit log
             </Link>
           </Button>
         ) : null}
