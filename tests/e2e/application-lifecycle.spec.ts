@@ -808,13 +808,16 @@ test.describe("9. the outcome is visible to everyone entitled to it", () => {
       await page
         .getByRole("textbox", { name: "Search users" })
         .fill(APPLICANT_EMAIL);
+      const userPagePromise = page.context().waitForEvent("page");
       await page.getByTestId(`open-user-${APPLICANT_EMAIL}`).click();
+      const userPage = await userPagePromise;
 
-      const applications = page
+      const applications = userPage
         .getByTestId("user-detail")
         .getByTestId("user-applications");
       await expect(applications).toContainText("PROM-");
       await expect(applications).toContainText("Decided");
+      await userPage.close();
     });
   });
 

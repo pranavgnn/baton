@@ -33,15 +33,28 @@ export function ReviewWorkspace({
 
   return (
     <Tabs value={tab} onValueChange={setTab}>
-      <TabsList>
-        <TabsTrigger value="application">The application</TabsTrigger>
-        {decision ? (
-          <TabsTrigger value="decision" data-testid="tab-decision">
-            Your decision
-          </TabsTrigger>
+      <div className="flex items-center justify-between gap-4">
+        <TabsList>
+          <TabsTrigger value="application">The application</TabsTrigger>
+          {decision ? (
+            <TabsTrigger value="decision" data-testid="tab-decision">
+              Your decision
+            </TabsTrigger>
+          ) : null}
+          <TabsTrigger value="history">History</TabsTrigger>
+        </TabsList>
+        {decision && tab === "application" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setTab("decision")}
+            className="hidden sm:inline-flex"
+          >
+            Jump to decision
+            <ArrowRight className="size-3.5" />
+          </Button>
         ) : null}
-        <TabsTrigger value="history">History</TabsTrigger>
-      </TabsList>
+      </div>
 
       <TabsContent value="application" className="section-stack pt-4">
         {application}

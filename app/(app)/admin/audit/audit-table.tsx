@@ -1,6 +1,15 @@
 "use client";
 
-import { Check, Download, Filter, Loader2, Search, X } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Filter,
+  Loader2,
+  Search,
+  X,
+} from "lucide-react";
 import type { Route } from "next";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useRef, useState, useTransition } from "react";
@@ -8,7 +17,6 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Command,
   CommandEmpty,
@@ -288,74 +296,72 @@ export function AuditTable({
         </div>
       ) : null}
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table data-testid="audit-table">
-              <TableHeader>
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="overflow-x-auto">
+          <Table data-testid="audit-table">
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-44">When</TableHead>
+                <TableHead className="w-52">Who</TableHead>
+                <TableHead className="w-44">Action</TableHead>
+                <TableHead>What happened</TableHead>
+                <TableHead className="w-32">From</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 ? (
                 <TableRow>
-                  <TableHead className="w-44">When</TableHead>
-                  <TableHead className="w-52">Who</TableHead>
-                  <TableHead className="w-44">Action</TableHead>
-                  <TableHead>What happened</TableHead>
-                  <TableHead className="w-32">From</TableHead>
+                  <TableCell colSpan={5}>
+                    <p className="empty-state" data-testid="audit-empty">
+                      {activeCount > 0
+                        ? "Nothing matches these filters."
+                        : "Nothing has been recorded yet."}
+                    </p>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={5}>
-                      <p className="empty-state" data-testid="audit-empty">
-                        {activeCount > 0
-                          ? "Nothing matches these filters."
-                          : "Nothing has been recorded yet."}
-                      </p>
+              ) : (
+                rows.map((row) => (
+                  <TableRow key={row.id} data-testid={`audit-row-${row.id}`}>
+                    <TableCell className="align-top whitespace-nowrap tabular-nums">
+                      {formatDateTime(row.createdAt)}
+                    </TableCell>
+                    <TableCell className="align-top">
+                      {row.actorName ? (
+                        <span className="flex flex-col">
+                          <span className="font-medium">{row.actorName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {row.actorEmail}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">System</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <Badge variant="outline" className="whitespace-nowrap">
+                        {auditActionLabel(row.action)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <span className="flex flex-col">
+                        <span>{row.summary}</span>
+                        {row.targetLabel ? (
+                          <span className="text-xs text-muted-foreground">
+                            {row.targetLabel}
+                          </span>
+                        ) : null}
+                      </span>
+                    </TableCell>
+                    <TableCell className="align-top text-muted-foreground tabular-nums">
+                      {row.ipAddress ?? "—"}
                     </TableCell>
                   </TableRow>
-                ) : (
-                  rows.map((row) => (
-                    <TableRow key={row.id} data-testid={`audit-row-${row.id}`}>
-                      <TableCell className="align-top whitespace-nowrap tabular-nums">
-                        {formatDateTime(row.createdAt)}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        {row.actorName ? (
-                          <span className="flex flex-col">
-                            <span className="font-medium">{row.actorName}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {row.actorEmail}
-                            </span>
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">System</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <Badge variant="outline" className="whitespace-nowrap">
-                          {auditActionLabel(row.action)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <span className="flex flex-col">
-                          <span>{row.summary}</span>
-                          {row.targetLabel ? (
-                            <span className="text-xs text-muted-foreground">
-                              {row.targetLabel}
-                            </span>
-                          ) : null}
-                        </span>
-                      </TableCell>
-                      <TableCell className="align-top text-muted-foreground tabular-nums">
-                        {row.ipAddress ?? "—"}
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
       <div className="pagination-bar">
         <p className="text-sm text-muted-foreground" data-testid="audit-count">
@@ -381,12 +387,13 @@ export function AuditTable({
 
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            aria-label="Previous page"
             disabled={page === 0}
             onClick={() => apply({ page: String(page - 1) })}
             data-testid="audit-previous"
           >
-            Previous
+            <ChevronLeft className="size-4" />
           </Button>
           {/* The same control as every client-side list, over a query the
               server answers: typing a page is how anyone reaches page 40 of
@@ -404,12 +411,13 @@ export function AuditTable({
           </span>
           <Button
             variant="outline"
-            size="sm"
+            size="icon"
+            aria-label="Next page"
             disabled={page + 1 >= pages}
             onClick={() => apply({ page: String(page + 1) })}
             data-testid="audit-next"
           >
-            Next
+            <ChevronRight className="size-4" />
           </Button>
         </div>
       </div>

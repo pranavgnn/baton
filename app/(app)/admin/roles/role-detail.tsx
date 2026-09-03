@@ -234,7 +234,9 @@ function MemberList({ members }: { members: RoleMember[] }) {
               {/* Straight to that person's own record, opened for reading. */}
               <Button asChild size="sm" variant="outline">
                 <Link
-                  href={`/admin/users?person=${encodeURIComponent(member.email)}`}
+                  href={`/users/${member.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                 >
                   Open
                 </Link>

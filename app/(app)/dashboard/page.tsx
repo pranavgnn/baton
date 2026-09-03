@@ -92,7 +92,7 @@ export default async function DashboardPage() {
       </div>
 
       {counts ? (
-        <div className="stat-grid">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
           <StatCard label="In progress" value={counts.in_progress} />
           <StatCard label="Approved" value={counts.approved} />
           <StatCard label="Rejected" value={counts.rejected} />
@@ -472,11 +472,13 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle className="stat-value">{value}</CardTitle>
-      </CardHeader>
-    </Card>
+    <div className="flex flex-col gap-1 rounded-xl border bg-card/70 p-4 shadow-2xs backdrop-blur-xs transition-colors hover:bg-card sm:p-5">
+      <span className="text-xs font-medium tracking-wider text-muted-foreground uppercase">
+        {label}
+      </span>
+      <span className="stat-value text-2xl font-semibold tracking-tight tabular-nums sm:text-3xl">
+        {value}
+      </span>
+    </div>
   );
 }

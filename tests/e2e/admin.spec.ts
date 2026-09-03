@@ -58,11 +58,14 @@ test.describe("role administration", () => {
     await expect(detail).toContainText("Nobody matches that search.");
     await detail.getByTestId("member-search").fill("dean@manipal.edu");
 
+    const userPagePromise = page.context().waitForEvent("page");
     await detail.getByRole("link", { name: "Open" }).first().click();
-    await expect(page).toHaveURL(/\/admin\/users\?person=/);
-    await expect(page.getByTestId("user-detail")).toContainText(
+    const userPage = await userPagePromise;
+    await expect(userPage).toHaveURL(/\/users\/[a-zA-Z0-9_-]+/);
+    await expect(userPage.getByTestId("user-detail")).toContainText(
       "dean@manipal.edu",
     );
+    await userPage.close();
   });
 
   test("rejects a duplicate role name", async ({ page }) => {
@@ -209,6 +212,7 @@ test.describe("user administration", () => {
     await page
       .getByRole("textbox", { name: "Search users" })
       .fill("employee@manipal.edu");
+    const editPagePromise = page.context().waitForEvent("page");
     await page
       .getByTestId("user-employee@manipal.edu")
       .getByRole("button", { name: /Actions for/ })
@@ -216,22 +220,25 @@ test.describe("user administration", () => {
     await page
       .getByRole("menuitem", { name: "Edit details and roles" })
       .click();
+    const editPage = await editPagePromise;
 
     // Seeded from the demo service record, and editable here.
-    await expect(page.getByTestId("user-date-of-joining")).toHaveValue(
+    await expect(editPage.getByTestId("user-date-of-joining")).toHaveValue(
       "2017-06-01",
     );
-    await page.getByTestId("user-date-of-birth").fill("1984-02-12");
-    await page.getByTestId("user-type").click();
-    await page.getByRole("option", { name: "Contract" }).click();
-    await page.getByRole("button", { name: "Save changes" }).click();
-    await expectToast(page, "User updated.");
+    await editPage.getByTestId("user-date-of-birth").fill("1984-02-12");
+    await editPage.getByTestId("user-type").click();
+    await editPage.getByRole("option", { name: "Contract" }).click();
+    await editPage.getByRole("button", { name: "Save changes" }).click();
+    await expectToast(editPage, "User updated.");
+    await editPage.close();
 
     await expect(page.getByTestId("user-employee@manipal.edu")).toContainText(
       "Contract",
     );
 
     // Put it back: the lifecycle spec runs against this account.
+    const editPage2Promise = page.context().waitForEvent("page");
     await page
       .getByTestId("user-employee@manipal.edu")
       .getByRole("button", { name: /Actions for/ })
@@ -239,11 +246,13 @@ test.describe("user administration", () => {
     await page
       .getByRole("menuitem", { name: "Edit details and roles" })
       .click();
-    await page.getByTestId("user-date-of-birth").fill("1984-02-11");
-    await page.getByTestId("user-type").click();
-    await page.getByRole("option", { name: "Regular" }).click();
-    await page.getByRole("button", { name: "Save changes" }).click();
-    await expectToast(page, "User updated.");
+    const editPage2 = await editPage2Promise;
+    await editPage2.getByTestId("user-date-of-birth").fill("1984-02-11");
+    await editPage2.getByTestId("user-type").click();
+    await editPage2.getByRole("option", { name: "Regular" }).click();
+    await editPage2.getByRole("button", { name: "Save changes" }).click();
+    await expectToast(editPage2, "User updated.");
+    await editPage2.close();
   });
 
   test("filters the user list", async ({ page }) => {
@@ -315,9 +324,11 @@ test.describe("one account, in full", () => {
     await page
       .getByRole("textbox", { name: "Search users" })
       .fill("employee@manipal.edu");
+    const userPagePromise = page.context().waitForEvent("page");
     await page.getByTestId("open-user-employee@manipal.edu").click();
+    const userPage = await userPagePromise;
 
-    const detail = page.getByTestId("user-detail");
+    const detail = userPage.getByTestId("user-detail");
     await expect(detail).toBeVisible();
     await expect(detail).toContainText("TEST-0001");
     await expect(detail).toContainText("School of Computer Engineering");
@@ -328,9 +339,8 @@ test.describe("one account, in full", () => {
 
     // And straight from reading into changing.
     await detail.getByTestId("edit-from-detail").click();
-    await expect(page.getByTestId("user-detail")).toHaveCount(0);
-    await expect(page.getByTestId("user-date-of-birth")).toBeVisible();
-    await closeOverlays(page);
+    await expect(userPage.getByTestId("user-date-of-birth")).toBeVisible();
+    await userPage.close();
   });
 });
 

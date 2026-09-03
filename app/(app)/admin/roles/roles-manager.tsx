@@ -13,7 +13,6 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -174,104 +173,100 @@ export function RolesManager({ roles }: { roles: RoleRow[] }) {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12 text-right">#</TableHead>
+                <TableHead className="min-w-[14rem]">Role</TableHead>
+                <TableHead className="w-44">Stands for</TableHead>
+                <TableHead className="w-24 text-center">Members</TableHead>
+                <TableHead className="w-28 text-center">Permissions</TableHead>
+                <TableHead className="w-24 pr-3 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
                 <TableRow>
-                  <TableHead className="w-10 text-right">#</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead className="w-48">Stands for</TableHead>
-                  <TableHead className="w-28">Members</TableHead>
-                  <TableHead className="w-32">Permissions</TableHead>
-                  <TableHead className="w-24" />
+                  <TableCell colSpan={6}>
+                    <div className="empty-state border-0">
+                      No roles match that search.
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={6}>
-                      <div className="empty-state border-0">
-                        No roles match that search.
-                      </div>
+              ) : (
+                pagination.items.map((item) => (
+                  <TableRow key={item.id} data-testid={`role-${item.name}`}>
+                    <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
+                      {item.priority + 1}
                     </TableCell>
-                  </TableRow>
-                ) : (
-                  pagination.items.map((item) => (
-                    <TableRow key={item.id} data-testid={`role-${item.name}`}>
-                      <TableCell className="text-right text-sm text-muted-foreground tabular-nums">
-                        {item.priority + 1}
-                      </TableCell>
-                      <TableCell>
-                        {/* The whole role opens from its name: what it grants
-                            and who holds it are a click away rather than
-                            spread across the row. */}
-                        <button
-                          type="button"
-                          className="row-opener"
-                          onClick={() => setViewing(item)}
-                          data-testid={`open-role-${item.name}`}
+                    <TableCell>
+                      {/* The whole role opens from its name: what it grants
+                          and who holds it are a click away rather than
+                          spread across the row. */}
+                      <button
+                        type="button"
+                        className="row-opener w-full text-left"
+                        onClick={() => setViewing(item)}
+                        data-testid={`open-role-${item.name}`}
+                      >
+                        <span className="flex items-center gap-2 font-medium">
+                          {item.name}
+                          {item.id === defaultRoleId ? (
+                            <Badge title="Given to users when no role is named">
+                              Default
+                            </Badge>
+                          ) : null}
+                        </span>
+                        <span className="line-clamp-1 max-w-sm text-xs whitespace-normal text-muted-foreground">
+                          {item.description || "No description."}
+                        </span>
+                      </button>
+                    </TableCell>
+                    <TableCell className="text-sm whitespace-nowrap text-muted-foreground">
+                      {item.designation
+                        ? designationLabel(item.designation)
+                        : "—"}
+                    </TableCell>
+                    <TableCell className="text-center text-sm tabular-nums">
+                      {item.memberCount}
+                    </TableCell>
+                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
+                      {item.permissions.includes(SUPER_ADMIN_PERMISSION)
+                        ? "All"
+                        : item.permissions.length}
+                    </TableCell>
+                    <TableCell className="pr-3">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          aria-label={`Edit ${item.name}`}
+                          onClick={() => setEditor({ open: true, role: item })}
                         >
-                          <span className="flex items-center gap-2 font-medium">
-                            {item.name}
-                            {item.id === defaultRoleId ? (
-                              <Badge title="Given to users when no role is named">
-                                Default
-                              </Badge>
-                            ) : null}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {item.description || "No description."}
-                          </span>
-                        </button>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {item.designation
-                          ? designationLabel(item.designation)
-                          : "-"}
-                      </TableCell>
-                      <TableCell className="text-sm tabular-nums">
-                        {item.memberCount}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground tabular-nums">
-                        {item.permissions.includes(SUPER_ADMIN_PERMISSION)
-                          ? "All"
-                          : item.permissions.length}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex justify-end gap-1">
+                          <Pencil className="size-4" />
+                        </Button>
+                        {item.isSystem ? null : (
                           <Button
                             variant="ghost"
                             size="icon"
-                            aria-label={`Edit ${item.name}`}
-                            onClick={() =>
-                              setEditor({ open: true, role: item })
-                            }
+                            className="text-destructive"
+                            aria-label={`Delete ${item.name}`}
+                            onClick={() => setPendingDelete(item)}
                           >
-                            <Pencil className="size-4" />
+                            <Trash2 className="size-4" />
                           </Button>
-                          {item.isSystem ? null : (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-destructive"
-                              aria-label={`Delete ${item.name}`}
-                              onClick={() => setPendingDelete(item)}
-                            >
-                              <Trash2 className="size-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
       <ListPagination pagination={pagination} label="roles" />
 

@@ -1,6 +1,7 @@
 import { count } from "drizzle-orm";
 import {
   AlertTriangle,
+  ArrowRight,
   CheckCircle2,
   Mail,
   Shield,
@@ -12,13 +13,10 @@ import Link from "next/link";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -97,18 +95,15 @@ export default async function AdminOverviewPage() {
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {canAny(current, ["workflow.manage", "forms.manage"]) ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Workflow className="size-4" />
-                Workflow
-              </CardTitle>
-              <CardDescription>
-                {flow
-                  ? `${flow.graph.nodes.length} steps · version ${flow.version}`
-                  : "Not configured"}
-              </CardDescription>
-              <CardAction>
+          <Link
+            href="/admin/workflow"
+            className="group relative flex flex-col justify-between rounded-xl border bg-card p-5 shadow-2xs transition-all hover:border-primary/40 hover:bg-muted/30"
+          >
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Workflow className="size-5" />
+                </div>
                 {blocked ? (
                   <Badge variant="destructive">Needs attention</Badge>
                 ) : (
@@ -117,71 +112,96 @@ export default async function AdminOverviewPage() {
                     Valid
                   </Badge>
                 )}
-              </CardAction>
-            </CardHeader>
-            <CardFooter>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/admin/workflow">Open builder</Link>
-              </Button>
-            </CardFooter>
-          </Card>
+              </div>
+              <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-primary">
+                Workflow
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {flow
+                  ? `${flow.graph.nodes.length} steps · version ${flow.version}`
+                  : "Not configured"}
+              </p>
+            </div>
+            <div className="mt-6 flex items-center gap-1 text-xs font-medium text-primary">
+              Open builder
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </Link>
         ) : null}
 
         {can(current, "templates.manage") ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Mail className="size-4" />
+          <Link
+            href="/admin/templates"
+            className="group relative flex flex-col justify-between rounded-xl border bg-card p-5 shadow-2xs transition-all hover:border-primary/40 hover:bg-muted/30"
+          >
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Mail className="size-5" />
+                </div>
+              </div>
+              <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-primary">
                 Email templates
-              </CardTitle>
-              <CardDescription>
-                {templateCount[0]?.total ?? 0} templates
-              </CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/admin/templates">Manage templates</Link>
-              </Button>
-            </CardFooter>
-          </Card>
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {templateCount[0]?.total ?? 0} templates configured
+              </p>
+            </div>
+            <div className="mt-6 flex items-center gap-1 text-xs font-medium text-primary">
+              Manage templates
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </Link>
         ) : null}
 
         {can(current, "users.manage") ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Users className="size-4" />
+          <Link
+            href="/admin/users"
+            className="group relative flex flex-col justify-between rounded-xl border bg-card p-5 shadow-2xs transition-all hover:border-primary/40 hover:bg-muted/30"
+          >
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Users className="size-5" />
+                </div>
+              </div>
+              <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-primary">
                 Users
-              </CardTitle>
-              <CardDescription>
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
                 {userCount[0]?.total ?? 0} whitelisted accounts
-              </CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/admin/users">Manage users</Link>
-              </Button>
-            </CardFooter>
-          </Card>
+              </p>
+            </div>
+            <div className="mt-6 flex items-center gap-1 text-xs font-medium text-primary">
+              Manage users
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </Link>
         ) : null}
 
         {can(current, "roles.manage") ? (
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="size-4" />
+          <Link
+            href="/admin/roles"
+            className="group relative flex flex-col justify-between rounded-xl border bg-card p-5 shadow-2xs transition-all hover:border-primary/40 hover:bg-muted/30"
+          >
+            <div>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Shield className="size-5" />
+                </div>
+              </div>
+              <h3 className="text-base font-semibold text-foreground transition-colors group-hover:text-primary">
                 Roles
-              </CardTitle>
-              <CardDescription>
-                {roleCount[0]?.total ?? 0} roles
-              </CardDescription>
-            </CardHeader>
-            <CardFooter>
-              <Button asChild variant="outline" size="sm">
-                <Link href="/admin/roles">Manage roles</Link>
-              </Button>
-            </CardFooter>
-          </Card>
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {roleCount[0]?.total ?? 0} defined roles
+              </p>
+            </div>
+            <div className="mt-6 flex items-center gap-1 text-xs font-medium text-primary">
+              Manage roles
+              <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+            </div>
+          </Link>
         ) : null}
       </div>
 

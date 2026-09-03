@@ -1,7 +1,15 @@
 "use client";
 
-import { Building2, Loader2, Pencil, Plus, Trash2, X } from "lucide-react";
-import { useRef, useState, useTransition } from "react";
+import {
+  Building2,
+  Loader2,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
 
 import {
@@ -47,6 +55,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import type { SchoolPerson, SchoolRecord } from "@/lib/schools/query";
 import { createSchool, deleteSchool, findUsers, updateSchool } from "./actions";
 
@@ -55,6 +64,20 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
   const [creating, setCreating] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<SchoolRecord | null>(null);
   const [isDeleting, startDelete] = useTransition();
+  const [query, setQuery] = useState("");
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return schools;
+    return schools.filter(
+      (s) =>
+        s.name.toLowerCase().includes(needle) ||
+        (s.code && s.code.toLowerCase().includes(needle)) ||
+        (s.dean && s.dean.name.toLowerCase().includes(needle)),
+    );
+  }, [schools, query]);
+
+  const pagination = usePagination(filtered, 12);
 
   function handleDelete() {
     if (!pendingDelete) return;
@@ -68,7 +91,17 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
 
   return (
     <>
-      <div className="toolbar">
+      <div className="toolbar justify-between">
+        <div className="relative w-full max-w-sm">
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Search by school name, code or dean"
+            className="pl-8"
+            aria-label="Search schools"
+          />
+        </div>
         <Button onClick={() => setCreating(true)} data-testid="new-school">
           <Plus className="size-4" />
           Add a school
@@ -80,9 +113,11 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
           No schools yet. Add one, then give its people a school on the Users
           page.
         </p>
+      ) : filtered.length === 0 ? (
+        <p className="empty-state">No schools match that search.</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {schools.map((entry) => (
+          {pagination.items.map((entry) => (
             <Card key={entry.id} data-testid={`school-card-${entry.name}`}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -155,6 +190,8 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
           ))}
         </div>
       )}
+
+      <ListPagination pagination={pagination} label="schools" />
 
       <SchoolEditor
         key={editing?.id ?? "new"}

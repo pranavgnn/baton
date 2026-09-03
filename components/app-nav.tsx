@@ -8,6 +8,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  User,
 } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -54,7 +55,7 @@ const ICONS: Record<NavLink["icon"], ComponentType<{ className?: string }>> = {
 
 export type AppNavProps = {
   links: NavLink[];
-  user: { name: string; email: string; roles: string[] };
+  user: { id?: string; name: string; email: string; roles: string[] };
   /**
    * True while an administrator is acting as this person. Better Auth's own
    * endpoints answer to the real session underneath, so changing a password
@@ -161,6 +162,15 @@ export function AppNav({ links, user, impersonating = false }: AppNavProps) {
               <DropdownMenuSeparator />
               {impersonating ? null : (
                 <>
+                  <DropdownMenuItem asChild>
+                    <Link
+                      href={user.id ? `/users/${user.id}` : "/profile"}
+                      data-testid="nav-view-profile"
+                    >
+                      <User className="size-4" />
+                      View profile
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem
                     onClick={() => setPasswordOpen(true)}
                     data-testid="change-password"

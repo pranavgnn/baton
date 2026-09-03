@@ -49,6 +49,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
       <AppNav
         links={links}
         user={{
+          id: current.id,
           name: current.name,
           email: current.email,
           roles: current.roles.map((role) => role.name),

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { ListPagination, usePagination } from "@/components/ui/list-pagination";
 import { StatusBadge } from "@/components/status-badge";
@@ -84,76 +83,70 @@ export function ReviewedTable({ rows }: { rows: ReviewedRow[] }) {
         </div>
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
+      <div className="overflow-hidden rounded-xl border bg-card">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Reference</TableHead>
+                <TableHead>Applicant</TableHead>
+                <TableHead>Your step</TableHead>
+                <TableHead>What you recorded</TableHead>
+                <TableHead>When</TableHead>
+                <TableHead>Now</TableHead>
+                <TableHead className="w-24" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {pagination.items.length === 0 ? (
                 <TableRow>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Applicant</TableHead>
-                  <TableHead>Your step</TableHead>
-                  <TableHead>What you recorded</TableHead>
-                  <TableHead>When</TableHead>
-                  <TableHead>Now</TableHead>
-                  <TableHead className="w-24" />
+                  <TableCell colSpan={7}>
+                    <div className="empty-state border-0">
+                      Nothing matches that search.
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pagination.items.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7}>
-                      <div className="empty-state border-0">
-                        Nothing matches that search.
+              ) : (
+                pagination.items.map((row) => (
+                  <TableRow
+                    key={row.eventId}
+                    data-testid={`reviewed-${row.reference}-${row.stageLabel}`}
+                  >
+                    <TableCell className="font-mono text-sm">
+                      {row.reference}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{row.applicantName}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {row.school || row.applicantEmail}
+                        </span>
                       </div>
                     </TableCell>
+                    <TableCell className="text-sm">
+                      {row.stageLabel || "-"}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {row.outcomeLabel || "-"}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {formatter.format(new Date(row.reviewedAt))}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge status={row.status} />
+                    </TableCell>
+                    <TableCell>
+                      <Button asChild size="sm" variant="outline">
+                        <Link href={`/reviews/${row.applicationId}`}>View</Link>
+                      </Button>
+                    </TableCell>
                   </TableRow>
-                ) : (
-                  pagination.items.map((row) => (
-                    <TableRow
-                      key={row.eventId}
-                      data-testid={`reviewed-${row.reference}-${row.stageLabel}`}
-                    >
-                      <TableCell className="font-mono text-sm">
-                        {row.reference}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium">
-                            {row.applicantName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {row.school || row.applicantEmail}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {row.stageLabel || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {row.outcomeLabel || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatter.format(new Date(row.reviewedAt))}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={row.status} />
-                      </TableCell>
-                      <TableCell>
-                        <Button asChild size="sm" variant="outline">
-                          <Link href={`/reviews/${row.applicationId}`}>
-                            View
-                          </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
 
       <ListPagination pagination={pagination} label="reviews" />
     </>
