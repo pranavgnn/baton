@@ -277,6 +277,7 @@ test.describe("who may apply", () => {
       await page
         .getByRole("textbox", { name: "Search users" })
         .fill("employee@manipal.edu");
+      const editPagePromise = page.context().waitForEvent("page");
       await page
         .getByTestId("user-employee@manipal.edu")
         .getByRole("button", { name: /Actions for/ })
@@ -284,10 +285,12 @@ test.describe("who may apply", () => {
       await page
         .getByRole("menuitem", { name: "Edit details and roles" })
         .click();
-      await page.getByTestId("user-type").click();
-      await page.getByRole("option", { name: type, exact: true }).click();
-      await page.getByRole("button", { name: "Save changes" }).click();
-      await expectToast(page, "User updated.");
+      const editPage = await editPagePromise;
+      await editPage.getByTestId("user-type").click();
+      await editPage.getByRole("option", { name: type, exact: true }).click();
+      await editPage.getByRole("button", { name: "Save changes" }).click();
+      await expectToast(editPage, "User updated.");
+      await editPage.close();
     }
 
     await setEmployment("Contract");
