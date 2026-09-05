@@ -189,7 +189,7 @@ export function DepartmentsManager({
                   ) : (
                     <span
                       className="flex flex-wrap gap-1"
-                      data-testid={`associate-heads-${entry.name}`}
+                      data-testid={`deputies-${entry.name}`}
                     >
                       {entry.deputies.map((person) => (
                         <Badge key={person.id} variant="secondary">
@@ -270,7 +270,7 @@ function DepartmentEditor({
   const [head, setHead] = useState<DepartmentPerson | null>(
     department?.head ?? null,
   );
-  const [associates, setAssociates] = useState<DepartmentPerson[]>(
+  const [deputies, setDeputies] = useState<DepartmentPerson[]>(
     department?.deputies ?? [],
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -283,7 +283,7 @@ function DepartmentEditor({
         name,
         code,
         headId: head?.id ?? "",
-        deputyIds: associates.map((person) => person.id),
+        deputyIds: deputies.map((person) => person.id),
       };
       const result = department
         ? await updateDepartment(department.id, payload)
@@ -361,9 +361,9 @@ function DepartmentEditor({
             <FieldLabel>Associate heads</FieldLabel>
             <PersonPicker
               label="Add an deputy"
-              testId="department-associate-head"
+              testId="department-deputy"
               onSelect={(person) =>
-                setAssociates((current) =>
+                setDeputies((current) =>
                   current.some((entry) => entry.id === person.id)
                     ? current
                     : [...current, person],
@@ -373,17 +373,17 @@ function DepartmentEditor({
             <FieldDescription>
               The head must send every application to one of these.
             </FieldDescription>
-            {associates.length > 0 ? (
+            {deputies.length > 0 ? (
               <span
                 className="flex flex-wrap gap-1"
-                data-testid="chosen-associate-heads"
+                data-testid="chosen-deputies"
               >
-                {associates.map((person) => (
+                {deputies.map((person) => (
                   <PersonChip
                     key={person.id}
                     person={person}
                     onRemove={() =>
-                      setAssociates((current) =>
+                      setDeputies((current) =>
                         current.filter((entry) => entry.id !== person.id),
                       )
                     }
@@ -441,7 +441,7 @@ function PersonChip({
 /**
  * One account, found by typing.
  *
- * Never a list of everybody: the portal is meant for an institute, and a
+ * Never a list of everybody: the portal is meant for an organisation, and a
  * dropdown of a few thousand names helps nobody choose a head.
  */
 function PersonPicker({

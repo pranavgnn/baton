@@ -19,7 +19,7 @@ import { ADMIN_ROLE, NON_ADMIN_ROLE } from "@/lib/auth/admin-flag";
 const RESET_TOKEN_TTL_SECONDS = 60 * 60 * 24; // 24 hours
 
 export const auth = betterAuth({
-  appName: "MIT Promotion Application Portal",
+  appName: "Baton",
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
   trustedOrigins: [env.NEXT_PUBLIC_APP_URL],
@@ -119,7 +119,6 @@ export const auth = betterAuth({
       userType: { type: "string", required: false, input: false },
       dateOfBirth: { type: "string", required: false, input: false },
       dateOfJoining: { type: "string", required: false, input: false },
-      dateOfLastPromotion: { type: "string", required: false, input: false },
       phone: { type: "string", required: false, input: false },
       personalEmail: { type: "string", required: false, input: false },
       address: { type: "string", required: false, input: false },

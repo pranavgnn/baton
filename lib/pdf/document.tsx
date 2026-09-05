@@ -42,8 +42,6 @@ const styles = StyleSheet.create({
   },
 
   masthead: { marginBottom: 14, textAlign: "center" },
-  institute: { fontSize: 13, fontFamily: "Helvetica-Bold", letterSpacing: 1 },
-  instituteSub: { fontSize: 7.5, color: MUTED, marginTop: 2 },
   title: { fontSize: 11, fontFamily: "Helvetica-Bold", marginTop: 10 },
   reference: { fontSize: 8.5, color: MUTED, marginTop: 3 },
 
@@ -128,17 +126,9 @@ export type ApplicationPdfProps = {
 
 export function ApplicationPdf({ model, images }: ApplicationPdfProps) {
   return (
-    <Document
-      title={`${model.reference} - ${model.title}`}
-      author="MIT Promotion Application Portal"
-    >
+    <Document title={`${model.reference} - ${model.title}`} author="Baton">
       <Page size="A4" style={styles.page}>
         <View style={styles.masthead}>
-          <Text style={styles.institute}>MANIPAL</Text>
-          <Text style={styles.instituteSub}>
-            ACADEMY OF HIGHER EDUCATION · Institution of Eminence Deemed to be
-            University
-          </Text>
           <Text style={styles.title}>{model.title}</Text>
           <Text style={styles.reference}>
             {model.reference} · {model.applicantLine} · {model.status}

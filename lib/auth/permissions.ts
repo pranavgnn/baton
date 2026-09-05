@@ -52,7 +52,7 @@ export const PERMISSIONS = [
     key: "applications.apply",
     label: "Submit applications",
     group: "Applications",
-    description: "Start and submit a promotion application.",
+    description: "Start and submit an application.",
   },
   {
     key: "applications.review",

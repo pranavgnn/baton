@@ -15,15 +15,13 @@ import { ACCOUNTS, storageStatePath, type AccountName } from "./helpers";
  */
 const ROLES: AccountName[] = [
   "superAdmin",
-  "employee",
+  "applicant",
   "head",
   "deputy",
   "deputy2",
-  "hr",
-  "rc",
-  "fdw",
-  "director",
-  "instituteHr",
+  "compliance",
+  "approver",
+  "records",
 ];
 
 setup.describe.configure({ mode: "serial" });
@@ -43,7 +41,7 @@ setup("authenticate every role", async ({ browser }) => {
     // Retry through the sign-in rate-limit window instead of disabling it.
     for (let attempt = 0; attempt < 6; attempt += 1) {
       await page.goto("/sign-in");
-      await page.getByLabel("Institute email").fill(email);
+      await page.getByLabel("Email address").fill(email);
       await page.getByLabel("Password", { exact: true }).fill(password);
       await page.getByRole("button", { name: "Sign in" }).click();
 

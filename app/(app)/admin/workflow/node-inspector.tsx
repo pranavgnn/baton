@@ -401,7 +401,7 @@ export function NodeInspector({
                       id="node-recipient-email"
                       type="email"
                       value={node.data.recipientEmail}
-                      placeholder="registrar@manipal.edu"
+                      placeholder="records@example.org"
                       onChange={(event) =>
                         patch({ recipientEmail: event.target.value })
                       }

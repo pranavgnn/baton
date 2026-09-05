@@ -46,7 +46,7 @@ export async function exportAuditLog(
 /**
  * People to choose from in the actor filter, matching what has been typed.
  *
- * Searched rather than listed: the portal is meant for an institute, so a
+ * Searched rather than listed: the portal is meant for an organisation, so a
  * select holding every account would be thousands long and useless.
  */
 export async function findAuditActors(

@@ -488,10 +488,9 @@
     @apply flex items-center gap-2 border-b px-3 py-2;
   }
 
-  /* Wizard ------------------------------------------------------------ */
   /* The wizard ------------------------------------------------------------
      A rail of sections beside the form rather than a row of chips above it:
-     the promotion form has sixteen, which wrap into a block nobody can read
+     a long form has a dozen or more, which wrap into a block nobody can read
      their position out of. The rail becomes a scrolling strip on a phone. */
   .wizard {
     @apply grid items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-10;

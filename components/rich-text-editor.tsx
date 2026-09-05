@@ -358,7 +358,7 @@ function LinkDialogBody({
           <Input
             id="link-href"
             value={href}
-            placeholder="https://portal.manipal.edu/applications"
+            placeholder="https://example.org/applications"
             onChange={(event) => setHref(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {

@@ -12,7 +12,7 @@ import {
  * tedious to undo, so the parsing rules are worth pinning down.
  *
  * A file is read in two steps - split into a table, then read through a
- * mapping of portal field to column - so an institute's own spreadsheet can be
+ * mapping of portal field to column - so an organisation's own spreadsheet can be
  * imported as it stands. The header is only ever used to *guess* that mapping;
  * a file whose columns are named nothing in particular, or named nothing at
  * all, is mapped by hand and imports just the same.
@@ -30,7 +30,6 @@ export type ImportRow = {
   userType: string;
   dateOfBirth: string;
   dateOfJoining: string;
-  dateOfLastPromotion: string;
   phone: string;
   personalEmail: string;
   address: string;
@@ -55,8 +54,8 @@ export type CsvTable = {
 };
 
 export const CSV_TEMPLATE = `email,name,employee_id,department,designation,user_type,date_of_joining,roles
-a.person@manipal.edu,A Person,MIT-2201,Department of Computer Engineering,Professor,regular,01/06/2017,Head
-another.person@manipal.edu,Another Person,MIT-4471,Department of Electrical Engineering,Assistant Professor,contract,15/07/2021,
+a.person@example.org,A Person,EMP-2201,Engineering,Senior Engineer,regular,01/06/2017,Department Head
+another.person@example.org,Another Person,EMP-4471,Finance,Analyst,contract,15/07/2021,
 `;
 
 const emailSchema = z.email();
@@ -175,7 +174,6 @@ const BLANK: Omit<ImportRow, "line" | "email" | "roles"> = {
   userType: "",
   dateOfBirth: "",
   dateOfJoining: "",
-  dateOfLastPromotion: "",
   phone: "",
   personalEmail: "",
   address: "",
@@ -275,10 +273,6 @@ export function buildImportRows(
       userType: userType ?? "",
       dateOfBirth: date("dateOfBirth", "Date of birth"),
       dateOfJoining: date("dateOfJoining", "Date of joining"),
-      dateOfLastPromotion: date(
-        "dateOfLastPromotion",
-        "Date of last promotion",
-      ),
       phone: at("phone"),
       personalEmail: at("personalEmail"),
       address: at("address"),

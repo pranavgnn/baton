@@ -17,9 +17,11 @@ import {
 import type { StageNode } from "@/lib/workflow/types";
 
 /**
- * The seeded process is the one STN 023 R5 and Evaluation Form V2 describe.
- * These assertions are about that shape, not about the builder: a workflow the
- * institute cannot recognise is worse than one that merely fails to publish.
+ * The example process a fresh install runs.
+ *
+ * It is meant to be replaced, but it is the first thing anybody sees and the
+ * only workflow the portal ships with, so it has to be valid, publishable and
+ * a fair demonstration of what the engine can do.
  */
 
 const roleIdByName = Object.fromEntries(
@@ -63,104 +65,115 @@ function next(fromNodeId: string, outcomeLabel?: string): string | null {
   return continuationNodeId(graph, fromNodeId, handle);
 }
 
-describe("the seeded workflow", () => {
+describe("the example workflow", () => {
   it("is valid and can be published as it stands", () => {
     expect(hasBlockingIssues(validateGraph(build(), context))).toBe(false);
   });
 
-  it("runs the review stages in the order the process defines", () => {
-    expect(next("node_submission")).toBe("node_stage_head");
-    // The department half is three steps: the head delegates, the deputy
-    // recommends, and it comes back to the head to decide.
-    expect(next("node_stage_head", "Send to deputy")).toBe("node_stage_deputy");
-    expect(next("node_stage_deputy", "Return to the head")).toBe(
-      "node_stage_head_approval",
+  it("runs the steps in the order the process describes", () => {
+    expect(next("node_submission")).toBe("node_stage_department_review");
+    expect(next("node_stage_department_review", "Send for assessment")).toBe(
+      "node_stage_assessment",
     );
-    expect(next("node_stage_head_approval", "Approve")).toBe(
-      "node_stage_hr_initial",
+    expect(next("node_stage_assessment", "Return to the head")).toBe(
+      "node_stage_department_decision",
     );
-    expect(next("node_stage_hr_initial", "Forward to R&C")).toBe(
-      "node_stage_rc",
+    expect(next("node_stage_department_decision", "Approve")).toBe(
+      "node_stage_compliance",
     );
-    expect(next("node_stage_rc", "Forward to FD&W")).toBe("node_stage_fdw");
-    expect(next("node_stage_fdw", "Forward to HR")).toBe("node_stage_hr_final");
-    expect(next("node_stage_hr_final", "Eligible")).toBe("node_stage_director");
+    expect(next("node_stage_compliance", "Forward for approval")).toBe(
+      "node_stage_approval",
+    );
   });
 
-  it("closes the application where the process says it closes", () => {
-    expect(next("node_stage_head_approval", "Reject")).toBe(
-      "node_end_head_rejected",
+  it("sends an application back to its author rather than onward", () => {
+    // The one branch that does not go forward, and the reason a stage is
+    // allowed to point at the submission step at all.
+    expect(next("node_stage_department_review", "Return for changes")).toBe(
+      "node_submission",
     );
-    expect(next("node_stage_hr_final", "Not eligible")).toBe(
-      "node_end_ineligible",
-    );
-    expect(next("node_stage_director", "Approve")).toBe("node_end_approved");
-    expect(next("node_stage_director", "Reject")).toBe("node_end_rejected");
   });
 
-  it("gives the stages between the head and HR no way to close the file", () => {
-    // R&C and FD&W may record an ineligibility, but it travels with the
-    // application rather than stopping it: HR and the Director decide.
-    for (const id of [
-      "node_stage_head",
-      "node_stage_deputy",
-      "node_stage_hr_initial",
-      "node_stage_rc",
-      "node_stage_fdw",
-    ]) {
+  it("closes the application everywhere the process says it closes", () => {
+    expect(next("node_stage_department_review", "Decline")).toBe(
+      "node_end_declined",
+    );
+    expect(next("node_stage_department_decision", "Decline")).toBe(
+      "node_end_declined",
+    );
+    expect(next("node_stage_approval", "Approve")).toBe("node_end_approved");
+    expect(next("node_stage_approval", "Reject")).toBe("node_end_rejected");
+  });
+
+  it("gives the middle of the process no way to close the file", () => {
+    // The assessment and the compliance check record a verdict that travels
+    // with the application; only the head and the approver end it.
+    for (const id of ["node_stage_assessment", "node_stage_compliance"]) {
       expect(stage(id).data.outcomes).toHaveLength(1);
     }
   });
 
-  it("asks the head for nothing when they are only delegating", () => {
-    // The head writes their remarks once, on the way out, rather than twice.
-    expect(stage("node_stage_head").data.form.sections).toHaveLength(0);
+  it("asks the head for nothing while they are only routing it", () => {
     expect(
-      stage("node_stage_head_approval").data.form.sections[0].fields.map(
+      stage("node_stage_department_review").data.form.sections,
+    ).toHaveLength(0);
+    // Their remarks are written once, at the decision.
+    expect(
+      stage("node_stage_department_decision").data.form.sections[0].fields.map(
         (field) => field.key,
       ),
-    ).toEqual(["vacancy_remarks", "remarks"]);
+    ).toEqual(["remarks"]);
   });
 
-  it("leaves the Director the last word", () => {
-    expect(
-      stage("node_stage_director").data.outcomes.map(
-        (outcome) => outcome.label,
-      ),
-    ).toEqual(["Approve", "Reject"]);
-  });
-
-  it("holds the delegated stage for one named person and the rest for a role", () => {
-    // The deputy is chosen by the head from their own department.
-    expect(stage("node_stage_deputy").data.assignment).toEqual({
+  it("holds the assessment for one named person and the rest for a role", () => {
+    expect(stage("node_stage_assessment").data.assignment).toEqual({
       mode: "nominated",
       pool: "department_deputies",
       scope: "all_holders",
     });
 
     for (const id of [
-      "node_stage_head",
-      "node_stage_head_approval",
-      "node_stage_hr_initial",
-      "node_stage_rc",
-      "node_stage_fdw",
-      "node_stage_hr_final",
-      "node_stage_director",
+      "node_stage_department_review",
+      "node_stage_department_decision",
+      "node_stage_compliance",
+      "node_stage_approval",
     ]) {
       expect(stage(id).data.assignment.mode).toBe("role");
     }
   });
 
-  it("keeps a head inside their own department, and leaves HR institute-wide", () => {
-    for (const id of ["node_stage_head", "node_stage_head_approval"]) {
+  it("keeps a head inside their own department, and leaves the rest open", () => {
+    for (const id of [
+      "node_stage_department_review",
+      "node_stage_department_decision",
+    ]) {
       expect(stage(id).data.assignment.scope).toBe("applicant_department");
     }
-    for (const id of ["node_stage_hr_initial", "node_stage_director"]) {
+    for (const id of ["node_stage_compliance", "node_stage_approval"]) {
       expect(stage(id).data.assignment.scope).toBe("all_holders");
     }
   });
 
-  it("addresses each hand-off notification to the people it concerns", () => {
+  it("assigns each step to the role that owns it", () => {
+    expect(stage("node_stage_department_review").data.roleId).toBe(
+      roleIdByName["Department Head"],
+    );
+    // The head sees it twice: once to route it, once to decide it.
+    expect(stage("node_stage_department_decision").data.roleId).toBe(
+      roleIdByName["Department Head"],
+    );
+    expect(stage("node_stage_assessment").data.roleId).toBe(
+      roleIdByName["Deputy Head"],
+    );
+    expect(stage("node_stage_compliance").data.roleId).toBe(
+      roleIdByName["Compliance Officer"],
+    );
+    expect(stage("node_stage_approval").data.roleId).toBe(
+      roleIdByName["Approver"],
+    );
+  });
+
+  it("addresses each notification to the people it concerns", () => {
     const graph = build();
     const email = (id: string) => {
       const node = nodeById(graph, id);
@@ -173,163 +186,103 @@ describe("the seeded workflow", () => {
     expect(email("node_email_head_assigned").recipientScope).toBe(
       "applicant_department",
     );
-    expect(email("node_email_head_approval_assigned").recipientScope).toBe(
+    expect(email("node_email_head_decision").recipientScope).toBe(
       "applicant_department",
     );
     expect(email("node_email_deputy_assigned").recipientScope).toBe(
       "assigned_person",
     );
-    expect(email("node_email_hr_initial_assigned").recipientScope).toBe(
+    expect(email("node_email_compliance_assigned").recipientScope).toBe(
       "all_holders",
     );
   });
 
-  it("assigns each stage to the role that owns it", () => {
-    expect(stage("node_stage_head").data.roleId).toBe(roleIdByName["Head"]);
-    // The head sees the file twice: once to delegate, once to decide.
-    expect(stage("node_stage_head_approval").data.roleId).toBe(
-      roleIdByName["Head"],
-    );
-    expect(stage("node_stage_deputy").data.roleId).toBe(roleIdByName["Deputy"]);
-    expect(stage("node_stage_hr_initial").data.roleId).toBe(
-      roleIdByName["HR Officer"],
-    );
-    expect(stage("node_stage_rc").data.roleId).toBe(
-      roleIdByName["R&C Officer"],
-    );
-    expect(stage("node_stage_fdw").data.roleId).toBe(
-      roleIdByName["FDW Officer"],
-    );
-    // HR sees the file twice, at the start and at the declaration.
-    expect(stage("node_stage_hr_final").data.roleId).toBe(
-      roleIdByName["HR Officer"],
-    );
-    expect(stage("node_stage_director").data.roleId).toBe(
-      roleIdByName["Director"],
-    );
-  });
+  it("notifies the applicant and the receiving side at every hand-off", () => {
+    const emails = build().nodes.filter((node) => node.kind === "email");
 
-  it("notifies the applicant and the receiving team at every hand-off", () => {
-    const graph = build();
-    const emails = graph.nodes.filter((node) => node.kind === "email");
-
-    // Nine triggers in the notification matrix, and every one of them fans out
-    // to a message that is not on the path the application takes.
     expect(emails.length).toBeGreaterThanOrEqual(9);
     for (const email of emails) {
       expect(email.kind === "email" && email.data.templateId).toBeTruthy();
     }
   });
 
-  it("sends the approved file to Institute HR for filing", () => {
-    const archive = nodeById(build(), "node_email_archive");
-    expect(archive?.kind).toBe("email");
-    expect(archive?.kind === "email" && archive.data.recipientRoleId).toBe(
-      roleIdByName["Institute HR"],
+  it("sends the approved application to Records for filing", () => {
+    const filing = nodeById(build(), "node_email_filing");
+    expect(filing?.kind).toBe("email");
+    expect(filing?.kind === "email" && filing.data.recipientRoleId).toBe(
+      roleIdByName["Records"],
     );
   });
 });
 
-describe("the seeded applicant form", () => {
+describe("the example application form", () => {
   const form = defaultApplicantForm();
-  const titles = form.sections.map((section) => section.title);
-  const keys = form.sections.flatMap((section) =>
-    section.fields.map((field) => field.key),
-  );
+  const fields = form.sections.flatMap((section) => section.fields);
+  const field = (key: string) => fields.find((entry) => entry.key === key)!;
 
-  it("carries every lettered section of the paper form", () => {
-    for (const letter of ["A.", "B.", "C.", "D.", "E.", "F.", "G.", "H."]) {
-      expect(titles.some((title) => title.startsWith(letter))).toBe(true);
-    }
+  it("asks what the request is before anything else", () => {
+    expect(form.sections[0].fields[0].key).toBe("request_type");
+    expect(field("request_type").options.map((option) => option.value)).toEqual(
+      ["promotion", "transfer", "training", "equipment", "other"],
+    );
   });
 
-  it("asks which post is being applied for", () => {
-    const field = form.sections
-      .flatMap((section) => section.fields)
-      .find((entry) => entry.key === "post_applied_for");
+  it("takes from the account what the account already holds", () => {
+    expect(field("full_name").prefill).toBe("name");
+    expect(field("department_name").prefill).toBe("department");
+    expect(field("joined_on").prefill).toBe("dateOfJoining");
+  });
 
-    expect(field?.required).toBe(true);
-    expect(field?.options.map((option) => option.label)).toEqual([
-      "Assistant Professor Senior Scale",
-      "Associate Professor",
-      "Additional Professor",
-      "Professor",
-      "Senior Professor",
+  it("works the total out instead of asking for it", () => {
+    expect(field("cost_total").formula).toBe("cost_direct + cost_indirect");
+    expect(field("cost_direct").formula).toBe(null);
+  });
+
+  it("asks a question only when the answers call for it", () => {
+    const detail = field("other_type_detail");
+    expect(isFieldVisible(detail, { request_type: "promotion" })).toBe(false);
+    expect(isFieldVisible(detail, { request_type: "other" })).toBe(true);
+
+    // Required rather than hidden: the funding source is always shown and is
+    // only demanded once the box above it is ticked.
+    const source = field("funding_source");
+    expect(source.required).toBe(false);
+    expect(source.requiredWhen?.rules.map((entry) => entry.field)).toEqual([
+      "needs_funding",
     ]);
   });
 
-  it("covers all seventeen research accomplishment items", () => {
-    const checklist = form.sections.find((section) =>
-      section.title.startsWith("E."),
-    )!;
-    const numbered = checklist.fields.filter((field) =>
-      /^\d+\./.test(field.label),
-    );
-
-    expect(numbered).toHaveLength(17);
-  });
-
-  it("leaves the items the paper form makes optional optional", () => {
-    const fields = form.sections.flatMap((section) => section.fields);
-
-    for (const key of ["sponsored_rd_amount", "utility_patents_granted"]) {
-      expect(fields.find((field) => field.key === key)?.required).toBe(false);
-    }
-  });
-
-  it("asks the tables of the paper form as repeating groups", () => {
-    const fields = form.sections.flatMap((section) => section.fields);
-
-    for (const key of [
-      "qualifications",
-      "previous_appointments",
-      "conferences",
-      "faculty_development",
-    ]) {
-      const group = fields.find((field) => field.key === key);
-      expect(group?.type).toBe("repeater");
-      expect(group?.fields.length).toBeGreaterThan(1);
-    }
-  });
-
-  it("keeps each column of a table typed rather than free text", () => {
-    const fields = form.sections.flatMap((section) => section.fields);
-    const columns = fields.find(
-      (field) => field.key === "qualifications",
-    )!.fields;
-
-    expect(columns.map((column) => [column.key, column.type])).toEqual([
-      ["qualification", "text"],
-      ["institution", "text"],
+  it("asks for a table as a repeating group with typed columns", () => {
+    const group = field("earlier_requests");
+    expect(group.type).toBe("repeater");
+    expect(group.fields.map((column) => [column.key, column.type])).toEqual([
+      ["reference", "text"],
       ["year", "number"],
+      ["outcome", "select"],
       ["remarks", "text"],
     ]);
   });
 
-  it("asks for a document exactly when the answers call for it", () => {
-    const fields = form.sections.flatMap((section) => section.fields);
-    const proof = fields.find((field) => field.key === "phd_guided_proof")!;
-
-    // "Conditional (if items 11/12 > 0)" on the paper form.
-    expect(proof.required).toBe(false);
-    expect(proof.requiredWhen?.mode).toBe("any");
-    expect(
-      proof.requiredWhen?.rules.map((rule) => [rule.field, rule.operator]),
-    ).toEqual([
-      ["phd_guided", "greaterThan"],
-      ["phd_co_guided", "greaterThan"],
-    ]);
-
-    // Nothing conditional is asked for before its condition holds.
-    expect(isFieldVisible(proof, { phd_guided: 0, phd_co_guided: 0 })).toBe(
-      false,
-    );
-    expect(isFieldVisible(proof, { phd_guided: 2, phd_co_guided: 0 })).toBe(
-      true,
-    );
+  it("demonstrates one of everything the engine can render", () => {
+    const kinds = new Set(fields.map((entry) => entry.type));
+    for (const kind of [
+      "text",
+      "textarea",
+      "select",
+      "date",
+      "phone",
+      "number",
+      "checkbox",
+      "file",
+      "repeater",
+      "paragraph",
+    ]) {
+      expect(kinds).toContain(kind);
+    }
   });
 
   it("keeps every data key distinct", () => {
+    const keys = fields.map((entry) => entry.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
 });

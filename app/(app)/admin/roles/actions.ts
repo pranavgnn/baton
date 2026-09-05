@@ -350,7 +350,7 @@ export type RoleMember = {
  *
  * Fetched when the role is opened rather than sent with the page: a role's
  * members are only wanted one role at a time, and shipping every membership in
- * the institute to render a table of counts would be a great deal of nothing.
+ * the organisation to render a table of counts would be a great deal of nothing.
  */
 export async function listRoleMembers(
   roleId: string,

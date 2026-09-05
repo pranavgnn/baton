@@ -105,9 +105,9 @@ export function nominatedTarget(
 /**
  * Whether one person falls inside a stage's audience.
  *
- * A role is institute-wide; a stage need not be. Scoping to the applicant's
+ * A role covers the whole organisation; a step need not. Scoping to the
  * department is what keeps the head of one department out of another department's queue
- * without the institute having to invent a role per department. Pure, so the queue
+ * without inventing a role per department. Pure, so the queue
  * and the action can be sure they are answering the same question.
  */
 export function withinStageAudience(

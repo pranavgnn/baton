@@ -19,10 +19,10 @@ export async function sendAccountInviteEmail(params: {
 }): Promise<SendMailResult> {
   const { subject, html } = await renderTemplate({
     heading: "Account activation",
-    subject: "Activate your MIT Promotion Portal account",
+    subject: "Activate your Baton account",
     bodyHtml: `
       <h2>Welcome, {{name}}</h2>
-      <p>An account has been created for you on the MIT Promotion Application Portal.</p>
+      <p>An account has been created for you on the application portal.</p>
       <p>Set a password to activate it. This link expires in {{hours}} hours.</p>
       ${actionButton("{{url}}", "Set your password")}
       <p style="color:#6a7383;font-size:12px">If the button does not work, copy this link into your browser:<br>{{url}}</p>
@@ -46,7 +46,7 @@ export async function sendPasswordResetEmail(params: {
 }): Promise<SendMailResult> {
   const { subject, html } = await renderTemplate({
     heading: "Password reset",
-    subject: "Reset your MIT Promotion Portal password",
+    subject: "Reset your Baton password",
     bodyHtml: `
       <h2>Hello {{name}}</h2>
       <p>We received a request to set a new password for your portal account.</p>

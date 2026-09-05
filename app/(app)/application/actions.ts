@@ -20,7 +20,7 @@ import {
   applicationFile,
   user,
 } from "@/lib/db/schema";
-import { promotionBar } from "@/lib/users/profile";
+import { applicationBar } from "@/lib/users/profile";
 import { applyCalculations, applyPrefill } from "@/lib/workflow/autofill";
 import { collectFiles, pruneToSchema, validateForm } from "@/lib/workflow/form";
 import { accountProfile } from "@/lib/users/account-profile";
@@ -45,7 +45,7 @@ export async function startApplication(): Promise<
     const existing = await getOpenApplicationFor(current.id);
     if (existing) return ok({ id: existing.id });
 
-    const barred = await promotionBarFor(current.id);
+    const barred = await applicationBarFor(current.id);
     if (barred) return fail(barred);
 
     const published = await getPublishedWorkflow();
@@ -89,7 +89,7 @@ export async function startApplication(): Promise<
     await recordAudit({
       action: "application.created",
       actor: current,
-      summary: `Started promotion application ${reference}.`,
+      summary: `Started application ${reference}.`,
       targetType: "application",
       targetId: id,
       targetLabel: reference,
@@ -127,7 +127,7 @@ export async function saveApplicationDraft(
 
     // Checked again on the way out: employment can change between starting a
     // draft and sending it, and it is the sending that matters.
-    const barred = await promotionBarFor(current.id);
+    const barred = await applicationBarFor(current.id);
     if (barred) return fail(barred);
 
     const app = loaded.app!;
@@ -204,7 +204,7 @@ export async function submitApplication(
 
     // Checked again on the way out: employment can change between starting a
     // draft and sending it, and it is the sending that matters.
-    const barred = await promotionBarFor(current.id);
+    const barred = await applicationBarFor(current.id);
     if (barred) return fail(barred);
 
     const app = loaded.app!;
@@ -283,12 +283,12 @@ async function attachFiles(applicationId: string, fileIds: string[]) {
 }
 
 /** The reason this account may not apply, if there is one. */
-async function promotionBarFor(userId: string): Promise<string | null> {
+async function applicationBarFor(userId: string): Promise<string | null> {
   const row = await db
     .select({ userType: user.userType })
     .from(user)
     .where(eq(user.id, userId))
     .limit(1);
 
-  return promotionBar(row[0]?.userType);
+  return applicationBar(row[0]?.userType);
 }

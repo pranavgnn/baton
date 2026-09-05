@@ -29,7 +29,7 @@ export default async function ApplicationsPage() {
         <div>
           <h1 className="page-title">All applications</h1>
           <p className="page-subtitle">
-            Every promotion application on record, whatever stage it is at.
+            Every application on record, whatever step it is at.
           </p>
         </div>
       </div>

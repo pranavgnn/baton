@@ -27,20 +27,20 @@ const serverSchema = z.object({
     .optional()
     .default("false")
     .transform((v) => v === "true"),
-  MAIL_FROM: z.string().default("MIT Promotion Portal <no-reply@manipal.edu>"),
+  MAIL_FROM: z.string().default("Baton <no-reply@example.org>"),
 
   S3_ENDPOINT: z.string().default("http://localhost:9000"),
   S3_PUBLIC_ENDPOINT: z.string().default("http://localhost:9000"),
   S3_REGION: z.string().default("us-east-1"),
-  S3_BUCKET: z.string().default("promotion-portal"),
+  S3_BUCKET: z.string().default("baton"),
   S3_ACCESS_KEY_ID: z.string().default("minioadmin"),
   S3_SECRET_ACCESS_KEY: z.string().default("minioadmin"),
 
   // Email delivery runs through Kafka so a transition never waits on SMTP.
   KAFKA_BROKERS: z.string().default("localhost:9092"),
-  KAFKA_CLIENT_ID: z.string().default("promotion-portal"),
+  KAFKA_CLIENT_ID: z.string().default("baton"),
 
-  SUPER_ADMIN_EMAIL: z.email().default("superadmin@manipal.edu"),
+  SUPER_ADMIN_EMAIL: z.email().default("admin@example.org"),
   SUPER_ADMIN_NAME: z.string().default("Super Admin"),
   SUPER_ADMIN_PASSWORD: z.string().min(8).default("SuperAdmin@123"),
 });

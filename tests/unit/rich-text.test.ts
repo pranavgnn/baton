@@ -39,9 +39,9 @@ describe("template body round trip", () => {
   });
 
   it("still treats an ordinary anchor as a link", () => {
-    const result = roundTrip('<p><a href="https://manipal.edu">Portal</a></p>');
+    const result = roundTrip('<p><a href="https://example.org">Portal</a></p>');
 
-    expect(result).toContain('href="https://manipal.edu"');
+    expect(result).toContain('href="https://example.org"');
     expect(result).not.toContain(EMAIL_BUTTON_MARKER);
   });
 

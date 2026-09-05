@@ -24,11 +24,11 @@ const fontMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "Promotion Application Portal",
-    template: "%s · MIT Promotion Portal",
+    default: "Baton",
+    template: "%s · Baton",
   },
   description:
-    "Internal promotion application portal for Manipal Institute of Technology.",
+    "Applications that pass from hand to hand: forms, routing, review and audit, configured rather than coded.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

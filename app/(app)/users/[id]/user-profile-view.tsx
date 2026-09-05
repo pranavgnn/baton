@@ -69,7 +69,6 @@ export type UserProfileData = {
   userType: string;
   dateOfBirth: string;
   dateOfJoining: string;
-  dateOfLastPromotion: string;
   phone: string;
   personalEmail: string;
   address: string;
@@ -144,9 +143,6 @@ export function UserProfileView({
   );
   const [dateOfBirth, setDateOfBirth] = useState(user.dateOfBirth);
   const [dateOfJoining, setDateOfJoining] = useState(user.dateOfJoining);
-  const [dateOfLastPromotion, setDateOfLastPromotion] = useState(
-    user.dateOfLastPromotion,
-  );
   const [phone, setPhone] = useState(user.phone);
   const [personalEmail, setPersonalEmail] = useState(user.personalEmail);
   const [address, setAddress] = useState(user.address);
@@ -182,7 +178,6 @@ export function UserProfileView({
         userType,
         dateOfBirth,
         dateOfJoining,
-        dateOfLastPromotion,
         phone,
         personalEmail,
         address,
@@ -388,7 +383,7 @@ export function UserProfileView({
                   id="edit-user-institution"
                   value={institution}
                   onChange={(e) => setInstitution(e.target.value)}
-                  placeholder="e.g. Manipal Institute of Technology"
+                  placeholder="e.g. Example Organisation"
                 />
               </Field>
 
@@ -437,19 +432,6 @@ export function UserProfileView({
                   value={dateOfJoining}
                   onChange={(e) => setDateOfJoining(e.target.value)}
                   data-testid="user-date-of-joining"
-                />
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="edit-user-dolp">
-                  Date of last promotion
-                </FieldLabel>
-                <Input
-                  id="edit-user-dolp"
-                  type="date"
-                  value={dateOfLastPromotion}
-                  onChange={(e) => setDateOfLastPromotion(e.target.value)}
-                  data-testid="user-date-of-last-promotion"
                 />
               </Field>
             </div>
@@ -559,14 +541,7 @@ export function UserProfileView({
                   label="Date of birth"
                   value={formatDate(user.dateOfBirth)}
                 />
-                <Fact
-                  label="Joined institute"
-                  value={formatDate(user.dateOfJoining)}
-                />
-                <Fact
-                  label="Last promoted"
-                  value={formatDate(user.dateOfLastPromotion)}
-                />
+                <Fact label="Joined" value={formatDate(user.dateOfJoining)} />
                 <Fact label="Contact number" value={user.phone} />
                 <Fact label="Personal email" value={user.personalEmail} />
                 <Fact label="Address" value={user.address} />

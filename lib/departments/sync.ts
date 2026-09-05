@@ -12,7 +12,7 @@ import { role, department, departmentDeputy, userRole } from "@/lib/db/schema";
  * Kept free of the `server-only` marker because the demo seed runs it from a
  * plain node script, the same way an admin's edit runs it from an action.
  *
- * Keeps the head and associate-head roles in step with who actually holds
+ * Keeps the head and deputy roles in step with who actually holds
  * those posts.
  *
  * Written as a reconciliation rather than as a diff of one edit: it recomputes

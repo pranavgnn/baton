@@ -38,7 +38,7 @@ export async function syncAdminFlag(userId: string): Promise<void> {
 /**
  * Recomputes it for everybody.
  *
- * Cheap at institute scale and worth doing wholesale: editing one role's
+ * Cheap at this scale and worth doing wholesale: editing one role's
  * permissions changes the answer for every one of its holders at once.
  */
 export async function syncAdminFlags(): Promise<void> {

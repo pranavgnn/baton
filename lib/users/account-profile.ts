@@ -27,7 +27,6 @@ export async function accountProfile(userId: string): Promise<PrefillProfile> {
       userType: user.userType,
       dateOfBirth: user.dateOfBirth,
       dateOfJoining: user.dateOfJoining,
-      dateOfLastPromotion: user.dateOfLastPromotion,
       phone: user.phone,
       personalEmail: user.personalEmail,
       address: user.address,

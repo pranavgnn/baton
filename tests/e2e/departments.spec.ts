@@ -20,12 +20,8 @@ test.describe("departments", () => {
   }) => {
     await page.goto("/admin/departments");
 
-    await expect(
-      page.getByTestId("department-card-Department of Computer Engineering"),
-    ).toBeVisible();
-    await expect(
-      page.getByTestId("department-card-Department of Electrical Engineering"),
-    ).toBeVisible();
+    await expect(page.getByTestId("department-card-Engineering")).toBeVisible();
+    await expect(page.getByTestId("department-card-Finance")).toBeVisible();
   });
 
   test("adds one with a head and two deputies", async ({ page }) => {
@@ -40,17 +36,17 @@ test.describe("departments", () => {
     // grants them the head and deputy roles for as long as the department
     // exists.
     await page.getByTestId("department-head").click();
-    await page.getByTestId("department-head-search").fill("superadmin@");
-    await page.getByTestId("department-head-superadmin@manipal.edu").click();
+    await page.getByTestId("department-head-search").fill("admin@");
+    await page.getByTestId("department-head-admin@example.org").click();
 
-    for (const email of ["institutehr@manipal.edu", "director@manipal.edu"]) {
-      await page.getByTestId("department-associate-head").click();
-      await page.getByTestId("department-associate-head-search").fill(email);
-      await page.getByTestId(`department-associate-head-${email}`).click();
+    for (const email of ["records@example.org", "approver@example.org"]) {
+      await page.getByTestId("department-deputy").click();
+      await page.getByTestId("department-deputy-search").fill(email);
+      await page.getByTestId(`department-deputy-${email}`).click();
     }
 
-    await expect(page.getByTestId("chosen-associate-heads")).toContainText(
-      "Test Institute HR",
+    await expect(page.getByTestId("chosen-deputies")).toContainText(
+      "Test Records Officer",
     );
 
     await page.getByTestId("save-department").click();
@@ -61,15 +57,15 @@ test.describe("departments", () => {
     await expect(page.getByTestId(`head-${NEW_DEPARTMENT}`)).toContainText(
       "Super Admin",
     );
-    await expect(
-      page.getByTestId(`associate-heads-${NEW_DEPARTMENT}`),
-    ).toContainText("Test Director");
+    await expect(page.getByTestId(`deputies-${NEW_DEPARTMENT}`)).toContainText(
+      "Test Approver",
+    );
   });
 
   test("gives the people it appoints the roles that go with the post", async ({
     page,
   }) => {
-    await expect(await rowFor(page, "institutehr@manipal.edu")).toContainText(
+    await expect(await rowFor(page, "records@example.org")).toContainText(
       "Deputy",
     );
   });
@@ -88,11 +84,11 @@ test.describe("departments", () => {
     await page.goto("/admin/users");
     await page
       .getByRole("textbox", { name: "Search users" })
-      .fill("employee@manipal.edu");
+      .fill("applicant@example.org");
 
     const editPagePromise = page.context().waitForEvent("page");
     await page
-      .getByTestId("user-employee@manipal.edu")
+      .getByTestId("user-applicant@example.org")
       .getByRole("button", { name: /Actions for/ })
       .click();
     await page
@@ -102,12 +98,12 @@ test.describe("departments", () => {
 
     // Seeded with a department, and the others are there to move them to.
     await expect(editPage.getByTestId("user-department")).toContainText(
-      "Department of Computer Engineering",
+      "Engineering",
     );
     await editPage.getByTestId("user-department").click();
     await expect(
       editPage.getByRole("option", {
-        name: "Department of Electrical Engineering",
+        name: "Finance",
       }),
     ).toBeVisible();
 
@@ -121,7 +117,7 @@ test.describe("departments", () => {
 
     await page
       .getByRole("button", {
-        name: "Delete Department of Computer Engineering",
+        name: "Delete Engineering",
       })
       .click();
     await page.getByTestId("confirm-delete-department").click();
@@ -143,8 +139,8 @@ test.describe("departments", () => {
     ).toHaveCount(0);
 
     // And the roles that came with the posts go with them.
-    await expect(
-      await rowFor(page, "institutehr@manipal.edu"),
-    ).not.toContainText("Deputy");
+    await expect(await rowFor(page, "records@example.org")).not.toContainText(
+      "Deputy",
+    );
   });
 });

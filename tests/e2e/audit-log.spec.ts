@@ -24,7 +24,7 @@ test.describe("audit log", () => {
     );
     // Who did it, not just what happened.
     await expect(page.getByTestId("audit-table")).toContainText(
-      "superadmin@manipal.edu",
+      "admin@example.org",
     );
   });
 
@@ -77,16 +77,16 @@ test.describe("audit log", () => {
     await page.goto("/admin/audit");
 
     await page.getByTestId("audit-actor-filter").click();
-    await page.getByTestId("audit-actor-search").fill("superadmin");
+    await page.getByTestId("audit-actor-search").fill("admin@");
 
-    await page.getByTestId("audit-actor-superadmin@manipal.edu").click();
+    await page.getByTestId("audit-actor-admin@example.org").click();
 
     await expect(page).toHaveURL(/actor=/);
     await expect(page.getByTestId("audit-active-filters")).toContainText(
       "by Super Admin",
     );
     await expect(page.getByTestId("audit-table")).toContainText(
-      "superadmin@manipal.edu",
+      "admin@example.org",
     );
   });
 
@@ -171,7 +171,7 @@ test.describe("audit log", () => {
 });
 
 test.describe("audit log access", () => {
-  test.use({ storageState: storageStatePath("employee") });
+  test.use({ storageState: storageStatePath("applicant") });
 
   test("is closed to someone without the permission", async ({ page }) => {
     const response = await page.goto("/admin/audit");

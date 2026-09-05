@@ -11,19 +11,19 @@ test.describe("role priority", () => {
   }) => {
     await page.goto("/admin/roles");
 
-    // The seed puts Employee first, so it is what an unnamed user is given.
+    // The seed puts Applicant first, so it is what an unnamed user is given.
     await expect(
-      page.getByTestId("role-Employee").getByText("Default"),
+      page.getByTestId("role-Applicant").getByText("Default"),
     ).toBeVisible();
 
     await page.getByTestId("open-role-priority").click();
     await expect(page.getByTestId("role-priority-dialog")).toBeVisible();
 
     const rows = page.getByTestId("priority-list").locator("li");
-    await expect(rows.first()).toContainText("Employee");
+    await expect(rows.first()).toContainText("Applicant");
     await expect(rows.first()).toContainText("Default");
 
-    await dragRole(page, "Employee", 1);
+    await dragRole(page, "Applicant", 1);
 
     await page.getByTestId("save-priority").click();
     await expectToast(page, "Role priority saved.");
@@ -31,21 +31,21 @@ test.describe("role priority", () => {
     await page.reload();
     // The default badge follows the top of the list, wherever that now is.
     await expect(
-      page.getByTestId("role-Employee").getByText("Default"),
+      page.getByTestId("role-Applicant").getByText("Default"),
     ).toHaveCount(0);
     await expect(
-      page.getByTestId("role-Head").getByText("Default"),
+      page.getByTestId("role-Department Head").getByText("Default"),
     ).toBeVisible();
 
     // And back, which is both the other direction and the tidy-up.
     await page.getByTestId("open-role-priority").click();
-    await dragRole(page, "Employee", -1);
+    await dragRole(page, "Applicant", -1);
     await page.getByTestId("save-priority").click();
     await expectToast(page, "Role priority saved.");
 
     await page.reload();
     await expect(
-      page.getByTestId("role-Employee").getByText("Default"),
+      page.getByTestId("role-Applicant").getByText("Default"),
     ).toBeVisible();
   });
 });
@@ -88,9 +88,9 @@ async function mapColumn(page: Page, field: string, column: string) {
 }
 
 test.describe("bulk user import", () => {
-  const IMPORTED = "bulk.one@manipal.edu";
-  const SECOND = "bulk.two@manipal.edu";
-  const FOURTH = "bulk.four@manipal.edu";
+  const IMPORTED = "bulk.one@example.org";
+  const SECOND = "bulk.two@example.org";
+  const FOURTH = "bulk.four@example.org";
 
   test("previews a pasted CSV before writing anything", async ({ page }) => {
     await page.goto("/admin/users");
@@ -99,7 +99,7 @@ test.describe("bulk user import", () => {
     await page
       .getByTestId("import-csv")
       .fill(
-        `email,name,department,roles\n${IMPORTED},Bulk One,Civil Engineering,Employee\n${SECOND},Bulk Two,Civil Engineering,\nnot-an-email,Broken,,`,
+        `email,name,department,roles\n${IMPORTED},Bulk One,Finance,Applicant\n${SECOND},Bulk Two,Finance,\nnot-an-email,Broken,,`,
       );
 
     const preview = page.getByTestId("import-preview");
@@ -126,7 +126,7 @@ test.describe("bulk user import", () => {
     await page
       .getByTestId("import-csv")
       .fill(
-        `email,name,department,roles\n${IMPORTED},Bulk One,Civil Engineering,Employee\n${SECOND},Bulk Two,Civil Engineering,`,
+        `email,name,department,roles\n${IMPORTED},Bulk One,Finance,Applicant\n${SECOND},Bulk Two,Finance,`,
       );
     await page.getByTestId("confirm-import").click();
 
@@ -134,10 +134,10 @@ test.describe("bulk user import", () => {
 
     await page.getByRole("textbox", { name: "Search users" }).fill("bulk.");
     await expect(page.getByTestId(`user-${IMPORTED}`)).toContainText(
-      "Employee",
+      "Applicant",
     );
     // The row naming no role falls back to the default.
-    await expect(page.getByTestId(`user-${SECOND}`)).toContainText("Employee");
+    await expect(page.getByTestId(`user-${SECOND}`)).toContainText("Applicant");
   });
 
   test("skips addresses already on the whitelist", async ({ page }) => {
@@ -157,7 +157,7 @@ test.describe("bulk user import", () => {
     await page.getByRole("tab", { name: "Paste addresses" }).click();
     await page
       .getByTestId("import-list")
-      .fill("Bulk Three <bulk.three@manipal.edu>");
+      .fill("Bulk Three <bulk.three@example.org>");
 
     await expect(page.getByTestId("import-preview")).toContainText(
       "Bulk Three",
@@ -176,7 +176,7 @@ test.describe("bulk user import", () => {
     // recognises, and they are in the wrong order.
     await page
       .getByTestId("import-csv")
-      .fill(`staff no,who,mail id\nMIT-9001,Bulk Four,${FOURTH}`);
+      .fill(`staff no,who,mail id\nEMP-9001,Bulk Four,${FOURTH}`);
 
     // Nothing is guessed, so nothing imports until the columns are named.
     await expect(page.getByTestId("import-mapping")).toBeVisible();
@@ -192,14 +192,14 @@ test.describe("bulk user import", () => {
 
     // The employee code came through, so the mapping reached the database and
     // not just the preview.
-    await page.getByRole("textbox", { name: "Search users" }).fill("MIT-9001");
+    await page.getByRole("textbox", { name: "Search users" }).fill("EMP-9001");
     await expect(page.getByTestId(`user-${FOURTH}`)).toBeVisible();
   });
 
   test("cleans up the imported accounts", async ({ page }) => {
     await page.goto("/admin/users");
 
-    for (const email of [IMPORTED, SECOND, "bulk.three@manipal.edu", FOURTH]) {
+    for (const email of [IMPORTED, SECOND, "bulk.three@example.org", FOURTH]) {
       await page.getByRole("textbox", { name: "Search users" }).fill(email);
       const row = page.getByTestId(`user-${email}`);
       await row.getByRole("button", { name: /Actions for/ }).click();

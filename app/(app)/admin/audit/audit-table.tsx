@@ -533,7 +533,7 @@ function ActionFilter({
  * One person, found by typing.
  *
  * The candidates are fetched as the admin types and always bounded, because an
- * institute has thousands of accounts and a list of all of them helps nobody.
+ * organisation has thousands of accounts and a list of all of them helps nobody.
  */
 function ActorFilter({
   actor,

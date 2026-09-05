@@ -83,12 +83,12 @@ export function SignInForm() {
           ) : null}
 
           <Field data-invalid={Boolean(errors.email)}>
-            <FieldLabel htmlFor="email">Institute email</FieldLabel>
+            <FieldLabel htmlFor="email">Email address</FieldLabel>
             <Input
               id="email"
               type="email"
               autoComplete="username"
-              placeholder="you@manipal.edu"
+              placeholder="you@example.org"
               aria-invalid={Boolean(errors.email)}
               {...register("email")}
             />

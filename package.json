@@ -1,5 +1,5 @@
 {
-  "name": "promotion-application-portal",
+  "name": "baton",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -11,8 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "compose:up": "docker compose -p promotion-portal up -d",
-    "compose:down": "docker compose -p promotion-portal down",
+    "compose:up": "docker compose -p baton up -d",
+    "compose:down": "docker compose -p baton down",
     "seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write .",

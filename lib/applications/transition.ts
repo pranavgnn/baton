@@ -94,10 +94,11 @@ type Audience = {
 /**
  * The addresses one email step resolves to.
  *
- * A role is institute-wide but a notification rarely is: "tell the head" means
+ * A role covers the whole organisation but a notification rarely does: "tell
+ * the head" means
  * the head of the applicant's department, and "tell the deputy" means the
  * one the file was just handed to. Both are the step's own setting rather than
- * anything inferred from the role, so an institute that organises itself
+ * anything inferred from the role, so an organisation that arranges itself
  * differently configures it differently.
  */
 async function resolveRecipients(

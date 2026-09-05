@@ -7,8 +7,8 @@ import { z } from "zod";
  * can depend on the shape without booting any infrastructure.
  */
 
-export const EMAIL_TOPIC = "promotion-portal.emails";
-export const EMAIL_CONSUMER_GROUP = "promotion-portal-email-worker";
+export const EMAIL_TOPIC = "baton.emails";
+export const EMAIL_CONSUMER_GROUP = "baton-email-worker";
 
 export const emailJobSchema = z.object({
   /** Stable per (application, node, attempt) so a redelivery is recognisable. */

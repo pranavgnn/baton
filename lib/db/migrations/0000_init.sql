@@ -153,7 +153,6 @@ CREATE TABLE "user" (
 	"user_type" text,
 	"date_of_birth" date,
 	"date_of_joining" date,
-	"date_of_last_promotion" date,
 	"phone" text,
 	"personal_email" text,
 	"address" text,

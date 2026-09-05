@@ -1,6 +1,6 @@
 "use server";
 
-import { desc, eq, inArray } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
@@ -25,12 +25,9 @@ import {
   application,
   role,
   department,
-  departmentDeputy,
   user,
   userRole,
-  type ApplicationStatus,
 } from "@/lib/db/schema";
-import { nodeById } from "@/lib/workflow/graph";
 import { USER_TYPE_KEYS, type UserType } from "@/lib/users/profile";
 
 const isoDay = z
@@ -54,7 +51,6 @@ const profileInput = {
   /** ISO days, as an `<input type="date">` produces. */
   dateOfBirth: isoDay,
   dateOfJoining: isoDay,
-  dateOfLastPromotion: isoDay,
   phone: z.string().trim().max(40).optional().default(""),
   personalEmail: z
     .union([z.literal(""), z.email("Enter a valid email address")])
@@ -72,7 +68,6 @@ function profileColumns(input: {
   userType: string;
   dateOfBirth: string;
   dateOfJoining: string;
-  dateOfLastPromotion: string;
   phone: string;
   personalEmail: string;
   address: string;
@@ -85,7 +80,6 @@ function profileColumns(input: {
     userType: (input.userType || null) as UserType | null,
     dateOfBirth: input.dateOfBirth || null,
     dateOfJoining: input.dateOfJoining || null,
-    dateOfLastPromotion: input.dateOfLastPromotion || null,
     phone: input.phone || null,
     personalEmail: input.personalEmail || null,
     address: input.address || null,
@@ -263,7 +257,6 @@ const importRowSchema = z.object({
   userType: z.string().trim().max(20).optional().default(""),
   dateOfBirth: isoDay,
   dateOfJoining: isoDay,
-  dateOfLastPromotion: isoDay,
   phone: z.string().trim().max(40).optional().default(""),
   personalEmail: z
     .union([z.literal(""), z.email()])
@@ -558,86 +551,4 @@ async function getUserForImpersonation(id: string) {
       new Set(rows.flatMap((row) => row.permissions ?? [])),
     ),
   };
-}
-
-/* -------------------------------------------------------------------------- */
-/*  One account, in full                                                       */
-/* -------------------------------------------------------------------------- */
-
-export type UserApplication = {
-  id: string;
-  reference: string;
-  status: ApplicationStatus;
-  stageLabel: string;
-  createdAt: string;
-  submittedAt: string | null;
-  completedAt: string | null;
-};
-
-export type UserDetail = {
-  applications: UserApplication[];
-  /** Departments this person signs for, as head or as an deputy. */
-  signsFor: string[];
-};
-
-/**
- * What an administrator wants when they click a name: everything the account
- * has done, rather than everything it holds - the fields are already on the
- * row and in the editor.
- *
- * Fetched on opening for the same reason a role's members are: it is one
- * person's worth of history, wanted one person at a time.
- */
-export async function getUserDetail(
-  userId: string,
-): Promise<ActionResult<UserDetail>> {
-  try {
-    await requirePermissionAction("users.manage");
-
-    const [applications, departments] = await Promise.all([
-      db
-        .select()
-        .from(application)
-        .where(eq(application.applicantId, userId))
-        .orderBy(desc(application.createdAt)),
-      departmentsSignedForBy(userId),
-    ]);
-
-    return ok({
-      signsFor: departments,
-      applications: applications.map((row) => ({
-        id: row.id,
-        reference: row.reference,
-        status: row.status,
-        // Read from the application's own snapshot, so a step since renamed
-        // still reads as it did when the file passed through it.
-        stageLabel: nodeById(row.graph, row.currentNodeId)?.data.label ?? "",
-        createdAt: row.createdAt.toISOString(),
-        submittedAt: row.submittedAt?.toISOString() ?? null,
-        completedAt: row.completedAt?.toISOString() ?? null,
-      })),
-    });
-  } catch (error) {
-    return failFrom(error);
-  }
-}
-
-/** The names of the departments one person is head or deputy of. */
-async function departmentsSignedForBy(userId: string): Promise<string[]> {
-  const [asHead, asAssociate] = await Promise.all([
-    db
-      .select({ name: department.name })
-      .from(department)
-      .where(eq(department.headId, userId)),
-    db
-      .select({ name: department.name })
-      .from(departmentDeputy)
-      .innerJoin(department, eq(department.id, departmentDeputy.departmentId))
-      .where(eq(departmentDeputy.userId, userId)),
-  ]);
-
-  return [
-    ...asHead.map((row) => `Head of ${row.name}`),
-    ...asAssociate.map((row) => `Associate head of ${row.name}`),
-  ];
 }

@@ -65,13 +65,12 @@ export const user = pgTable("user", {
    */
   userType: text("user_type").$type<UserType>(),
   /*
-   * The particulars the promotion form asks for. Held here so an application
+   * The particulars a form may draw on. Held here so an application
    * can fill them in for the applicant rather than asking them to copy their
    * own service record out of a letter. Dates are days, not instants.
    */
   dateOfBirth: date("date_of_birth"),
   dateOfJoining: date("date_of_joining"),
-  dateOfLastPromotion: date("date_of_last_promotion"),
   phone: text("phone"),
   personalEmail: text("personal_email"),
   address: text("address"),
@@ -386,7 +385,7 @@ export const application = pgTable(
   "application",
   {
     id: text("id").primaryKey(),
-    /** Human-readable reference, e.g. PROM-2026-0007. */
+    /** Human-readable reference, e.g. APP-2026-0007. */
     reference: text("reference").notNull(),
     applicantId: text("applicant_id")
       .notNull()

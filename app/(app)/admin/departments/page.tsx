@@ -17,7 +17,7 @@ export default async function DepartmentsPage() {
         <div>
           <h1 className="page-title">Departments</h1>
           <p className="page-subtitle">
-            Each department has one head and any number of deputies. A promotion
+            Each department has one head and any number of deputies. An
             application goes to the head of the applicant&rsquo;s department
             first.
           </p>

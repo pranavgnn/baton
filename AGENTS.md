@@ -8,10 +8,16 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
-# MIT Promotion Application Portal
+# Baton
 
-Read `README.md` first — it covers the domain model and the architecture
+Read `README.md` first — it covers what the portal is for and the architecture
 decisions behind it. What follows is what to keep in mind while changing code.
+
+Baton is domain-neutral on purpose. Nothing outside `lib/workflow/defaults.ts`
+knows what an application is _about_, and the seeded process, roles,
+departments and form are an example a fresh install can throw away. Keep it
+that way: a feature that only makes sense for one kind of request belongs in
+the form builder, not in the engine.
 
 ## Conventions
 
@@ -84,33 +90,33 @@ blocks a transition: a broker that is down records an `email_failed` event and
 the application still advances.
 
 **A role's name means nothing; its designation does.** Admins rename roles, so
-schools and the workflow key off `role.designation` (`lib/auth/designations.ts`)
-instead. Appointing someone dean or associate dean of a school grants them the
-designated role and removing them withdraws it - reconciled wholesale in
-`lib/schools/sync.ts`, so someone who signs for two schools keeps it when they
-leave one. `userRole.source` is what separates a grant a posting made from one
+departments and the workflow key off `role.designation`
+(`lib/auth/designations.ts`) instead. Appointing someone head or deputy of a
+department grants them the designated role and removing them withdraws it -
+reconciled wholesale in `lib/departments/sync.ts`, so someone who signs for two
+departments keeps it when they leave one. `userRole.source` is what separates a grant a posting made from one
 an admin made by hand: only the former is ever taken back.
 
 **A stage says who takes it, not who hands it over.** `assignment` on a stage
 node decides whether the application is offered to everyone holding its role or
 held for one person the previous reviewer names, and where those candidates
 come from. Because it sits on the stage being entered, a reviewer is asked for
-a name only on the branch that leads somewhere needing one - the dean when they
-delegate to an associate dean, and not on a branch that goes to a whole role.
+a name only on the branch that leads somewhere needing one - the head when they
+delegate to a deputy, and not on a branch that goes to a whole role.
 Candidates are always re-derived on the server in
 `app/(app)/reviews/actions.ts`; the id the browser sends is only ever checked
 against them.
 
-**A role is institute-wide; a step need not be.** There is a dean of every
-school and an application concerns exactly one of them, so a stage's
+**A role covers the whole organisation; a step need not.** There is a head of
+every department and an application concerns exactly one of them, so a stage's
 `assignment.scope` and an email step's `recipientScope` narrow the role they
-name - to the holders attached to the applicant's own school (whoever signs for
-it, and whoever names it as theirs), or, for a notification, to the one person
+name - to the holders attached to the applicant's own department (whoever signs
+for it, and whoever names it as theirs), or, for a notification, to the one person
 the file has just been handed to. It is a setting on the step rather than
-anything inferred from the role or the designation, so an institute organised
-differently configures it differently. `withinStageAudience` in
+anything inferred from the role or the designation, so an organisation
+arranged differently configures it differently. `withinStageAudience` in
 `lib/workflow/graph.ts` is pure and is asked by both the queue and the action,
-and `lib/schools/query.ts` resolves the people. A snapshot published before
+and `lib/departments/query.ts` resolves the people. A snapshot published before
 scopes existed carries none and still means the whole role.
 
 **Editing questions is not the same permission as rewiring the flow.**
@@ -165,7 +171,7 @@ a question about the portal, not about the application.
 
 **Long lists paginate on the client.** `usePagination` in
 `components/ui/list-pagination.tsx` slices an already-loaded array, which keeps
-search instant at institute scale. It is the seam to move server-side if a list
+search instant at organisation scale. It is the seam to move server-side if a list
 ever outgrows a single query. The audit log already has: it paginates and
 filters in the query, because it is the one table that grows without bound.
 
@@ -178,16 +184,17 @@ context in `nodes.tsx`, memoised on its contents. Putting those back into node
 what made the canvas flicker; dropping React Flow's own changes on the floor is
 what made it report nodes as uninitialised.
 
-**The seeded process is STN 023 R5, not an example.** `lib/workflow/defaults.ts`
-carries the institute's real form and route: seven review stages, the
-seventeen-item research checklist, and one role per signing authority. It is a
-starting point an admin may edit, but it is what a fresh install runs, so
-changing it changes what the institute sees on day one. It says what the paper
-form says: the tables are repeating groups with typed columns, and the
-questions marked conditional carry the rule that makes them so. The school half
-is three steps - the dean names an associate dean and writes nothing, that
-person recommends, and the dean decides - both dean steps scoped to the
-applicant's school. The Director's word is the last one.
+**The seeded process is an example, and it is also the demo.**
+`lib/workflow/defaults.ts` holds everything a fresh database contains: five
+example departments, eight roles, seven email templates, a six-section
+application form and a five-step process. It is the first thing anybody sees,
+so it has to be valid, publishable and worth reading - and it is written to
+exercise one of everything the engine can do: a step scoped to the applicant's
+own department, a step held for one person the previous reviewer names, a
+branch that returns the application to its author, branches that close it
+early, a prefilled answer, a computed answer, a conditional question, a
+repeating group and an upload. Change it freely; just keep that property, or
+the demo stops demonstrating.
 
 **A reviewer reads before deciding.** `/reviews/[id]` opens on the file itself,
 the submission and every completed review one after another, and offers the way
@@ -196,9 +203,9 @@ back. Every outcome is confirmed by name, because an outcome closes an
 application. `/reviews/history` is the other half: what this person has already
 decided, keyed on who acted rather than on the role they hold.
 
-**Who may apply is a property of the employment.** `promotionBar` in
+**Who may apply is a property of the employment.** `applicationBar` in
 `lib/users/profile.ts` is the whole rule - a fixed-term or probationary
-appointment cannot apply - and it is asked by the page, the dashboard and both
+appointment cannot apply - is an example rule in one place, asked by the page, the dashboard and both
 ends of the action, since employment can change between starting a draft and
 sending it. An account whose employment was never recorded is not barred.
 
@@ -218,11 +225,11 @@ drawn where they were answered.
 | `lib/auth/`                  | Better Auth config, session helpers, permission vocabulary, provisioning.                                                                                    |
 | `lib/mail/`                  | `template.ts` is pure text (tested); `render.ts` and `layout.tsx` add the React shell.                                                                       |
 | `lib/mail/job.ts`            | The pure Kafka job contract, split from `queue.ts` so tests need no env.                                                                                     |
-| `lib/users/profile.ts`       | The vocabulary of an account: its fields, how a CSV maps onto them, and who may apply for a promotion.                                                       |
+| `lib/users/profile.ts`       | The vocabulary of an account: its fields, how a CSV maps onto them, and who may apply.                                                                       |
 | `lib/users/import.ts`        | Pure CSV and address-list parsing for the bulk user import.                                                                                                  |
 | `lib/audit/`                 | Audit vocabulary, the recorder, the filtered query and the CSV export. `csv.ts` and `actions.ts` are pure and unit-tested.                                   |
 | `lib/workflow/conditions.ts` | When a question applies, given the answers around it. Pure; used by the compiler, the runtime and the preview alike.                                         |
-| `lib/schools/`               | Schools, their dean and associate deans, and the searches that find people without listing everybody. `sync.ts` reconciles the roles those posts carry.      |
+| `lib/departments/`           | Departments, their head and deputies, and the searches that find people without listing everybody. `sync.ts` reconciles the roles those posts carry.         |
 | `lib/auth/designations.ts`   | Which role stands for which standing post, and how a grant records where it came from.                                                                       |
 | `lib/pdf/`                   | `model.ts` turns a form and its answers into a printable model (pure, tested); `document.tsx` draws it; `render.tsx` fetches the enclosures and merges them. |
 | `components/form-runtime/`   | Renders admin-defined forms for applicants and reviewers.                                                                                                    |

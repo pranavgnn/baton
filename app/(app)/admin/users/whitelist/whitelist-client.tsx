@@ -104,7 +104,6 @@ export function WhitelistClient({
   const [userType, setUserType] = useState<UserType | "">("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [dateOfJoining, setDateOfJoining] = useState("");
-  const [dateOfLastPromotion, setDateOfLastPromotion] = useState("");
   const [phone, setPhone] = useState("");
   const [personalEmail, setPersonalEmail] = useState("");
   const [address, setAddress] = useState("");
@@ -139,7 +138,6 @@ export function WhitelistClient({
         userType,
         dateOfBirth,
         dateOfJoining,
-        dateOfLastPromotion,
         phone,
         personalEmail,
         address,
@@ -243,8 +241,8 @@ export function WhitelistClient({
             </h1>
           </div>
           <p className="text-sm text-muted-foreground">
-            Add institute staff to the whitelist individually or import in bulk
-            via CSV.
+            Add people to the whitelist one at a time or import them in bulk via
+            CSV.
           </p>
         </div>
 
@@ -291,14 +289,14 @@ export function WhitelistClient({
                     id="invite-email"
                     type="email"
                     value={email}
-                    placeholder="name@manipal.edu"
+                    placeholder="name@example.org"
                     onChange={(e) => setEmail(e.target.value)}
                     aria-invalid={Boolean(fieldErrors.email)}
                     required
                   />
                   <FieldError errors={[{ message: fieldErrors.email }]} />
                   <FieldDescription>
-                    Must be an institute email address.
+                    Must be a work email address.
                   </FieldDescription>
                 </Field>
 
@@ -377,7 +375,7 @@ export function WhitelistClient({
                     id="invite-institution"
                     value={institution}
                     onChange={(e) => setInstitution(e.target.value)}
-                    placeholder="e.g. Manipal Institute of Technology"
+                    placeholder="e.g. Example Organisation"
                   />
                 </Field>
 
@@ -424,19 +422,6 @@ export function WhitelistClient({
                     value={dateOfJoining}
                     onChange={(e) => setDateOfJoining(e.target.value)}
                     data-testid="user-date-of-joining"
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="invite-dolp">
-                    Date of last promotion
-                  </FieldLabel>
-                  <Input
-                    id="invite-dolp"
-                    type="date"
-                    value={dateOfLastPromotion}
-                    onChange={(e) => setDateOfLastPromotion(e.target.value)}
-                    data-testid="user-date-of-last-promotion"
                   />
                 </Field>
               </div>
@@ -664,7 +649,7 @@ export function WhitelistClient({
                   id="import-list-text"
                   value={listText}
                   onChange={(e) => setListText(e.target.value)}
-                  placeholder="john@manipal.edu, John Doe&#10;jane@manipal.edu"
+                  placeholder="john@example.org, John Doe&#10;jane@example.org"
                   rows={6}
                   data-testid="import-list"
                 />

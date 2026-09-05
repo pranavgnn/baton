@@ -66,7 +66,6 @@ export type UserRow = {
   userType: string;
   dateOfBirth: string;
   dateOfJoining: string;
-  dateOfLastPromotion: string;
   phone: string;
   personalEmail: string;
   address: string;

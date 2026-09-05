@@ -116,7 +116,7 @@ export function buildPdfModel(input: PdfModelInput): PdfModel {
     .join(" · ");
 
   return {
-    title: "Application for promotion",
+    title: "Application",
     reference: input.reference,
     status: input.status,
     applicantLine: applicantLine || input.applicant.email,

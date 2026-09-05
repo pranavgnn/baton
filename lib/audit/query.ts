@@ -117,7 +117,7 @@ export type AuditActor = { id: string; name: string; email: string | null };
 /**
  * Actors matching what has been typed, newest activity first.
  *
- * Deliberately not "every user": an institute has thousands, and a select
+ * Deliberately not "every user": an organisation has thousands, and a select
  * holding all of them is unusable. The search is over who actually appears in
  * the log, and always bounded.
  */

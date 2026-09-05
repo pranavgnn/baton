@@ -100,11 +100,9 @@ export function EmailShell({ preview, heading, html }: EmailShellProps) {
       <Body style={styles.body}>
         <Container style={styles.container}>
           <Section style={styles.header}>
-            <Text style={styles.headerTitle}>
-              Manipal Institute of Technology
-            </Text>
+            <Text style={styles.headerTitle}>Baton</Text>
             <Text style={styles.headerSubtitle}>
-              {heading ?? "Promotion Application Portal"}
+              {heading ?? "Application portal"}
             </Text>
           </Section>
           <Section style={styles.content}>
@@ -113,8 +111,8 @@ export function EmailShell({ preview, heading, html }: EmailShellProps) {
           <Hr style={styles.hr} />
           <Section style={styles.footer}>
             <Text style={{ margin: 0 }}>
-              This is an automated message from the MIT Promotion Application
-              Portal. Please do not reply to this email.
+              This is an automated message from the application portal. Please
+              do not reply to this email.
             </Text>
             <Text style={{ margin: "6px 0 0" }}>
               <Link href={env.NEXT_PUBLIC_APP_URL} style={styles.link}>

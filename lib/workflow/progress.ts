@@ -6,7 +6,7 @@ import type { WorkflowGraph, WorkflowNode } from "./types";
  * through its own workflow snapshot.
  *
  * Email steps are left out entirely: they are notifications, not places an
- * application goes, and the person tracking their promotion cares where it is,
+ * application goes, and the person who sent it cares where it is,
  * not what was posted.
  */
 
