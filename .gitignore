@@ -50,3 +50,6 @@ next-env.d.ts
 # local uploads / scratch
 /tmp/
 /playwright/.auth/
+
+# generated screenshot video
+/docs/.video/
