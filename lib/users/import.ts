@@ -54,8 +54,6 @@ export type CsvTable = {
   rows: { line: number; cells: string[] }[];
 };
 
-export const IMPORT_COLUMNS = USER_FIELDS.map((field) => field.csv);
-
 export const CSV_TEMPLATE = `email,name,employee_id,school,designation,user_type,date_of_joining,roles
 a.person@manipal.edu,A Person,MIT-2201,School of Computer Engineering,Professor,regular,01/06/2017,Dean
 another.person@manipal.edu,Another Person,MIT-4471,School of Electrical Engineering,Assistant Professor,contract,15/07/2021,

@@ -464,15 +464,3 @@ export async function emailsForRole(roleId: string): Promise<string[]> {
 
   return rows.map((row) => row.email);
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Misc                                                                       */
-/* -------------------------------------------------------------------------- */
-
-export function applicantData(app: Application): ApplicationData[string] {
-  return app.data?.[APPLICANT_NAMESPACE] ?? {};
-}
-
-export function startNodeOf(graph: WorkflowGraph) {
-  return startNode(graph);
-}

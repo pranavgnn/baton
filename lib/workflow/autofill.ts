@@ -109,14 +109,3 @@ export function computed(
   const value = evaluateFormula(compiled, scope);
   return value === null ? null : tidyNumber(value);
 }
-
-/** Everything a form takes from the account, for a page to fetch in one go. */
-export function prefillSources(form: FormSchema): string[] {
-  const keys = new Set<string>();
-  for (const section of form.sections) {
-    for (const field of section.fields) {
-      if (field.prefill) keys.add(field.prefill);
-    }
-  }
-  return Array.from(keys);
-}
