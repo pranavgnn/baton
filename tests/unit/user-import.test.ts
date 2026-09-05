@@ -47,25 +47,25 @@ describe("parseUserCsv", () => {
       email: "a.person@manipal.edu",
       name: "A Person",
       employeeId: "MIT-2201",
-      school: "School of Computer Engineering",
-      roles: ["Dean"],
+      department: "Department of Computer Engineering",
+      roles: ["Head"],
     });
     // The second row names no role, which means the default.
     expect(rows[1].roles).toEqual([]);
   });
 
   it("does not care what order the columns are in", () => {
-    const { rows } = parseUserCsv("name,roles,email\nAnita,Dean,a@b.edu");
+    const { rows } = parseUserCsv("name,roles,email\nAnita,Head,a@b.edu");
     expect(rows[0]).toMatchObject({
       email: "a@b.edu",
       name: "Anita",
-      roles: ["Dean"],
+      roles: ["Head"],
     });
   });
 
   it("accepts several roles separated by a semicolon", () => {
-    const { rows } = parseUserCsv("email,roles\na@b.edu,Dean;Registrar");
-    expect(rows[0].roles).toEqual(["Dean", "Registrar"]);
+    const { rows } = parseUserCsv("email,roles\na@b.edu,Head;Registrar");
+    expect(rows[0].roles).toEqual(["Head", "Registrar"]);
   });
 
   it("lower-cases addresses so duplicates cannot slip through", () => {
@@ -86,7 +86,7 @@ describe("parseUserCsv", () => {
   });
 
   it("refuses a file with no email column", () => {
-    const { rows, issues } = parseUserCsv("name,school\nAnita,CSE");
+    const { rows, issues } = parseUserCsv("name,department\nAnita,CSE");
     expect(rows).toEqual([]);
     expect(issues[0].message).toContain('needs an "email" column');
   });
@@ -108,12 +108,12 @@ describe("parseUserCsv", () => {
     expect(rows).toHaveLength(1);
   });
 
-  it("keeps a school name containing a comma intact", () => {
+  it("keeps a department name containing a comma intact", () => {
     const { rows } = parseUserCsv(
-      'email,school\na@b.edu,"School of Basic Sciences, Humanities & Management"',
+      'email,department\na@b.edu,"Department of Basic Sciences, Humanities & Management"',
     );
-    expect(rows[0].school).toBe(
-      "School of Basic Sciences, Humanities & Management",
+    expect(rows[0].department).toBe(
+      "Department of Basic Sciences, Humanities & Management",
     );
   });
 });

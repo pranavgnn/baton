@@ -34,7 +34,7 @@ test.describe("role priority", () => {
       page.getByTestId("role-Employee").getByText("Default"),
     ).toHaveCount(0);
     await expect(
-      page.getByTestId("role-Dean").getByText("Default"),
+      page.getByTestId("role-Head").getByText("Default"),
     ).toBeVisible();
 
     // And back, which is both the other direction and the tidy-up.

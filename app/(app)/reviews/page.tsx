@@ -20,7 +20,7 @@ export default async function ReviewsPage() {
     reference: app.reference,
     applicantName: app.applicant.name,
     applicantEmail: app.applicant.email,
-    school: app.applicant.school ?? "",
+    department: app.applicant.department ?? "",
     stage: nodeById(app.graph, app.currentNodeId)?.data.label ?? "-",
     submittedAt: app.submittedAt?.toISOString() ?? null,
   }));

@@ -1,24 +1,24 @@
 /**
- * Standing posts the institute recognises, and the role that carries each.
+ * Standing posts an organisation recognises, and the role that carries each.
  *
- * Roles themselves are fully dynamic - an admin may rename "Associate Dean" to
- * anything the institute actually calls it - so nothing may key off a role's
- * name. A designation is the stable handle instead: the admin says once which
- * role means "dean", and schools, the workflow and the auto-assignment all
- * read that. At most one role may carry a given designation.
+ * Roles themselves are fully dynamic - an admin may rename "Deputy" to
+ * whatever this organisation actually calls it - so nothing may key off a
+ * role's name. A designation is the stable handle instead: the admin says once
+ * which role means "head", and departments, the workflow and the automatic
+ * grants all read that. At most one role may carry a given designation.
  */
 export const ROLE_DESIGNATIONS = [
   {
-    key: "dean",
-    label: "Dean of a school",
+    key: "head",
+    label: "Head of a department",
     description:
-      "Given automatically to whoever is named dean of a school, and taken away when they are no longer dean of any.",
+      "Given automatically to whoever is named head of a department, and taken away when they are no longer head of any.",
   },
   {
-    key: "associate_dean",
-    label: "Associate dean of a school",
+    key: "deputy",
+    label: "Deputy head of a department",
     description:
-      "Given automatically to the associate deans of a school, and taken away when they hold no such post.",
+      "Given automatically to the deputies of a department, and taken away when they hold no such post.",
   },
 ] as const;
 
@@ -32,13 +32,13 @@ export function designationLabel(key: string): string {
   return ROLE_DESIGNATIONS.find((item) => item.key === key)?.label ?? key;
 }
 
-/** Designations whose holders are decided by a school posting, not by hand. */
-export const SCHOOL_DESIGNATIONS = ["dean", "associate_dean"] as const;
+/** Designations whose holders a department posting decides, not an admin. */
+export const DEPARTMENT_DESIGNATIONS = ["head", "deputy"] as const;
 
 /**
- * How a user came to hold a role. A role granted by a school posting is taken
+ * How a user came to hold a role. A role a department posting granted is taken
  * back when the posting ends; one granted by hand is left alone, because an
  * admin meant it.
  */
-export const ROLE_GRANT_SOURCES = ["manual", "school"] as const;
+export const ROLE_GRANT_SOURCES = ["manual", "department"] as const;
 export type RoleGrantSource = (typeof ROLE_GRANT_SOURCES)[number];

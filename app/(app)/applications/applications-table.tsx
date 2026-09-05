@@ -31,7 +31,7 @@ export type ApplicationRow = {
   status: ApplicationStatus;
   applicantName: string;
   applicantEmail: string;
-  school: string;
+  department: string;
   stage: string;
   submittedAt: string | null;
   updatedAt: string;
@@ -52,7 +52,12 @@ export function ApplicationsTable({
     return applications.filter((app) => {
       if (status !== "all" && app.status !== status) return false;
       if (!needle) return true;
-      return [app.reference, app.applicantName, app.applicantEmail, app.school]
+      return [
+        app.reference,
+        app.applicantName,
+        app.applicantEmail,
+        app.department,
+      ]
         .join(" ")
         .toLowerCase()
         .includes(needle);
@@ -69,7 +74,7 @@ export function ApplicationsTable({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by reference, applicant or school"
+            placeholder="Search by reference, applicant or department"
             className="pl-8"
             aria-label="Search applications"
           />
@@ -132,7 +137,7 @@ export function ApplicationsTable({
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {app.school || "-"}
+                      {app.department || "-"}
                     </TableCell>
                     <TableCell className="text-sm">{app.stage}</TableCell>
                     <TableCell>

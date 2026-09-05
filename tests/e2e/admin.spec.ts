@@ -44,26 +44,26 @@ test.describe("role administration", () => {
     page,
   }) => {
     await page.goto("/admin/roles");
-    await page.getByTestId("open-role-Dean").click();
+    await page.getByTestId("open-role-Head").click();
 
     const detail = page.getByTestId("role-detail");
     await expect(detail).toBeVisible();
     // Spelled out here, which is why the table no longer has to.
     await expect(detail).toContainText("Review applications");
-    await expect(detail).toContainText("Dean of a school");
+    await expect(detail).toContainText("Head of a department");
 
     // Its members, searchable, and each one a way into their own record.
-    await expect(detail.getByTestId("role-members")).toContainText("Test Dean");
+    await expect(detail.getByTestId("role-members")).toContainText("Test Head");
     await detail.getByTestId("member-search").fill("nobody-by-that-name");
     await expect(detail).toContainText("Nobody matches that search.");
-    await detail.getByTestId("member-search").fill("dean@manipal.edu");
+    await detail.getByTestId("member-search").fill("head@manipal.edu");
 
     const userPagePromise = page.context().waitForEvent("page");
     await detail.getByRole("link", { name: "Open" }).first().click();
     const userPage = await userPagePromise;
     await expect(userPage).toHaveURL(/\/users\/[a-zA-Z0-9_-]+/);
     await expect(userPage.getByTestId("user-detail")).toContainText(
-      "dean@manipal.edu",
+      "head@manipal.edu",
     );
     await userPage.close();
   });
@@ -83,7 +83,7 @@ test.describe("role administration", () => {
   test("refuses to delete a role that is still in use", async ({ page }) => {
     await page.goto("/admin/roles");
 
-    // Dean both holds members and is bound to a workflow stage; either guard
+    // Head both holds members and is bound to a workflow stage; either guard
     // is a correct refusal, and the role must survive the attempt.
     const card = page.getByTestId("role-Director");
     await card.getByRole("button", { name: "Delete Director" }).click();
@@ -136,9 +136,11 @@ test.describe("user administration", () => {
     await page
       .getByRole("textbox", { name: "Display name" })
       .fill("E2E Invitee");
-    await page.getByTestId("user-school").click();
+    await page.getByTestId("user-department").click();
     await page
-      .getByRole("option", { name: "School of Civil & Chemical Engineering" })
+      .getByRole("option", {
+        name: "Department of Civil & Chemical Engineering",
+      })
       .click();
     await page.getByRole("checkbox", { name: "Employee", exact: true }).click();
     await page.getByRole("button", { name: "Add user" }).click();
@@ -260,10 +262,10 @@ test.describe("user administration", () => {
 
     await page
       .getByRole("textbox", { name: "Search users" })
-      .fill("dean@manipal.edu");
+      .fill("head@manipal.edu");
 
     // The rows the search matches stay; everyone else goes.
-    await expect(page.getByTestId("user-dean@manipal.edu")).toBeVisible();
+    await expect(page.getByTestId("user-head@manipal.edu")).toBeVisible();
     await expect(page.getByTestId("user-employee@manipal.edu")).toHaveCount(0);
   });
 });
@@ -334,7 +336,7 @@ test.describe("one account, in full", () => {
     const detail = userPage.getByTestId("user-detail");
     await expect(detail).toBeVisible();
     await expect(detail).toContainText("TEST-0001");
-    await expect(detail).toContainText("School of Computer Engineering");
+    await expect(detail).toContainText("Department of Computer Engineering");
     await expect(detail).toContainText("Regular");
     // What they have applied for is the point of opening the record; whether
     // they have applied yet depends on what else has run.

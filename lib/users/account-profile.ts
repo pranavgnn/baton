@@ -3,7 +3,7 @@ import "server-only";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/lib/db";
-import { school, user } from "@/lib/db/schema";
+import { department, user } from "@/lib/db/schema";
 import type { PrefillProfile } from "@/lib/workflow/autofill";
 import { userTypeLabel } from "./profile";
 
@@ -13,7 +13,7 @@ import { userTypeLabel } from "./profile";
  *
  * Written out rather than derived from the row so the two ends of a prefill
  * cannot drift apart silently, and so what fills a form is what a person would
- * write - the school's name rather than its id, "Regular" rather than
+ * write - the department's name rather than its id, "Regular" rather than
  * `regular`.
  */
 export async function accountProfile(userId: string): Promise<PrefillProfile> {
@@ -31,10 +31,10 @@ export async function accountProfile(userId: string): Promise<PrefillProfile> {
       phone: user.phone,
       personalEmail: user.personalEmail,
       address: user.address,
-      school: school.name,
+      department: department.name,
     })
     .from(user)
-    .leftJoin(school, eq(school.id, user.schoolId))
+    .leftJoin(department, eq(department.id, user.departmentId))
     .where(eq(user.id, userId))
     .limit(1);
 

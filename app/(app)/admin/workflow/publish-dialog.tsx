@@ -64,7 +64,7 @@ export function PublishDialog({
               id="publish-memo"
               rows={3}
               value={memo}
-              placeholder="Added the Registrar sign-off stage before the Dean."
+              placeholder="Added the Registrar sign-off stage before the Head."
               onChange={(event) => setMemo(event.target.value)}
               data-testid="publish-memo"
             />

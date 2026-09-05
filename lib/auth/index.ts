@@ -108,7 +108,7 @@ export const auth = betterAuth({
   user: {
     additionalFields: {
       employeeId: { type: "string", required: false, input: false },
-      schoolId: { type: "string", required: false, input: false },
+      departmentId: { type: "string", required: false, input: false },
       designation: { type: "string", required: false, input: false },
       /*
        * The particulars in `lib/users/profile.ts`. Declared here because

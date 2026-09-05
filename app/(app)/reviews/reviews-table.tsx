@@ -21,7 +21,7 @@ export type ReviewRow = {
   reference: string;
   applicantName: string;
   applicantEmail: string;
-  school: string;
+  department: string;
   stage: string;
   submittedAt: string | null;
 };
@@ -35,7 +35,7 @@ export function ReviewsTable({ queue }: { queue: ReviewRow[] }) {
     const needle = query.trim().toLowerCase();
     if (!needle) return queue;
     return queue.filter((row) =>
-      [row.reference, row.applicantName, row.applicantEmail, row.school]
+      [row.reference, row.applicantName, row.applicantEmail, row.department]
         .join(" ")
         .toLowerCase()
         .includes(needle),
@@ -61,7 +61,7 @@ export function ReviewsTable({ queue }: { queue: ReviewRow[] }) {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by reference, applicant or school"
+            placeholder="Search by reference, applicant or department"
             className="pl-8"
             aria-label="Search the queue"
           />
@@ -75,7 +75,7 @@ export function ReviewsTable({ queue }: { queue: ReviewRow[] }) {
               <TableRow>
                 <TableHead>Reference</TableHead>
                 <TableHead>Applicant</TableHead>
-                <TableHead>School</TableHead>
+                <TableHead>Department</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead>Submitted</TableHead>
                 <TableHead className="w-24" />
@@ -105,7 +105,7 @@ export function ReviewsTable({ queue }: { queue: ReviewRow[] }) {
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {row.school || "-"}
+                      {row.department || "-"}
                     </TableCell>
                     <TableCell className="text-sm">{row.stage}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">

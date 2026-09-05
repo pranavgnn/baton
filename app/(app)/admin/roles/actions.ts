@@ -28,13 +28,16 @@ import { db } from "@/lib/db";
 import {
   application,
   role,
-  school,
+  department,
   user,
   userRole,
   workflow,
 } from "@/lib/db/schema";
 import { syncAdminFlags } from "@/lib/auth/admin-flag";
-import { releaseSchoolGrants, syncDesignatedRoles } from "@/lib/schools/sync";
+import {
+  releaseDepartmentGrants,
+  syncDesignatedRoles,
+} from "@/lib/departments/sync";
 import { SINGLETON_WORKFLOW_ID } from "@/lib/workflow/defaults";
 import { stageNodes } from "@/lib/workflow/graph";
 
@@ -189,7 +192,7 @@ export async function updateRole(
     if (existing.designation !== designation) {
       // Whatever this role was auto-granted for no longer applies; the
       // reconciliation then re-grants under whichever role now holds it.
-      await releaseSchoolGrants(id);
+      await releaseDepartmentGrants(id);
     }
     await syncDesignatedRoles();
 
@@ -338,7 +341,7 @@ export type RoleMember = {
   name: string;
   email: string;
   employeeId: string;
-  schoolName: string;
+  departmentName: string;
   disabled: boolean;
 };
 
@@ -361,12 +364,12 @@ export async function listRoleMembers(
         name: user.name,
         email: user.email,
         employeeId: user.employeeId,
-        schoolName: school.name,
+        departmentName: department.name,
         disabled: user.disabled,
       })
       .from(userRole)
       .innerJoin(user, eq(user.id, userRole.userId))
-      .leftJoin(school, eq(school.id, user.schoolId))
+      .leftJoin(department, eq(department.id, user.departmentId))
       .where(eq(userRole.roleId, roleId))
       .orderBy(user.name);
 
@@ -374,7 +377,7 @@ export async function listRoleMembers(
       rows.map((row) => ({
         ...row,
         employeeId: row.employeeId ?? "",
-        schoolName: row.schoolName ?? "",
+        departmentName: row.departmentName ?? "",
       })),
     );
   } catch (error) {

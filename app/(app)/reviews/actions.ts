@@ -15,12 +15,12 @@ import { requirePermissionAction, type CurrentUser } from "@/lib/auth/session";
 import { db } from "@/lib/db";
 import { stageDraft } from "@/lib/db/schema";
 import {
-  associateDeansOfSchool,
+  deputiesOfDepartment,
   holdersOfRole,
-  holdersOfRoleInSchool,
+  holdersOfRoleInDepartment,
   usersHoldingRole,
-  type SchoolPerson,
-} from "@/lib/schools/query";
+  type DepartmentPerson,
+} from "@/lib/departments/query";
 import { applyCalculations, applyPrefill } from "@/lib/workflow/autofill";
 import { pruneToSchema, validateForm } from "@/lib/workflow/form";
 import { accountProfile } from "@/lib/users/account-profile";
@@ -71,16 +71,16 @@ export async function nomineesFor(
   app: ApplicationWithApplicant,
   node: StageNode,
   outcomeId: string,
-): Promise<SchoolPerson[] | null> {
+): Promise<DepartmentPerson[] | null> {
   const target = nominatedTarget(app.graph, node.id, outcomeId);
   if (!target || !target.data.roleId) return null;
 
-  if (target.data.assignment.pool === "school_associate_deans") {
-    if (!app.applicant.schoolId) return [];
+  if (target.data.assignment.pool === "department_deputies") {
+    if (!app.applicant.departmentId) return [];
 
     // Narrowed to those who actually hold the stage's role: anyone else would
     // be handed a file they cannot open.
-    const candidates = await associateDeansOfSchool(app.applicant.schoolId);
+    const candidates = await deputiesOfDepartment(app.applicant.departmentId);
     if (candidates.length === 0) return [];
 
     const holders = await usersHoldingRole(
@@ -92,8 +92,11 @@ export async function nomineesFor(
 
   // The same narrowing the stage itself applies: a reviewer must not be able
   // to name someone who would then be refused the stage they were named for.
-  if (target.data.assignment.scope === "applicant_school") {
-    return holdersOfRoleInSchool(target.data.roleId, app.applicant.schoolId);
+  if (target.data.assignment.scope === "applicant_department") {
+    return holdersOfRoleInDepartment(
+      target.data.roleId,
+      app.applicant.departmentId,
+    );
   }
 
   return holdersOfRole(target.data.roleId);
@@ -103,7 +106,7 @@ export async function nomineesFor(
 export async function nomineesByOutcome(
   app: ApplicationWithApplicant,
   node: StageNode,
-): Promise<Record<string, SchoolPerson[] | null>> {
+): Promise<Record<string, DepartmentPerson[] | null>> {
   const entries = await Promise.all(
     node.data.outcomes.map(
       async (outcome) =>
@@ -208,7 +211,7 @@ export async function completeStage(
     /**
      * Re-derived rather than trusted: the browser sends an id, and the only
      * ids this stage may hand the application to are the ones resolved here
-     * from the applicant's own school.
+     * from the applicant's own department.
      */
     let nominee: { id: string; name: string } | null = null;
     const candidates = await nomineesFor(app, node, outcome.id);

@@ -26,7 +26,13 @@ import {
 } from "@/components/ui/card";
 import { can, canAny, requireAnyPermission } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { auditLog, emailTemplate, role, school, user } from "@/lib/db/schema";
+import {
+  auditLog,
+  emailTemplate,
+  role,
+  department,
+  user,
+} from "@/lib/db/schema";
 import { getWorkflow, listRoles } from "@/lib/applications/service";
 import { hasBlockingIssues, validateGraph } from "@/lib/workflow/graph";
 
@@ -47,7 +53,7 @@ export default async function AdminOverviewPage() {
     userCount,
     roleCount,
     templateCount,
-    schoolCount,
+    departmentCount,
     auditCount,
     flow,
     roles,
@@ -56,7 +62,7 @@ export default async function AdminOverviewPage() {
     db.select({ total: count() }).from(user),
     db.select({ total: count() }).from(role),
     db.select({ total: count() }).from(emailTemplate),
-    db.select({ total: count() }).from(school),
+    db.select({ total: count() }).from(department),
     db.select({ total: count() }).from(auditLog),
     getWorkflow(),
     listRoles(),
@@ -202,15 +208,15 @@ export default async function AdminOverviewPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <GraduationCap className="size-4" />
-                Schools
+                Departments
               </CardTitle>
               <CardDescription>
-                {schoolCount[0]?.total ?? 0} schools and faculties
+                {departmentCount[0]?.total ?? 0} departments and faculties
               </CardDescription>
             </CardHeader>
             <CardFooter>
               <Button asChild variant="outline" size="sm">
-                <Link href="/admin/schools">Manage schools</Link>
+                <Link href="/admin/departments">Manage departments</Link>
               </Button>
             </CardFooter>
           </Card>

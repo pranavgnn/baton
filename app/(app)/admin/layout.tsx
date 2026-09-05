@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: LayoutProps<"/admin">) {
   }
   if (canAny(current, ["users.manage"])) {
     tabs.push({ href: "/admin/users", label: "Users" });
-    tabs.push({ href: "/admin/schools", label: "Schools" });
+    tabs.push({ href: "/admin/departments", label: "Departments" });
   }
   if (canAny(current, ["roles.manage"])) {
     tabs.push({ href: "/admin/roles", label: "Roles" });

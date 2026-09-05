@@ -24,7 +24,7 @@ export type ReviewedRow = {
   reference: string;
   applicantName: string;
   applicantEmail: string;
-  school: string;
+  department: string;
   status: ApplicationStatus;
   stageLabel: string;
   outcomeLabel: string;
@@ -47,7 +47,7 @@ export function ReviewedTable({ rows }: { rows: ReviewedRow[] }) {
         row.reference,
         row.applicantName,
         row.applicantEmail,
-        row.school,
+        row.department,
         row.stageLabel,
         row.outcomeLabel,
       ]
@@ -119,7 +119,7 @@ export function ReviewedTable({ rows }: { rows: ReviewedRow[] }) {
                       <div className="flex flex-col">
                         <span className="font-medium">{row.applicantName}</span>
                         <span className="text-xs text-muted-foreground">
-                          {row.school || row.applicantEmail}
+                          {row.department || row.applicantEmail}
                         </span>
                       </div>
                     </TableCell>

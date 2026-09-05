@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 
 import { requirePermission } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { role, school, user, userRole } from "@/lib/db/schema";
+import { role, department, user, userRole } from "@/lib/db/schema";
 import { UsersManager, type UserRow } from "./users-manager";
 
 export const metadata: Metadata = { title: "Users" };
@@ -17,15 +17,15 @@ export default async function UsersPage({
   // page one of everybody.
   const { person } = await searchParams;
 
-  const [rows, roles, schools] = await Promise.all([
+  const [rows, roles, departments] = await Promise.all([
     db
       .select({
         id: user.id,
         name: user.name,
         email: user.email,
         employeeId: user.employeeId,
-        schoolId: user.schoolId,
-        schoolName: school.name,
+        departmentId: user.departmentId,
+        departmentName: department.name,
         designation: user.designation,
         institution: user.institution,
         userType: user.userType,
@@ -42,12 +42,12 @@ export default async function UsersPage({
         roleName: role.name,
       })
       .from(user)
-      .leftJoin(school, eq(school.id, user.schoolId))
+      .leftJoin(department, eq(department.id, user.departmentId))
       .leftJoin(userRole, eq(userRole.userId, user.id))
       .leftJoin(role, eq(role.id, userRole.roleId))
       .orderBy(user.name),
     db.select().from(role).orderBy(role.priority, role.name),
-    db.select().from(school).orderBy(school.name),
+    db.select().from(department).orderBy(department.name),
   ]);
 
   const byId = new Map<string, UserRow>();
@@ -57,8 +57,8 @@ export default async function UsersPage({
       name: row.name,
       email: row.email,
       employeeId: row.employeeId ?? "",
-      schoolId: row.schoolId ?? "",
-      schoolName: row.schoolName ?? "",
+      departmentId: row.departmentId ?? "",
+      departmentName: row.departmentName ?? "",
       designation: row.designation ?? "",
       institution: row.institution ?? "",
       userType: row.userType ?? "",
@@ -94,7 +94,7 @@ export default async function UsersPage({
       <UsersManager
         users={Array.from(byId.values())}
         roles={roles.map((r) => ({ id: r.id, name: r.name }))}
-        schools={schools.map((s) => ({ id: s.id, name: s.name }))}
+        departments={departments.map((s) => ({ id: s.id, name: s.name }))}
         currentUserId={current.id}
         openEmail={typeof person === "string" ? person : null}
       />

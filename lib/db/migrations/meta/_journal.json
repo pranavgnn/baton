@@ -5,71 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1788177465329,
-      "tag": "0000_large_shocker",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1788263025773,
-      "tag": "0001_eminent_hitman",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1788263471082,
-      "tag": "0002_strange_vision",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1788263842738,
-      "tag": "0003_perpetual_catseye",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1788286196357,
-      "tag": "0004_bouncy_selene",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1788337259457,
-      "tag": "0005_smiling_corsair",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1788337273839,
-      "tag": "0006_quiet_killmonger",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1788349038934,
-      "tag": "0007_even_korg",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1788356627777,
-      "tag": "0008_lively_franklin_richards",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1788361454029,
-      "tag": "0009_blushing_bloodaxe",
+      "when": 1788608396445,
+      "tag": "0000_init",
       "breakpoints": true
     }
   ]

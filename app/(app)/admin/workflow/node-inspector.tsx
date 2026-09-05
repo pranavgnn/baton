@@ -58,15 +58,15 @@ const ASSIGNMENT_CHOICES = [
       "The application appears in every holder's queue and the first to act moves it on.",
   },
   {
-    value: "role_in_school",
+    value: "role_in_department",
     assignment: {
       mode: "role",
       pool: "role_holders",
-      scope: "applicant_school",
+      scope: "applicant_department",
     },
-    label: "Anyone holding the role, in the applicant's school",
+    label: "Anyone holding the role, in the applicant's department",
     description:
-      "Only holders attached to the applicant's own school - whoever signs for it, and whoever names it as theirs - see it at all.",
+      "Only holders attached to the applicant's own department - whoever signs for it, and whoever names it as theirs - see it at all.",
   },
   {
     value: "nominated",
@@ -80,15 +80,15 @@ const ASSIGNMENT_CHOICES = [
       "Whoever routes the application here must choose a holder of this role, and it is held for them alone.",
   },
   {
-    value: "nominated_associate_dean",
+    value: "nominated_deputy",
     assignment: {
       mode: "nominated",
-      pool: "school_associate_deans",
+      pool: "department_deputies",
       scope: "all_holders",
     },
-    label: "One associate dean of the applicant's school",
+    label: "One deputy of the applicant's department",
     description:
-      "The candidates are the associate deans of the applicant's own school who hold this role.",
+      "The candidates are the deputies of the applicant's own department who hold this role.",
   },
 ] as const satisfies readonly {
   value: string;
@@ -129,10 +129,10 @@ const RECIPIENT_SCOPE_CHOICES = [
     description: "Every holder of the role is written to.",
   },
   {
-    value: "applicant_school",
-    label: "Only the applicant's school",
+    value: "applicant_department",
+    label: "Only the applicant's department",
     description:
-      "Only holders attached to the applicant's own school, which is what telling the dean usually means.",
+      "Only holders attached to the applicant's own department, which is what telling the head usually means.",
   },
   {
     value: "assigned_person",

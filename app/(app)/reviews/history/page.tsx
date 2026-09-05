@@ -26,7 +26,7 @@ export default async function ReviewHistoryPage() {
     reference: review.reference,
     applicantName: review.applicantName,
     applicantEmail: review.applicantEmail,
-    school: review.school ?? "",
+    department: review.department ?? "",
     status: review.status,
     stageLabel: review.stageLabel ?? "",
     outcomeLabel: review.outcomeLabel ?? "",

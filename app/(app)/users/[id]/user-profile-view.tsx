@@ -62,8 +62,8 @@ export type UserProfileData = {
   name: string;
   email: string;
   employeeId: string;
-  schoolId: string;
-  schoolName: string;
+  departmentId: string;
+  departmentName: string;
   designation: string;
   institution: string;
   userType: string;
@@ -90,9 +90,9 @@ export type UserProfileData = {
 };
 
 export type RoleOption = { id: string; name: string };
-export type SchoolOption = { id: string; name: string };
+export type DepartmentOption = { id: string; name: string };
 
-const NO_SCHOOL = "__none__";
+const NO_DEPARTMENT = "__none__";
 const NO_USER_TYPE = "__unset__";
 
 function broadcastUserUpdate() {
@@ -113,13 +113,13 @@ function broadcastUserUpdate() {
 export function UserProfileView({
   user,
   allRoles,
-  allSchools,
+  allDepartments,
   canManage,
   currentUserId,
 }: {
   user: UserProfileData;
   allRoles: RoleOption[];
-  allSchools: SchoolOption[];
+  allDepartments: DepartmentOption[];
   canManage: boolean;
   currentUserId: string;
 }) {
@@ -134,7 +134,9 @@ export function UserProfileView({
   // Edit form state
   const [name, setName] = useState(user.name);
   const [employeeId, setEmployeeId] = useState(user.employeeId);
-  const [schoolId, setSchoolId] = useState(user.schoolId || NO_SCHOOL);
+  const [departmentId, setDepartmentId] = useState(
+    user.departmentId || NO_DEPARTMENT,
+  );
   const [designation, setDesignation] = useState(user.designation);
   const [institution, setInstitution] = useState(user.institution);
   const [userType, setUserType] = useState<UserType | "">(
@@ -174,7 +176,7 @@ export function UserProfileView({
       const result = await updateUser(user.id, {
         name,
         employeeId,
-        schoolId: schoolId === NO_SCHOOL ? "" : schoolId,
+        departmentId: departmentId === NO_DEPARTMENT ? "" : departmentId,
         designation,
         institution,
         userType,
@@ -343,17 +345,19 @@ export function UserProfileView({
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field>
-                <FieldLabel htmlFor="edit-user-school">School</FieldLabel>
-                <Select value={schoolId} onValueChange={setSchoolId}>
+                <FieldLabel htmlFor="edit-user-department">
+                  Department
+                </FieldLabel>
+                <Select value={departmentId} onValueChange={setDepartmentId}>
                   <SelectTrigger
-                    id="edit-user-school"
-                    data-testid="user-school"
+                    id="edit-user-department"
+                    data-testid="user-department"
                   >
-                    <SelectValue placeholder="Select school" />
+                    <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NO_SCHOOL}>No school</SelectItem>
-                    {allSchools.map((s) => (
+                    <SelectItem value={NO_DEPARTMENT}>No department</SelectItem>
+                    {allDepartments.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         {s.name}
                       </SelectItem>
@@ -545,7 +549,7 @@ export function UserProfileView({
               <dl className="grid gap-4 sm:grid-cols-2">
                 <Fact label="Employee ID" value={user.employeeId} />
                 <Fact label="Designation" value={user.designation} />
-                <Fact label="School" value={user.schoolName} />
+                <Fact label="Department" value={user.departmentName} />
                 <Fact label="Institution" value={user.institution} />
                 <Fact
                   label="Employment"

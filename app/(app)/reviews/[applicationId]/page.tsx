@@ -71,7 +71,7 @@ export default async function ReviewPage({
           <h1 className="page-title">{app.reference}</h1>
           <p className="page-subtitle">
             {app.applicant.name} · {app.applicant.email}
-            {app.applicant.school ? ` · ${app.applicant.school}` : ""}
+            {app.applicant.department ? ` · ${app.applicant.department}` : ""}
           </p>
         </div>
         <div className="toolbar">

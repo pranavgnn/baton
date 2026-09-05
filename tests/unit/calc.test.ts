@@ -90,7 +90,7 @@ describe("filling a form in for the applicant", () => {
     ],
   };
 
-  const profile = { name: "Test Employee", employeeId: "", school: "SOCE" };
+  const profile = { name: "Test Employee", employeeId: "", department: "SOCE" };
 
   it("locks a field the account can answer, and leaves the rest alone", () => {
     const fields = form.sections[0].fields;

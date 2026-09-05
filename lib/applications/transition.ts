@@ -19,7 +19,10 @@ import {
   type TemplateVariables,
   type WorkflowNode,
 } from "@/lib/workflow/types";
-import { holdersOfRole, holdersOfRoleInSchool } from "@/lib/schools/query";
+import {
+  holdersOfRole,
+  holdersOfRoleInDepartment,
+} from "@/lib/departments/query";
 import { emailsForRole } from "./service";
 
 /* -------------------------------------------------------------------------- */
@@ -82,8 +85,8 @@ export function humanStatus(status: ApplicationStatus): string {
 /** Who an email step is about, beyond the message itself. */
 type Audience = {
   applicantEmail: string;
-  /** The school the application concerns, for a school-scoped message. */
-  applicantSchoolId: string | null;
+  /** The department the application concerns, for a department-scoped message. */
+  applicantDepartmentId: string | null;
   /** The person the application has just been handed to, if anyone. */
   assignee: { id: string; name: string } | null;
 };
@@ -91,8 +94,8 @@ type Audience = {
 /**
  * The addresses one email step resolves to.
  *
- * A role is institute-wide but a notification rarely is: "tell the dean" means
- * the dean of the applicant's school, and "tell the associate dean" means the
+ * A role is institute-wide but a notification rarely is: "tell the head" means
+ * the head of the applicant's department, and "tell the deputy" means the
  * one the file was just handed to. Both are the step's own setting rather than
  * anything inferred from the role, so an institute that organises itself
  * differently configures it differently.
@@ -112,10 +115,10 @@ async function resolveRecipients(
 
       // Snapshots taken before scopes existed carry none, and meant the role.
       switch (node.data.recipientScope) {
-        case "applicant_school": {
-          const people = await holdersOfRoleInSchool(
+        case "applicant_department": {
+          const people = await holdersOfRoleInDepartment(
             roleId,
-            audience.applicantSchoolId,
+            audience.applicantDepartmentId,
           );
           return people.map((person) => person.email);
         }
@@ -335,7 +338,7 @@ export async function advanceApplication(
 
   const emails = await queueEmails(app.id, resolved.emails, variables, {
     applicantEmail: applicant.email,
-    applicantSchoolId: applicant.schoolId,
+    applicantDepartmentId: applicant.departmentId,
     assignee: input.nominee ?? null,
   });
 

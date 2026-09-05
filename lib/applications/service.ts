@@ -6,7 +6,7 @@ import {
   applicationEvent,
   applicationFile,
   role,
-  school,
+  department,
   stageDraft,
   user,
   userRole,
@@ -84,8 +84,8 @@ export type ApplicationWithApplicant = Application & {
     id: string;
     name: string;
     email: string;
-    schoolId: string | null;
-    school: string | null;
+    departmentId: string | null;
+    department: string | null;
     designation: string | null;
   };
 };
@@ -174,13 +174,13 @@ export async function getApplicationById(
       applicantId: user.id,
       applicantName: user.name,
       applicantEmail: user.email,
-      applicantSchoolId: user.schoolId,
-      applicantSchool: school.name,
+      applicantDepartmentId: user.departmentId,
+      applicantDepartment: department.name,
       applicantDesignation: user.designation,
     })
     .from(application)
     .innerJoin(user, eq(user.id, application.applicantId))
-    .leftJoin(school, eq(school.id, user.schoolId))
+    .leftJoin(department, eq(department.id, user.departmentId))
     .where(eq(application.id, id))
     .limit(1);
 
@@ -193,8 +193,8 @@ export async function getApplicationById(
       id: row.applicantId,
       name: row.applicantName,
       email: row.applicantEmail,
-      schoolId: row.applicantSchoolId,
-      school: row.applicantSchool,
+      departmentId: row.applicantDepartmentId,
+      department: row.applicantDepartment,
       designation: row.applicantDesignation,
     },
   };
@@ -221,13 +221,13 @@ export async function getReviewQueue(
       applicantId: user.id,
       applicantName: user.name,
       applicantEmail: user.email,
-      applicantSchoolId: user.schoolId,
-      applicantSchool: school.name,
+      applicantDepartmentId: user.departmentId,
+      applicantDepartment: department.name,
       applicantDesignation: user.designation,
     })
     .from(application)
     .innerJoin(user, eq(user.id, application.applicantId))
-    .leftJoin(school, eq(school.id, user.schoolId))
+    .leftJoin(department, eq(department.id, user.departmentId))
     .where(eq(application.status, "in_progress"))
     .orderBy(desc(application.submittedAt));
 
@@ -245,8 +245,8 @@ export async function getReviewQueue(
         id: row.applicantId,
         name: row.applicantName,
         email: row.applicantEmail,
-        schoolId: row.applicantSchoolId,
-        school: row.applicantSchool,
+        departmentId: row.applicantDepartmentId,
+        department: row.applicantDepartment,
         designation: row.applicantDesignation,
       },
     };
@@ -261,19 +261,19 @@ export async function getReviewQueue(
 
 /**
  * What a stage needs to know about the application to decide who may take it:
- * where it is, whether it is held for someone, and which school it concerns.
+ * where it is, whether it is held for someone, and which department it concerns.
  */
 export type StageAccessInput = Pick<
   Application,
   "graph" | "currentNodeId" | "status" | "assignedToId"
-> & { applicant: { schoolId: string | null } };
+> & { applicant: { departmentId: string | null } };
 
 /**
  * One review this person signed off, most recent first.
  *
  * Keyed on who actually acted rather than on which role they hold: a reviewer
  * asking "what have I decided" means the decisions they took, not everything
- * their role has ever seen. A stage a person takes twice - the dean, who
+ * their role has ever seen. A stage a person takes twice - the head, who
  * delegates and then decides - is two entries, because it was two decisions.
  */
 export type CompletedReview = {
@@ -282,7 +282,7 @@ export type CompletedReview = {
   reference: string;
   applicantName: string;
   applicantEmail: string;
-  school: string | null;
+  department: string | null;
   status: ApplicationStatus;
   stageLabel: string | null;
   outcomeLabel: string | null;
@@ -303,12 +303,12 @@ export async function listReviewsBy(
       reviewedAt: applicationEvent.createdAt,
       applicantName: user.name,
       applicantEmail: user.email,
-      school: school.name,
+      department: department.name,
     })
     .from(applicationEvent)
     .innerJoin(application, eq(application.id, applicationEvent.applicationId))
     .innerJoin(user, eq(user.id, application.applicantId))
-    .leftJoin(school, eq(school.id, user.schoolId))
+    .leftJoin(department, eq(department.id, user.departmentId))
     .where(
       and(
         eq(applicationEvent.actorId, userId),
@@ -329,11 +329,11 @@ export function canActOnCurrentStage(
   const node = nodeById(app.graph, app.currentNodeId);
   if (!node || node.kind !== "stage" || !node.data.roleId) return false;
   if (!current.roleIds.includes(node.data.roleId)) return false;
-  // A stage scoped to the applicant's school belongs to that school's holders
+  // A stage scoped to the applicant's department belongs to that department's holders
   // of the role, not to everyone who holds it.
   const inAudience = withinStageAudience(node.data.assignment, {
-    applicantSchoolId: app.applicant.schoolId,
-    viewerSchoolIds: current.schoolIds,
+    applicantDepartmentId: app.applicant.departmentId,
+    viewerDepartmentIds: current.departmentIds,
   });
   if (!inAudience) return false;
   // A stage nominated to one person is theirs alone until they act.
@@ -373,13 +373,13 @@ export async function listAllApplications(): Promise<
       applicantId: user.id,
       applicantName: user.name,
       applicantEmail: user.email,
-      applicantSchoolId: user.schoolId,
-      applicantSchool: school.name,
+      applicantDepartmentId: user.departmentId,
+      applicantDepartment: department.name,
       applicantDesignation: user.designation,
     })
     .from(application)
     .innerJoin(user, eq(user.id, application.applicantId))
-    .leftJoin(school, eq(school.id, user.schoolId))
+    .leftJoin(department, eq(department.id, user.departmentId))
     .orderBy(desc(application.createdAt));
 
   return rows.map((row) => ({
@@ -388,8 +388,8 @@ export async function listAllApplications(): Promise<
       id: row.applicantId,
       name: row.applicantName,
       email: row.applicantEmail,
-      schoolId: row.applicantSchoolId,
-      school: row.applicantSchool,
+      departmentId: row.applicantDepartmentId,
+      department: row.applicantDepartment,
       designation: row.applicantDesignation,
     },
   }));

@@ -179,7 +179,7 @@ function MemberList({ members }: { members: RoleMember[] }) {
     const needle = query.trim().toLowerCase();
     if (!needle) return members;
     return members.filter((member) =>
-      [member.name, member.email, member.employeeId, member.schoolName]
+      [member.name, member.email, member.employeeId, member.departmentName]
         .join(" ")
         .toLowerCase()
         .includes(needle),
@@ -226,7 +226,7 @@ function MemberList({ members }: { members: RoleMember[] }) {
                 </span>
               </span>
               <span className="text-sm text-muted-foreground">
-                {member.schoolName || "—"}
+                {member.departmentName || "—"}
               </span>
               {member.disabled ? (
                 <Badge variant="destructive">Disabled</Badge>

@@ -51,7 +51,7 @@ describe("emailJobSchema", () => {
   it("accepts a job with several recipients", () => {
     const parsed = emailJobSchema.safeParse({
       ...valid,
-      recipients: ["dean@manipal.edu", "registrar@manipal.edu"],
+      recipients: ["head@manipal.edu", "registrar@manipal.edu"],
     });
     expect(parsed.success).toBe(true);
   });

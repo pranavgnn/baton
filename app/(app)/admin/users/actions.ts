@@ -24,8 +24,8 @@ import { db } from "@/lib/db";
 import {
   application,
   role,
-  school,
-  schoolAssociateDean,
+  department,
+  departmentDeputy,
   user,
   userRole,
   type ApplicationStatus,
@@ -44,7 +44,7 @@ const isoDay = z
  */
 const profileInput = {
   employeeId: z.string().trim().max(40).optional().default(""),
-  schoolId: z.string().trim().optional().default(""),
+  departmentId: z.string().trim().optional().default(""),
   designation: z.string().trim().max(120).optional().default(""),
   institution: z.string().trim().max(160).optional().default(""),
   userType: z
@@ -66,7 +66,7 @@ const profileInput = {
 /** What the profile fields become in the database: "" means "not recorded". */
 function profileColumns(input: {
   employeeId: string;
-  schoolId: string;
+  departmentId: string;
   designation: string;
   institution: string;
   userType: string;
@@ -79,7 +79,7 @@ function profileColumns(input: {
 }) {
   return {
     employeeId: input.employeeId || null,
-    schoolId: input.schoolId || null,
+    departmentId: input.departmentId || null,
     designation: input.designation || null,
     institution: input.institution || null,
     userType: (input.userType || null) as UserType | null,
@@ -118,7 +118,7 @@ async function assertRolesExist(roleIds: string[]) {
 
 async function setRoles(userId: string, roleIds: string[]) {
   // The list is rewritten wholesale, so how each retained role was granted has
-  // to be carried across: a role held because the person is dean of a school
+  // to be carried across: a role held because the person is head of a department
   // must not quietly become a hand-granted one that outlives the posting.
   const before = await db
     .select({ roleId: userRole.roleId, source: userRole.source })
@@ -256,8 +256,8 @@ const importRowSchema = z.object({
   email: z.email().trim().toLowerCase(),
   name: z.string().trim().max(120),
   employeeId: z.string().trim().max(40).optional().default(""),
-  /** Named in words and matched against the schools the portal holds. */
-  school: z.string().trim().max(200).optional().default(""),
+  /** Named in words and matched against the departments the portal holds. */
+  department: z.string().trim().max(200).optional().default(""),
   designation: z.string().trim().max(120).optional().default(""),
   institution: z.string().trim().max(160).optional().default(""),
   userType: z.string().trim().max(20).optional().default(""),
@@ -307,13 +307,13 @@ export async function bulkImportUsers(
       .from(role)
       .orderBy(role.priority, role.name);
 
-    // A row names its school in words; unknown names are left unset rather
+    // A row names its department in words; unknown names are left unset rather
     // than failing the row, so one typo does not cost a 400-line import.
-    const schools = await db
-      .select({ id: school.id, name: school.name })
-      .from(school);
-    const schoolIdByName = new Map(
-      schools.map((entry) => [entry.name.trim().toLowerCase(), entry.id]),
+    const departments = await db
+      .select({ id: department.id, name: department.name })
+      .from(department);
+    const departmentIdByName = new Map(
+      departments.map((entry) => [entry.name.trim().toLowerCase(), entry.id]),
     );
 
     if (allRoles.length === 0) {
@@ -359,7 +359,8 @@ export async function bulkImportUsers(
           name: row.name,
           ...profileColumns({
             ...row,
-            schoolId: schoolIdByName.get(row.school.trim().toLowerCase()) ?? "",
+            departmentId:
+              departmentIdByName.get(row.department.trim().toLowerCase()) ?? "",
           }),
         });
 
@@ -575,7 +576,7 @@ export type UserApplication = {
 
 export type UserDetail = {
   applications: UserApplication[];
-  /** Schools this person signs for, as dean or as an associate dean. */
+  /** Departments this person signs for, as head or as an deputy. */
   signsFor: string[];
 };
 
@@ -593,17 +594,17 @@ export async function getUserDetail(
   try {
     await requirePermissionAction("users.manage");
 
-    const [applications, schools] = await Promise.all([
+    const [applications, departments] = await Promise.all([
       db
         .select()
         .from(application)
         .where(eq(application.applicantId, userId))
         .orderBy(desc(application.createdAt)),
-      schoolsSignedForBy(userId),
+      departmentsSignedForBy(userId),
     ]);
 
     return ok({
-      signsFor: schools,
+      signsFor: departments,
       applications: applications.map((row) => ({
         id: row.id,
         reference: row.reference,
@@ -621,22 +622,22 @@ export async function getUserDetail(
   }
 }
 
-/** The names of the schools one person is dean or associate dean of. */
-async function schoolsSignedForBy(userId: string): Promise<string[]> {
-  const [asDean, asAssociate] = await Promise.all([
+/** The names of the departments one person is head or deputy of. */
+async function departmentsSignedForBy(userId: string): Promise<string[]> {
+  const [asHead, asAssociate] = await Promise.all([
     db
-      .select({ name: school.name })
-      .from(school)
-      .where(eq(school.deanId, userId)),
+      .select({ name: department.name })
+      .from(department)
+      .where(eq(department.headId, userId)),
     db
-      .select({ name: school.name })
-      .from(schoolAssociateDean)
-      .innerJoin(school, eq(school.id, schoolAssociateDean.schoolId))
-      .where(eq(schoolAssociateDean.userId, userId)),
+      .select({ name: department.name })
+      .from(departmentDeputy)
+      .innerJoin(department, eq(department.id, departmentDeputy.departmentId))
+      .where(eq(departmentDeputy.userId, userId)),
   ]);
 
   return [
-    ...asDean.map((row) => `Dean of ${row.name}`),
-    ...asAssociate.map((row) => `Associate dean of ${row.name}`),
+    ...asHead.map((row) => `Head of ${row.name}`),
+    ...asAssociate.map((row) => `Associate head of ${row.name}`),
   ];
 }

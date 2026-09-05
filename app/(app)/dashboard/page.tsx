@@ -459,9 +459,9 @@ function AdminPanel({
         ) : null}
         {can(current, "users.manage") ? (
           <Button asChild variant="outline" size="sm">
-            <Link href="/admin/schools">
+            <Link href="/admin/departments">
               <GraduationCap className="size-4" />
-              Schools
+              Departments
             </Link>
           </Button>
         ) : null}

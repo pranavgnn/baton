@@ -106,22 +106,22 @@ export function nominatedTarget(
  * Whether one person falls inside a stage's audience.
  *
  * A role is institute-wide; a stage need not be. Scoping to the applicant's
- * school is what keeps the dean of one school out of another school's queue
- * without the institute having to invent a role per school. Pure, so the queue
+ * department is what keeps the head of one department out of another department's queue
+ * without the institute having to invent a role per department. Pure, so the queue
  * and the action can be sure they are answering the same question.
  */
 export function withinStageAudience(
   assignment: StageAssignment | undefined,
   where: {
-    applicantSchoolId: string | null;
-    /** Schools the viewer belongs to or signs for. */
-    viewerSchoolIds: readonly string[];
+    applicantDepartmentId: string | null;
+    /** Departments the viewer belongs to or signs for. */
+    viewerDepartmentIds: readonly string[];
   },
 ): boolean {
   // Snapshots taken before scopes existed carry none, and meant the role.
-  if (assignment?.scope !== "applicant_school") return true;
-  if (!where.applicantSchoolId) return false;
-  return where.viewerSchoolIds.includes(where.applicantSchoolId);
+  if (assignment?.scope !== "applicant_department") return true;
+  if (!where.applicantDepartmentId) return false;
+  return where.viewerDepartmentIds.includes(where.applicantDepartmentId);
 }
 
 /** Email nodes fired off when this handle is taken. */

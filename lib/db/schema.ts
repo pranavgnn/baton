@@ -43,14 +43,18 @@ export const user = pgTable("user", {
   /* Portal-specific columns. */
   employeeId: text("employee_id"),
   /**
-   * The school the person belongs to. What used to be a typed department name
-   * is a reference now, because the promotion route depends on it: an
-   * application goes to the dean of this school, and from there to one of its
-   * associate deans.
+   * The department the person belongs to.
+   *
+   * A reference rather than a typed name, because the route an application
+   * takes can depend on it: a step may be scoped to the applicant's own
+   * department, and the people who sign for that department are held here.
    */
-  schoolId: text("school_id").references((): AnyPgColumn => school.id, {
-    onDelete: "set null",
-  }),
+  departmentId: text("department_id").references(
+    (): AnyPgColumn => department.id,
+    {
+      onDelete: "set null",
+    },
+  ),
   designation: text("designation"),
   /** The institution they belong to; the same for nearly everyone. */
   institution: text("institution"),
@@ -164,25 +168,25 @@ export const verification = pgTable(
 );
 
 /* -------------------------------------------------------------------------- */
-/*  Schools                                                                    */
+/*  Departments                                                                */
 /* -------------------------------------------------------------------------- */
 
 /**
- * A school of the institute, with the people who sign for it.
+ * One part of the organisation, with the people who sign for it.
  *
- * The dean is a single named person; the associate deans are a set, because a
- * school has several and the dean chooses which of them reviews a given
- * application. Both are references rather than names so removing an account
- * cannot leave a school pointing at somebody who is gone.
+ * The head is a single named person; the deputies are a set, because a
+ * department may have several and the head chooses which of them takes a given
+ * application. Both are references rather than names, so removing an account
+ * cannot leave a department pointing at somebody who is gone.
  */
-export const school = pgTable(
-  "school",
+export const department = pgTable(
+  "department",
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
-    /** Short form used where the full name will not fit, e.g. SCCE. */
+    /** Short form used where the full name will not fit, e.g. ENG. */
     code: text("code"),
-    deanId: text("dean_id").references((): AnyPgColumn => user.id, {
+    headId: text("head_id").references((): AnyPgColumn => user.id, {
       onDelete: "set null",
     }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -191,23 +195,23 @@ export const school = pgTable(
       .$onUpdate(() => new Date())
       .notNull(),
   },
-  (table) => [uniqueIndex("school_name_uidx").on(table.name)],
+  (table) => [uniqueIndex("department_name_uidx").on(table.name)],
 );
 
-export const schoolAssociateDean = pgTable(
-  "school_associate_dean",
+export const departmentDeputy = pgTable(
+  "department_deputy",
   {
-    schoolId: text("school_id")
+    departmentId: text("department_id")
       .notNull()
-      .references(() => school.id, { onDelete: "cascade" }),
+      .references(() => department.id, { onDelete: "cascade" }),
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.schoolId, table.userId] }),
-    index("school_associate_dean_user_id_idx").on(table.userId),
+    primaryKey({ columns: [table.departmentId, table.userId] }),
+    index("department_deputy_user_id_idx").on(table.userId),
   ],
 );
 
@@ -238,7 +242,7 @@ export const role = pgTable(
     isSystem: boolean("is_system").default(false).notNull(),
     /**
      * Which standing post this role represents, if any (`lib/auth/designations`).
-     * Roles are renameable, so this - not the name - is what schools and the
+     * Roles are renameable, so this - not the name - is what departments and the
      * workflow key off. At most one role may carry each designation.
      */
     designation: text("designation").$type<RoleDesignation>(),
@@ -267,7 +271,7 @@ export const userRole = pgTable(
       .notNull()
       .references(() => role.id, { onDelete: "cascade" }),
     /**
-     * Who granted it. A grant that came from a school posting is withdrawn
+     * Who granted it. A grant that came from a department posting is withdrawn
      * when the posting ends; one an admin made by hand outlives every posting.
      */
     source: text("source").$type<RoleGrantSource>().default("manual").notNull(),
@@ -576,22 +580,12 @@ export const auditLog = pgTable(
   ],
 );
 
-
-
-
-
-
-
-
-
-
-
 /* -------------------------------------------------------------------------- */
 /*  Inferred types                                                             */
 /* -------------------------------------------------------------------------- */
 
 export type User = typeof user.$inferSelect;
-export type School = typeof school.$inferSelect;
+export type Department = typeof department.$inferSelect;
 export type Role = typeof role.$inferSelect;
 export type Workflow = typeof workflow.$inferSelect;
 export type WorkflowVersion = typeof workflowVersion.$inferSelect;

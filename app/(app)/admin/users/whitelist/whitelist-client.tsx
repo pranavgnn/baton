@@ -58,9 +58,9 @@ import {
 import { bulkImportUsers, inviteUser } from "../actions";
 
 export type RoleOption = { id: string; name: string };
-export type SchoolOption = { id: string; name: string };
+export type DepartmentOption = { id: string; name: string };
 
-const NO_SCHOOL = "__none__";
+const NO_DEPARTMENT = "__none__";
 const NO_USER_TYPE = "__unset__";
 const NOT_IMPORTED = "__none__";
 const EMPTY_IMPORT: ParsedImport = { rows: [], issues: [] };
@@ -82,10 +82,10 @@ function broadcastUserUpdate() {
 
 export function WhitelistClient({
   roles,
-  schools,
+  departments,
 }: {
   roles: RoleOption[];
-  schools: SchoolOption[];
+  departments: DepartmentOption[];
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -98,7 +98,7 @@ export function WhitelistClient({
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [employeeId, setEmployeeId] = useState("");
-  const [schoolId, setSchoolId] = useState(NO_SCHOOL);
+  const [departmentId, setDepartmentId] = useState(NO_DEPARTMENT);
   const [designation, setDesignation] = useState("");
   const [institution, setInstitution] = useState("");
   const [userType, setUserType] = useState<UserType | "">("");
@@ -133,7 +133,7 @@ export function WhitelistClient({
         email,
         name,
         employeeId,
-        schoolId: schoolId === NO_SCHOOL ? "" : schoolId,
+        departmentId: departmentId === NO_DEPARTMENT ? "" : departmentId,
         designation,
         institution,
         userType,
@@ -318,14 +318,21 @@ export function WhitelistClient({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="invite-school">School</FieldLabel>
-                  <Select value={schoolId} onValueChange={setSchoolId}>
-                    <SelectTrigger id="invite-school" data-testid="user-school">
-                      <SelectValue placeholder="Select school" />
+                  <FieldLabel htmlFor="invite-department">
+                    Department
+                  </FieldLabel>
+                  <Select value={departmentId} onValueChange={setDepartmentId}>
+                    <SelectTrigger
+                      id="invite-department"
+                      data-testid="user-department"
+                    >
+                      <SelectValue placeholder="Select department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value={NO_SCHOOL}>No school</SelectItem>
-                      {schools.map((s) => (
+                      <SelectItem value={NO_DEPARTMENT}>
+                        No department
+                      </SelectItem>
+                      {departments.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.name}
                         </SelectItem>
@@ -588,7 +595,7 @@ export function WhitelistClient({
                 <Textarea
                   value={csvText}
                   onChange={(e) => readCsv(e.target.value)}
-                  placeholder="name,email,employeeId,school,designation..."
+                  placeholder="name,email,employeeId,department,designation..."
                   rows={5}
                   className="font-mono text-xs"
                   data-testid="import-csv"
@@ -702,7 +709,7 @@ export function WhitelistClient({
                         <TableHead>Email</TableHead>
                         <TableHead>Name</TableHead>
                         <TableHead>Employee ID</TableHead>
-                        <TableHead>School</TableHead>
+                        <TableHead>Department</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -716,7 +723,7 @@ export function WhitelistClient({
                             {r.employeeId || "—"}
                           </TableCell>
                           <TableCell className="text-xs">
-                            {r.school || "—"}
+                            {r.department || "—"}
                           </TableCell>
                         </TableRow>
                       ))}

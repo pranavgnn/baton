@@ -57,11 +57,11 @@ export function promotionBar(
 /**
  * How a value is read and written.
  *
- * `school` and `roles` are matched by name against what the institute has
+ * `department` and `roles` are matched by name against what the institute has
  * rather than stored as typed, which is why they are their own kinds.
  */
 export type UserFieldKind =
-  "text" | "email" | "date" | "choice" | "school" | "roles";
+  "text" | "email" | "date" | "choice" | "department" | "roles";
 
 export type UserField = {
   key: string;
@@ -101,12 +101,12 @@ export const USER_FIELDS = [
     prefillable: true,
   },
   {
-    key: "school",
-    label: "School",
-    kind: "school",
-    csv: "school",
+    key: "department",
+    label: "Department",
+    kind: "department",
+    csv: "department",
     prefillable: true,
-    hint: "Matched by name against the schools the portal holds.",
+    hint: "Matched by name against the departments the portal holds.",
   },
   {
     key: "designation",

@@ -11,7 +11,7 @@ import type {
 } from "@/lib/workflow/types";
 
 export const ROLE_HOD = "role-hod";
-export const ROLE_DEAN = "role-dean";
+export const ROLE_DEAN = "role-head";
 export const TEMPLATE_ACK = "template-ack";
 
 export function simpleForm(): FormSchema {

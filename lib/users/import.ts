@@ -24,7 +24,7 @@ export type ImportRow = {
   email: string;
   name: string;
   employeeId: string;
-  school: string;
+  department: string;
   designation: string;
   institution: string;
   userType: string;
@@ -54,15 +54,15 @@ export type CsvTable = {
   rows: { line: number; cells: string[] }[];
 };
 
-export const CSV_TEMPLATE = `email,name,employee_id,school,designation,user_type,date_of_joining,roles
-a.person@manipal.edu,A Person,MIT-2201,School of Computer Engineering,Professor,regular,01/06/2017,Dean
-another.person@manipal.edu,Another Person,MIT-4471,School of Electrical Engineering,Assistant Professor,contract,15/07/2021,
+export const CSV_TEMPLATE = `email,name,employee_id,department,designation,user_type,date_of_joining,roles
+a.person@manipal.edu,A Person,MIT-2201,Department of Computer Engineering,Professor,regular,01/06/2017,Head
+another.person@manipal.edu,Another Person,MIT-4471,Department of Electrical Engineering,Assistant Professor,contract,15/07/2021,
 `;
 
 const emailSchema = z.email();
 
 /**
- * Splits one CSV line, honouring double quotes so a school name containing a
+ * Splits one CSV line, honouring double quotes so a department name containing a
  * comma survives the round trip.
  */
 export function splitCsvLine(line: string): string[] {
@@ -169,7 +169,7 @@ export function guessMapping(header: string[]): ColumnMapping {
 const BLANK: Omit<ImportRow, "line" | "email" | "roles"> = {
   name: "",
   employeeId: "",
-  school: "",
+  department: "",
   designation: "",
   institution: "",
   userType: "",
@@ -269,7 +269,7 @@ export function buildImportRows(
       email,
       name: at("name") || nameFromEmail(email),
       employeeId: at("employeeId"),
-      school: at("school"),
+      department: at("department"),
       designation: at("designation"),
       institution: at("institution"),
       userType: userType ?? "",

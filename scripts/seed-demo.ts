@@ -7,13 +7,13 @@
 import { eq } from "drizzle-orm";
 
 import { provisionUser } from "@/lib/auth/provision";
-import { syncDesignatedRoles } from "@/lib/schools/sync";
+import { syncDesignatedRoles } from "@/lib/departments/sync";
 import { syncAdminFlags } from "@/lib/auth/admin-flag";
 import { db } from "@/lib/db";
 import {
   role,
-  school,
-  schoolAssociateDean,
+  department,
+  departmentDeputy,
   user,
   userRole,
 } from "@/lib/db/schema";
@@ -21,8 +21,8 @@ import { env } from "@/lib/env";
 
 export const DEMO_PASSWORD = "Portal@123";
 
-/** The school the demo accounts belong to. */
-const DEMO_SCHOOL = "School of Computer Engineering";
+/** The department the demo accounts belong to. */
+const DEMO_DEPARTMENT = "Department of Computer Engineering";
 
 /**
  * One account per role, named for what it is.
@@ -36,7 +36,7 @@ export const DEMO_USERS = [
     name: "Test Employee",
     roleName: "Employee",
     employeeId: "TEST-0001",
-    school: "School of Computer Engineering",
+    department: "Department of Computer Engineering",
     designation: "Assistant Professor",
     // Enough of a service record for the application form to fill itself in,
     // which is the point of holding these on the account at all.
@@ -48,35 +48,35 @@ export const DEMO_USERS = [
     phone: "+91 98450 00000",
   },
   {
-    email: "dean@manipal.edu",
-    name: "Test Dean",
-    roleName: "Dean",
+    email: "head@manipal.edu",
+    name: "Test Head",
+    roleName: "Head",
     employeeId: "TEST-0002",
-    school: "School of Computer Engineering",
-    designation: "Dean",
+    department: "Department of Computer Engineering",
+    designation: "Head",
   },
   {
-    email: "associatedean@manipal.edu",
-    name: "Test Associate Dean",
-    roleName: "Associate Dean",
+    email: "associatehead@manipal.edu",
+    name: "Test Deputy",
+    roleName: "Deputy",
     employeeId: "TEST-0008",
-    school: "School of Computer Engineering",
-    designation: "Associate Dean",
+    department: "Department of Computer Engineering",
+    designation: "Deputy",
   },
   {
-    email: "associatedean2@manipal.edu",
-    name: "Test Associate Dean Two",
-    roleName: "Associate Dean",
+    email: "associatehead2@manipal.edu",
+    name: "Test Deputy Two",
+    roleName: "Deputy",
     employeeId: "TEST-0009",
-    school: "School of Computer Engineering",
-    designation: "Associate Dean",
+    department: "Department of Computer Engineering",
+    designation: "Deputy",
   },
   {
     email: "hr@manipal.edu",
     name: "Test HR Officer",
     roleName: "HR Officer",
     employeeId: "TEST-0003",
-    school: null,
+    department: null,
     designation: "HR Officer",
   },
   {
@@ -84,7 +84,7 @@ export const DEMO_USERS = [
     name: "Test R&C Officer",
     roleName: "R&C Officer",
     employeeId: "TEST-0004",
-    school: null,
+    department: null,
     designation: "Associate Director (R&C)",
   },
   {
@@ -92,7 +92,7 @@ export const DEMO_USERS = [
     name: "Test FDW Officer",
     roleName: "FDW Officer",
     employeeId: "TEST-0005",
-    school: null,
+    department: null,
     designation: "Associate Director (FD&W)",
   },
   {
@@ -100,7 +100,7 @@ export const DEMO_USERS = [
     name: "Test Director",
     roleName: "Director",
     employeeId: "TEST-0006",
-    school: null,
+    department: null,
     designation: "Director",
   },
   {
@@ -108,7 +108,7 @@ export const DEMO_USERS = [
     name: "Test Institute HR",
     roleName: "Institute HR",
     employeeId: "TEST-0007",
-    school: null,
+    department: null,
     designation: "Institute HR",
   },
 ] as const;
@@ -120,9 +120,9 @@ async function main() {
 
   console.log("Seeding demo accounts");
 
-  const schools = await db.select().from(school);
-  const schoolIdByName = new Map(
-    schools.map((entry) => [entry.name, entry.id]),
+  const departments = await db.select().from(department);
+  const departmentIdByName = new Map(
+    departments.map((entry) => [entry.name, entry.id]),
   );
 
   for (const demo of DEMO_USERS) {
@@ -130,7 +130,9 @@ async function main() {
       email: demo.email,
       name: demo.name,
       employeeId: demo.employeeId,
-      schoolId: demo.school ? (schoolIdByName.get(demo.school) ?? null) : null,
+      departmentId: demo.department
+        ? (departmentIdByName.get(demo.department) ?? null)
+        : null,
       designation: demo.designation,
       userType: "userType" in demo ? demo.userType : null,
       institution: "institution" in demo ? demo.institution : null,
@@ -170,9 +172,9 @@ async function main() {
     );
   }
 
-  await linkSchoolSignatories();
-  // The dean and associate dean roles follow the postings just made, exactly
-  // as they do when an admin sets them from the schools page.
+  await linkDepartmentSignatories();
+  // The head and deputy roles follow the postings just made, exactly
+  // as they do when an admin sets them from the departments page.
   await syncDesignatedRoles();
   await syncAdminFlags();
 
@@ -180,17 +182,19 @@ async function main() {
 }
 
 /**
- * Gives the demo school its dean and associate deans.
+ * Gives the demo department its head and deputies.
  *
- * Without them the dean has nobody to send an application to and the process
+ * Without them the head has nobody to send an application to and the process
  * stops at the first step, so a demo database is not much of a demo.
  */
-async function linkSchoolSignatories() {
-  const target = await db.query.school.findFirst({
-    where: eq(school.name, DEMO_SCHOOL),
+async function linkDepartmentSignatories() {
+  const target = await db.query.department.findFirst({
+    where: eq(department.name, DEMO_DEPARTMENT),
   });
   if (!target) {
-    console.warn(`  ! school "${DEMO_SCHOOL}" not found - run pnpm seed first`);
+    console.warn(
+      `  ! department "${DEMO_DEPARTMENT}" not found - run pnpm seed first`,
+    );
     return;
   }
 
@@ -198,27 +202,32 @@ async function linkSchoolSignatories() {
     (await db.select().from(user)).map((row) => [row.email, row.id]),
   );
 
-  const deanId = byEmail.get("dean@manipal.edu");
-  if (deanId) {
-    await db.update(school).set({ deanId }).where(eq(school.id, target.id));
+  const headId = byEmail.get("head@manipal.edu");
+  if (headId) {
+    await db
+      .update(department)
+      .set({ headId })
+      .where(eq(department.id, target.id));
   }
 
-  const associates = ["associatedean@manipal.edu", "associatedean2@manipal.edu"]
+  const associates = ["associatehead@manipal.edu", "associatehead2@manipal.edu"]
     .map((email) => byEmail.get(email))
     .filter((id): id is string => Boolean(id));
 
   await db
-    .delete(schoolAssociateDean)
-    .where(eq(schoolAssociateDean.schoolId, target.id));
+    .delete(departmentDeputy)
+    .where(eq(departmentDeputy.departmentId, target.id));
 
   if (associates.length > 0) {
     await db
-      .insert(schoolAssociateDean)
-      .values(associates.map((userId) => ({ schoolId: target.id, userId })));
+      .insert(departmentDeputy)
+      .values(
+        associates.map((userId) => ({ departmentId: target.id, userId })),
+      );
   }
 
   console.log(
-    `  + ${DEMO_SCHOOL}: dean and ${associates.length} associate dean(s)`,
+    `  + ${DEMO_DEPARTMENT}: head and ${associates.length} deputy(s)`,
   );
 }
 
