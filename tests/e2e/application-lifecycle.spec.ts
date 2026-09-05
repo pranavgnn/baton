@@ -14,7 +14,7 @@ const FIXTURE_CV = path.join(__dirname, "fixtures", "curriculum-vitae.pdf");
 
 /**
  * Drives the whole promotion process against a real database, MinIO and SMTP
- * sink: submission, then the dean and the associate dean they choose, HR,
+ * sink: submission, then the head and the deputy they choose, HR,
  * R&C, FD&W, the final HR declaration and the
  * Director's approval. The blocks run in declaration order and share one
  * application, so each depends on the state the previous one left behind.
@@ -109,7 +109,7 @@ async function fillPersonalDetails(page: Page) {
   await expect(input(page, "full_name")).toHaveAttribute("readonly", "");
   await expect(input(page, "date_of_joining")).toHaveValue("2017-06-01");
   await expect(input(page, "department")).toHaveValue(
-    "School of Computer Engineering",
+    "Department of Computer Engineering",
   );
 
   await input(page, "scopus_id").fill("57200000001");
@@ -370,7 +370,7 @@ test.describe("1. the applicant fills in and submits", () => {
     await expect(submission).toContainText("Moved on");
 
     // The step it is sitting on has arrived but not moved on.
-    const stage = page.getByTestId("progress-dates-Dean Delegation");
+    const stage = page.getByTestId("progress-dates-Head Delegation");
     await expect(stage).toContainText("Arrived");
     await expect(stage).not.toContainText("Moved on");
 
@@ -385,8 +385,8 @@ test.describe("1. the applicant fills in and submits", () => {
 /*  2 - 5. The review chain                                                    */
 /* -------------------------------------------------------------------------- */
 
-test.describe("2. the dean delegates to an associate dean", () => {
-  test.use({ storageState: storageStatePath("dean") });
+test.describe("2. the head delegates to an deputy", () => {
+  test.use({ storageState: storageStatePath("head") });
 
   test("cannot send it on without naming who reviews it next", async ({
     page,
@@ -397,48 +397,46 @@ test.describe("2. the dean delegates to an associate dean", () => {
     // The page opens on the file itself rather than on a form.
     await expect(page.getByText("Ph.D. in Information Security")).toBeVisible();
 
-    // The dean writes nothing at this point - they only decide who looks at
+    // The head writes nothing at this point - they only decide who looks at
     // it - so the outcome waits on a name and on nothing else.
     await page.getByTestId("open-decision").click();
     await expect(
-      page.getByTestId("nominee-field-Send to associate dean"),
+      page.getByTestId("nominee-field-Send to deputy"),
     ).toBeVisible();
-    await expect(
-      page.getByTestId("outcome-Send to associate dean"),
-    ).toBeDisabled();
+    await expect(page.getByTestId("outcome-Send to deputy")).toBeDisabled();
   });
 
-  test("sends it to the associate dean it names", async ({ page }) => {
+  test("sends it to the deputy it names", async ({ page }) => {
     await clearMailbox();
     await page.goto("/reviews");
     await applicationRow(page).getByRole("link", { name: "Review" }).click();
     await page.getByTestId("open-decision").click();
 
-    // Only this school's associate deans are on offer.
-    await page.getByTestId("nominee-Send to associate dean").click();
+    // Only this department's deputies are on offer.
+    await page.getByTestId("nominee-Send to deputy").click();
     await expect(
-      page.getByRole("option", { name: "Test Associate Dean Two" }),
+      page.getByRole("option", { name: "Test Deputy Two" }),
     ).toBeVisible();
     await page
-      .getByRole("option", { name: "Test Associate Dean", exact: true })
+      .getByRole("option", { name: "Test Deputy", exact: true })
       .click();
 
-    await page.getByTestId("outcome-Send to associate dean").click();
-    await page.getByTestId("confirm-Send to associate dean").click();
+    await page.getByTestId("outcome-Send to deputy").click();
+    await page.getByTestId("confirm-Send to deputy").click();
     await expect(page).toHaveURL(/\/reviews$/);
 
     const mail = await waitForEmail((message) =>
       message.Subject.includes("awaits your review"),
     );
     // Addressed to the one person it was handed to, and not to every
-    // associate dean of the school.
-    expect(mail.To).toEqual(["associatedean@manipal.edu"]);
+    // deputy of the department.
+    expect(mail.To).toEqual(["associatehead@manipal.edu"]);
   });
 });
 
-test.describe("3. only the named associate dean sees it", () => {
+test.describe("3. only the named deputy sees it", () => {
   test.describe("the one who was not chosen", () => {
-    test.use({ storageState: storageStatePath("associateDean2") });
+    test.use({ storageState: storageStatePath("deputy2") });
 
     test("does not see it in their queue", async ({ page }) => {
       await page.goto("/reviews");
@@ -449,13 +447,13 @@ test.describe("3. only the named associate dean sees it", () => {
   });
 
   test.describe("the one who was", () => {
-    test.use({ storageState: storageStatePath("associateDean") });
+    test.use({ storageState: storageStatePath("deputy") });
 
-    test("recommends it and sends it back to the dean", async ({ page }) => {
+    test("recommends it and sends it back to the head", async ({ page }) => {
       await clearMailbox();
 
       await review(page, {
-        outcome: "Return to the dean",
+        outcome: "Return to the head",
         read: async (page) => {
           // What the applicant said travels with it.
           await expect(
@@ -467,7 +465,7 @@ test.describe("3. only the named associate dean sees it", () => {
             .getByRole("radio", { name: "Recommended", exact: true })
             .check();
           await input(page, "remarks").fill(
-            "Reviewed on the dean's referral. No objections.",
+            "Reviewed on the head's referral. No objections.",
           );
         },
       });
@@ -475,13 +473,13 @@ test.describe("3. only the named associate dean sees it", () => {
       const mail = await waitForEmail((message) =>
         message.Subject.includes("awaits your review"),
       );
-      expect(mail.To).toContain("dean@manipal.edu");
+      expect(mail.To).toContain("head@manipal.edu");
     });
   });
 });
 
-test.describe("3b. the dean decides on the recommendation", () => {
-  test.use({ storageState: storageStatePath("dean") });
+test.describe("3b. the head decides on the recommendation", () => {
+  test.use({ storageState: storageStatePath("head") });
 
   test("approves it, and it goes on to HR", async ({ page }) => {
     await clearMailbox();
@@ -489,17 +487,17 @@ test.describe("3b. the dean decides on the recommendation", () => {
     await review(page, {
       outcome: "Approve",
       read: async (page) => {
-        // The associate dean's recommendation is what the dean decides on.
+        // The deputy's recommendation is what the head decides on.
         await expect(
-          page.getByText("Reviewed on the dean's referral."),
+          page.getByText("Reviewed on the head's referral."),
         ).toBeVisible();
       },
       fill: async (page) => {
         await input(page, "vacancy_remarks").fill(
-          "One Associate Professor position is vacant in the school.",
+          "One Associate Professor position is vacant in the department.",
         );
         await input(page, "remarks").fill(
-          "Approved. The candidate meets the school's expectations.",
+          "Approved. The candidate meets the department's expectations.",
         );
       },
     });
@@ -763,7 +761,7 @@ test.describe("9. the outcome is visible to everyone entitled to it", () => {
   });
 
   test.describe("to a reviewer who signed it off", () => {
-    test.use({ storageState: storageStatePath("dean") });
+    test.use({ storageState: storageStatePath("head") });
 
     test("keeps every decision they took, after the queue has emptied", async ({
       page,
@@ -773,18 +771,18 @@ test.describe("9. the outcome is visible to everyone entitled to it", () => {
         page.getByText("Nothing is waiting on you right now."),
       ).toBeVisible();
 
-      // The dean acted twice on this application: once to delegate it and
+      // The head acted twice on this application: once to delegate it and
       // once to decide it, so both are theirs to look back at.
       await page.getByTestId("open-review-history").click();
 
       const rows = page.getByRole("row");
-      await expect(rows.filter({ hasText: "Dean Delegation" })).toHaveCount(1);
-      await expect(rows.filter({ hasText: "Dean Approval" })).toHaveCount(1);
+      await expect(rows.filter({ hasText: "Head Delegation" })).toHaveCount(1);
+      await expect(rows.filter({ hasText: "Head Approval" })).toHaveCount(1);
       await expect(page.getByTestId("pagination")).toContainText("2 reviews");
 
       // And from there back into the application itself.
       await rows
-        .filter({ hasText: "Dean Approval" })
+        .filter({ hasText: "Head Approval" })
         .getByRole("link", { name: "View" })
         .click();
       await expect(
@@ -795,7 +793,7 @@ test.describe("9. the outcome is visible to everyone entitled to it", () => {
     test("shows them on the dashboard too", async ({ page }) => {
       await page.goto("/dashboard");
       const reviewed = page.getByTestId("reviewed-by-you");
-      await expect(reviewed).toContainText("Dean Approval: Approve");
+      await expect(reviewed).toContainText("Head Approval: Approve");
       await expect(reviewed).toContainText(APPLICANT);
     });
   });
@@ -838,8 +836,8 @@ test.describe("9. the outcome is visible to everyone entitled to it", () => {
       const timeline = page.getByTestId("application-timeline");
       for (const entry of [
         "Submitted",
-        "Send to associate dean",
-        "Return to the dean",
+        "Send to deputy",
+        "Return to the head",
         "Forward to R&C",
         "Forward to FD&W",
         "Eligible",

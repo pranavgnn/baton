@@ -16,7 +16,7 @@ export type ProvisionUserInput = {
   email: string;
   name: string;
   employeeId?: string | null;
-  schoolId?: string | null;
+  departmentId?: string | null;
   designation?: string | null;
   institution?: string | null;
   userType?: UserType | null;
@@ -53,7 +53,7 @@ export async function provisionUser(
       name: input.name.trim(),
       emailVerified: false,
       employeeId: input.employeeId ?? null,
-      schoolId: input.schoolId ?? null,
+      departmentId: input.departmentId ?? null,
       designation: input.designation ?? null,
       institution: input.institution ?? null,
       userType: input.userType ?? null,

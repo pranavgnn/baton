@@ -7,8 +7,8 @@ import { db } from "@/lib/db";
 import {
   application,
   role,
-  school,
-  schoolAssociateDean,
+  department,
+  departmentDeputy,
   user,
   userRole,
 } from "@/lib/db/schema";
@@ -48,8 +48,8 @@ export default async function UserProfilePage({
       name: user.name,
       email: user.email,
       employeeId: user.employeeId,
-      schoolId: user.schoolId,
-      schoolName: school.name,
+      departmentId: user.departmentId,
+      departmentName: department.name,
       designation: user.designation,
       institution: user.institution,
       userType: user.userType,
@@ -64,14 +64,14 @@ export default async function UserProfilePage({
       createdAt: user.createdAt,
     })
     .from(user)
-    .leftJoin(school, eq(school.id, user.schoolId))
+    .leftJoin(department, eq(department.id, user.departmentId))
     .where(eq(user.id, id));
 
   if (!userRecord) {
     notFound();
   }
 
-  const [userRoles, userApps, asDean, asAssociate, allRoles, allSchools] =
+  const [userRoles, userApps, asHead, asAssociate, allRoles, allDepartments] =
     await Promise.all([
       db
         .select({ id: role.id, name: role.name })
@@ -84,14 +84,14 @@ export default async function UserProfilePage({
         .where(eq(application.applicantId, id))
         .orderBy(desc(application.createdAt)),
       db
-        .select({ name: school.name })
-        .from(school)
-        .where(eq(school.deanId, id)),
+        .select({ name: department.name })
+        .from(department)
+        .where(eq(department.headId, id)),
       db
-        .select({ name: school.name })
-        .from(schoolAssociateDean)
-        .innerJoin(school, eq(school.id, schoolAssociateDean.schoolId))
-        .where(eq(schoolAssociateDean.userId, id)),
+        .select({ name: department.name })
+        .from(departmentDeputy)
+        .innerJoin(department, eq(department.id, departmentDeputy.departmentId))
+        .where(eq(departmentDeputy.userId, id)),
       canManage
         ? db
             .select({ id: role.id, name: role.name })
@@ -100,15 +100,15 @@ export default async function UserProfilePage({
         : Promise.resolve([]),
       canManage
         ? db
-            .select({ id: school.id, name: school.name })
-            .from(school)
-            .orderBy(school.name)
+            .select({ id: department.id, name: department.name })
+            .from(department)
+            .orderBy(department.name)
         : Promise.resolve([]),
     ]);
 
   const signsFor = [
-    ...asDean.map((r) => `Dean of ${r.name}`),
-    ...asAssociate.map((r) => `Associate dean of ${r.name}`),
+    ...asHead.map((r) => `Head of ${r.name}`),
+    ...asAssociate.map((r) => `Associate head of ${r.name}`),
   ];
 
   const profileData = {
@@ -116,8 +116,8 @@ export default async function UserProfilePage({
     name: userRecord.name,
     email: userRecord.email,
     employeeId: userRecord.employeeId ?? "",
-    schoolId: userRecord.schoolId ?? "",
-    schoolName: userRecord.schoolName ?? "",
+    departmentId: userRecord.departmentId ?? "",
+    departmentName: userRecord.departmentName ?? "",
     designation: userRecord.designation ?? "",
     institution: userRecord.institution ?? "",
     userType: userRecord.userType ?? "",
@@ -147,7 +147,7 @@ export default async function UserProfilePage({
     <UserProfileView
       user={profileData}
       allRoles={allRoles}
-      allSchools={allSchools}
+      allDepartments={allDepartments}
       canManage={canManage}
       currentUserId={current.id}
     />

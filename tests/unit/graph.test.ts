@@ -426,38 +426,44 @@ describe("incomingEdges", () => {
 });
 
 describe("withinStageAudience", () => {
-  const school = { applicantSchoolId: "school-soce", viewerSchoolIds: [] };
+  const department = {
+    applicantDepartmentId: "department-soce",
+    viewerDepartmentIds: [],
+  };
 
-  it("lets the whole role in when the stage is not scoped to a school", () => {
+  it("lets the whole role in when the stage is not scoped to a department", () => {
     expect(
       withinStageAudience(
         { mode: "role", pool: "role_holders", scope: "all_holders" },
-        school,
+        department,
       ),
     ).toBe(true);
   });
 
-  it("keeps the dean of another school out, and lets the right one in", () => {
+  it("keeps the head of another department out, and lets the right one in", () => {
     const assignment = {
       mode: "role",
       pool: "role_holders",
-      scope: "applicant_school",
+      scope: "applicant_department",
     } as const;
 
-    expect(withinStageAudience(assignment, school)).toBe(false);
+    expect(withinStageAudience(assignment, department)).toBe(false);
     expect(
       withinStageAudience(assignment, {
-        applicantSchoolId: "school-soce",
-        viewerSchoolIds: ["school-see", "school-soce"],
+        applicantDepartmentId: "department-soce",
+        viewerDepartmentIds: ["department-see", "department-soce"],
       }),
     ).toBe(true);
   });
 
-  it("admits nobody when the applicant has no school to scope to", () => {
+  it("admits nobody when the applicant has no department to scope to", () => {
     expect(
       withinStageAudience(
-        { mode: "role", pool: "role_holders", scope: "applicant_school" },
-        { applicantSchoolId: null, viewerSchoolIds: ["school-soce"] },
+        { mode: "role", pool: "role_holders", scope: "applicant_department" },
+        {
+          applicantDepartmentId: null,
+          viewerDepartmentIds: ["department-soce"],
+        },
       ),
     ).toBe(false);
   });
@@ -469,6 +475,6 @@ describe("withinStageAudience", () => {
       mode: "role",
       pool: "role_holders",
     } as unknown as Parameters<typeof withinStageAudience>[0];
-    expect(withinStageAudience(legacy, school)).toBe(true);
+    expect(withinStageAudience(legacy, department)).toBe(true);
   });
 });

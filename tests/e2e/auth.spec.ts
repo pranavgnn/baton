@@ -85,7 +85,7 @@ test.describe("applicant permissions", () => {
 });
 
 test.describe("reviewer permissions", () => {
-  test.use({ storageState: storageStatePath("dean") });
+  test.use({ storageState: storageStatePath("head") });
 
   test("gets the review queue but not the admin area", async ({ page }) => {
     await page.goto("/dashboard");

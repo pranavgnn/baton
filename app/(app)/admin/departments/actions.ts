@@ -14,78 +14,80 @@ import {
 import { recordAudit } from "@/lib/audit/record";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import { school, schoolAssociateDean, user } from "@/lib/db/schema";
-import { searchUsers, type SchoolPerson } from "@/lib/schools/query";
-import { syncDesignatedRoles } from "@/lib/schools/sync";
+import { department, departmentDeputy, user } from "@/lib/db/schema";
+import { searchUsers, type DepartmentPerson } from "@/lib/departments/query";
+import { syncDesignatedRoles } from "@/lib/departments/sync";
 
-const schoolInput = z.object({
+const departmentInput = z.object({
   name: z
     .string()
     .trim()
     .min(2, "Use at least 2 characters")
     .max(160, "Use at most 160 characters"),
   code: z.string().trim().max(16).optional().default(""),
-  deanId: z.string().trim().optional().default(""),
-  associateDeanIds: z.array(z.string().min(1)).default([]),
+  headId: z.string().trim().optional().default(""),
+  deputyIds: z.array(z.string().min(1)).default([]),
 });
-export type SchoolInput = z.input<typeof schoolInput>;
+export type DepartmentInput = z.input<typeof departmentInput>;
 
 async function assertNameFree(name: string, excludeId?: string) {
-  const existing = await db.query.school.findFirst({
-    where: eq(school.name, name),
+  const existing = await db.query.department.findFirst({
+    where: eq(department.name, name),
   });
   return !existing || existing.id === excludeId;
 }
 
-/** Rewrites the associate deans of one school to exactly this set. */
-async function setAssociateDeans(schoolId: string, userIds: string[]) {
+/** Rewrites the deputies of one department to exactly this set. */
+async function setDeputies(departmentId: string, userIds: string[]) {
   await db
-    .delete(schoolAssociateDean)
-    .where(eq(schoolAssociateDean.schoolId, schoolId));
+    .delete(departmentDeputy)
+    .where(eq(departmentDeputy.departmentId, departmentId));
 
   const unique = Array.from(new Set(userIds));
   if (unique.length === 0) return;
 
   await db
-    .insert(schoolAssociateDean)
-    .values(unique.map((userId) => ({ schoolId, userId })));
+    .insert(departmentDeputy)
+    .values(unique.map((userId) => ({ departmentId, userId })));
 }
 
-export async function createSchool(input: SchoolInput): Promise<ActionResult> {
+export async function createDepartment(
+  input: DepartmentInput,
+): Promise<ActionResult> {
   try {
     const current = await requirePermissionAction("users.manage");
 
-    const parsed = parseInput(schoolInput, input);
+    const parsed = parseInput(departmentInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
 
     if (!(await assertNameFree(parsed.data.name))) {
-      return fail("A school with that name already exists.", {
+      return fail("A department with that name already exists.", {
         name: "That name is taken.",
       });
     }
 
     const id = crypto.randomUUID();
-    await db.insert(school).values({
+    await db.insert(department).values({
       id,
       name: parsed.data.name,
       code: parsed.data.code || null,
-      deanId: parsed.data.deanId || null,
+      headId: parsed.data.headId || null,
     });
-    await setAssociateDeans(id, parsed.data.associateDeanIds);
-    // Naming someone dean is what makes them one, so the role follows the
+    await setDeputies(id, parsed.data.deputyIds);
+    // Naming someone head is what makes them one, so the role follows the
     // posting rather than waiting for an admin to grant it separately.
     await syncDesignatedRoles();
 
     await recordAudit({
-      action: "school.created",
+      action: "department.created",
       actor: current,
-      summary: `Created the school "${parsed.data.name}".`,
-      targetType: "school",
+      summary: `Created the department "${parsed.data.name}".`,
+      targetType: "department",
       targetId: id,
       targetLabel: parsed.data.name,
     });
 
-    revalidatePath("/admin/schools");
+    revalidatePath("/admin/departments");
     revalidatePath("/admin/users");
     revalidatePath("/admin/roles");
     return ok();
@@ -94,52 +96,52 @@ export async function createSchool(input: SchoolInput): Promise<ActionResult> {
   }
 }
 
-export async function updateSchool(
+export async function updateDepartment(
   id: string,
-  input: SchoolInput,
+  input: DepartmentInput,
 ): Promise<ActionResult> {
   try {
     const current = await requirePermissionAction("users.manage");
 
-    const parsed = parseInput(schoolInput, input);
+    const parsed = parseInput(departmentInput, input);
     if (!parsed.ok) return fail(parsed.error, parsed.fieldErrors);
 
-    const existing = await db.query.school.findFirst({
-      where: eq(school.id, id),
+    const existing = await db.query.department.findFirst({
+      where: eq(department.id, id),
     });
-    if (!existing) return fail("That school no longer exists.");
+    if (!existing) return fail("That department no longer exists.");
 
     if (!(await assertNameFree(parsed.data.name, id))) {
-      return fail("A school with that name already exists.", {
+      return fail("A department with that name already exists.", {
         name: "That name is taken.",
       });
     }
 
     await db
-      .update(school)
+      .update(department)
       .set({
         name: parsed.data.name,
         code: parsed.data.code || null,
-        deanId: parsed.data.deanId || null,
+        headId: parsed.data.headId || null,
       })
-      .where(eq(school.id, id));
-    await setAssociateDeans(id, parsed.data.associateDeanIds);
+      .where(eq(department.id, id));
+    await setDeputies(id, parsed.data.deputyIds);
     await syncDesignatedRoles();
 
     await recordAudit({
-      action: "school.updated",
+      action: "department.updated",
       actor: current,
-      summary: `Updated the school "${parsed.data.name}".`,
-      targetType: "school",
+      summary: `Updated the department "${parsed.data.name}".`,
+      targetType: "department",
       targetId: id,
       targetLabel: parsed.data.name,
       detail: {
-        dean: parsed.data.deanId || null,
-        associateDeans: parsed.data.associateDeanIds.length,
+        head: parsed.data.headId || null,
+        deputies: parsed.data.deputyIds.length,
       },
     });
 
-    revalidatePath("/admin/schools");
+    revalidatePath("/admin/departments");
     revalidatePath("/admin/users");
     revalidatePath("/admin/roles");
     return ok();
@@ -148,41 +150,41 @@ export async function updateSchool(
   }
 }
 
-export async function deleteSchool(id: string): Promise<ActionResult> {
+export async function deleteDepartment(id: string): Promise<ActionResult> {
   try {
     const current = await requirePermissionAction("users.manage");
 
-    const existing = await db.query.school.findFirst({
-      where: eq(school.id, id),
+    const existing = await db.query.department.findFirst({
+      where: eq(department.id, id),
     });
-    if (!existing) return fail("That school no longer exists.");
+    if (!existing) return fail("That department no longer exists.");
 
-    // Deleting it would leave those accounts with no school, and an
+    // Deleting it would leave those accounts with no department, and an
     // application from one of them with nowhere to go.
     const [members] = await db
       .select({ total: count() })
       .from(user)
-      .where(eq(user.schoolId, id));
+      .where(eq(user.departmentId, id));
 
     if ((members?.total ?? 0) > 0) {
       return fail(
-        `${members.total} account${members.total === 1 ? " belongs" : "s belong"} to this school. Move them first.`,
+        `${members.total} account${members.total === 1 ? " belongs" : "s belong"} to this department. Move them first.`,
       );
     }
 
-    await db.delete(school).where(eq(school.id, id));
+    await db.delete(department).where(eq(department.id, id));
     await syncDesignatedRoles();
 
     await recordAudit({
-      action: "school.deleted",
+      action: "department.deleted",
       actor: current,
-      summary: `Deleted the school "${existing.name}".`,
-      targetType: "school",
+      summary: `Deleted the department "${existing.name}".`,
+      targetType: "department",
       targetId: id,
       targetLabel: existing.name,
     });
 
-    revalidatePath("/admin/schools");
+    revalidatePath("/admin/departments");
     revalidatePath("/admin/users");
     revalidatePath("/admin/roles");
     return ok();
@@ -191,10 +193,10 @@ export async function deleteSchool(id: string): Promise<ActionResult> {
   }
 }
 
-/** Candidates for the dean and associate dean pickers. */
+/** Candidates for the head and deputy pickers. */
 export async function findUsers(
   query: string,
-): Promise<ActionResult<{ users: SchoolPerson[] }>> {
+): Promise<ActionResult<{ users: DepartmentPerson[] }>> {
   try {
     await requirePermissionAction("users.manage");
     return ok({ users: await searchUsers(query) });

@@ -402,7 +402,7 @@ function RoleEditor({
             <Input
               id="role-name"
               value={name}
-              placeholder="e.g. Associate Dean"
+              placeholder="e.g. Deputy"
               onChange={(event) => setName(event.target.value)}
               aria-invalid={Boolean(fieldErrors.name)}
             />

@@ -50,9 +50,9 @@ test.describe("workflow builder canvas", () => {
 
     await expect(page.getByTestId("node-start")).toBeVisible();
     for (const stage of [
-      "Dean Delegation",
-      "Associate Dean Recommendation",
-      "Dean Approval",
+      "Head Delegation",
+      "Deputy Recommendation",
+      "Head Approval",
       "HR Initial Review",
       "R&C Research Evaluation",
       "FD&W Formal Evaluation",
@@ -66,7 +66,7 @@ test.describe("workflow builder canvas", () => {
       "Approved",
       "Closed - Rejected",
       "Closed - Not Eligible",
-      "Closed - Rejected by the Dean",
+      "Closed - Rejected by the Head",
     ]) {
       await expect(page.getByTestId(`node-end-${ending}`)).toBeVisible();
     }
@@ -76,8 +76,8 @@ test.describe("workflow builder canvas", () => {
     page,
   }) => {
     for (const label of [
-      "Send to associate dean",
-      "Return to the dean",
+      "Send to deputy",
+      "Return to the head",
       "Forward to R&C",
       "Forward to FD&W",
       "Eligible",
@@ -261,7 +261,7 @@ test.describe("workflow builder canvas", () => {
 
     // The seed publishes version 1 with a memo of its own.
     await expect(page.getByTestId("version-1")).toContainText(
-      "Initial process: submission, the dean delegating to an associate dean and deciding on their recommendation, then HR, R&C, FD&W, the final HR declaration and the Director.",
+      "Initial process: submission, the head delegating to an deputy and deciding on their recommendation, then HR, R&C, FD&W, the final HR declaration and the Director.",
     );
 
     // The live revision offers neither restoring nor deleting: it is what the

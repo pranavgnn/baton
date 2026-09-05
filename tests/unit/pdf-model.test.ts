@@ -205,7 +205,7 @@ describe("the document as a whole", () => {
         email: "employee@manipal.edu",
         designation: "Assistant Professor",
       },
-      signatures: { [stageId]: { name: "Test Dean", at: "2 Sep 2026" } },
+      signatures: { [stageId]: { name: "Test Head", at: "2 Sep 2026" } },
       generatedAt: "2 Sep 2026",
     });
 
@@ -222,7 +222,7 @@ describe("the document as a whole", () => {
     });
     expect(withReview.parts).toHaveLength(2);
     expect(withReview.parts[1].signature).toEqual({
-      name: "Test Dean",
+      name: "Test Head",
       at: "2 Sep 2026",
     });
   });

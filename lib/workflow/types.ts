@@ -226,13 +226,10 @@ export type StageOutcome = z.infer<typeof stageOutcomeSchema>;
  *
  * `role` offers it to everyone holding the stage's role, which is the ordinary
  * case. `nominated` holds it for one person the previous reviewer names, drawn
- * from `pool`: either the associate deans of the applicant's own school, or
+ * from `pool`: either the deputies of the applicant's own department, or
  * everyone holding this stage's role.
  */
-export const NOMINEE_POOLS = [
-  "role_holders",
-  "school_associate_deans",
-] as const;
+export const NOMINEE_POOLS = ["role_holders", "department_deputies"] as const;
 export const nomineePoolSchema = z.enum(NOMINEE_POOLS);
 export type NomineePool = z.infer<typeof nomineePoolSchema>;
 
@@ -240,14 +237,14 @@ export type NomineePool = z.infer<typeof nomineePoolSchema>;
  * Which holders of a role a step or a notification actually reaches.
  *
  * A role is institute-wide, but many of the posts that hold one are not: there
- * is a dean of every school, and an application concerns exactly one of them.
- * Narrowing by school is therefore a property of the step, not something the
- * process can be trusted to arrange by having a separate role per school.
+ * is a head of every department, and an application concerns exactly one of them.
+ * Narrowing by department is therefore a property of the step, not something the
+ * process can be trusted to arrange by having a separate role per department.
  *
- * `applicant_school` means the holders attached to the applicant's own school
+ * `applicant_department` means the holders attached to the applicant's own department
  * - the people who sign for it, and anyone whose account names it.
  */
-export const AUDIENCE_SCOPES = ["all_holders", "applicant_school"] as const;
+export const AUDIENCE_SCOPES = ["all_holders", "applicant_department"] as const;
 export const audienceScopeSchema = z.enum(AUDIENCE_SCOPES);
 export type AudienceScope = z.infer<typeof audienceScopeSchema>;
 
@@ -282,7 +279,7 @@ export const stageNodeDataSchema = z.object({
    *
    * It sits on the stage that is entered rather than on the one handing over,
    * so a reviewer is asked for a name only on the branch that leads somewhere
-   * needing one: the dean naming an associate dean when they delegate, and not
+   * needing one: the head naming an deputy when they delegate, and not
    * on a branch that goes to a whole role.
    */
   assignment: stageAssignmentSchema.default({

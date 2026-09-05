@@ -59,8 +59,8 @@ export type UserRow = {
   name: string;
   email: string;
   employeeId: string;
-  schoolId: string;
-  schoolName: string;
+  departmentId: string;
+  departmentName: string;
   designation: string;
   institution: string;
   userType: string;
@@ -77,7 +77,7 @@ export type UserRow = {
 };
 
 export type RoleOption = { id: string; name: string };
-export type SchoolOption = { id: string; name: string };
+export type DepartmentOption = { id: string; name: string };
 
 export function UsersManager({
   users,
@@ -86,7 +86,7 @@ export function UsersManager({
 }: {
   users: UserRow[];
   roles: RoleOption[];
-  schools: SchoolOption[];
+  departments: DepartmentOption[];
   currentUserId: string;
   /** Someone another page linked here to look at, by address. */
   openEmail?: string | null;
@@ -127,7 +127,7 @@ export function UsersManager({
     const needle = query.trim().toLowerCase();
     if (!needle) return users;
     return users.filter((item) =>
-      [item.name, item.email, item.employeeId, item.schoolName]
+      [item.name, item.email, item.employeeId, item.departmentName]
         .join(" ")
         .toLowerCase()
         .includes(needle),
@@ -155,7 +155,7 @@ export function UsersManager({
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by name, email, employee ID or school"
+            placeholder="Search by name, email, employee ID or department"
             className="pl-8"
             aria-label="Search users"
           />
@@ -183,7 +183,7 @@ export function UsersManager({
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Roles</TableHead>
-                <TableHead>School</TableHead>
+                <TableHead>Department</TableHead>
                 <TableHead className="w-28">Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-12 pr-3 text-right" />
@@ -234,7 +234,7 @@ export function UsersManager({
                       </div>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {item.schoolName || "—"}
+                      {item.departmentName || "—"}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {userTypeLabel(item.userType)}

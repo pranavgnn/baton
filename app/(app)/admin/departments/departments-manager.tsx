@@ -56,33 +56,47 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { ListPagination, usePagination } from "@/components/ui/list-pagination";
-import type { SchoolPerson, SchoolRecord } from "@/lib/schools/query";
-import { createSchool, deleteSchool, findUsers, updateSchool } from "./actions";
+import type {
+  DepartmentPerson,
+  DepartmentRecord,
+} from "@/lib/departments/query";
+import {
+  createDepartment,
+  deleteDepartment,
+  findUsers,
+  updateDepartment,
+} from "./actions";
 
-export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
-  const [editing, setEditing] = useState<SchoolRecord | null>(null);
+export function DepartmentsManager({
+  departments,
+}: {
+  departments: DepartmentRecord[];
+}) {
+  const [editing, setEditing] = useState<DepartmentRecord | null>(null);
   const [creating, setCreating] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<SchoolRecord | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<DepartmentRecord | null>(
+    null,
+  );
   const [isDeleting, startDelete] = useTransition();
   const [query, setQuery] = useState("");
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return schools;
-    return schools.filter(
+    if (!needle) return departments;
+    return departments.filter(
       (s) =>
         s.name.toLowerCase().includes(needle) ||
         (s.code && s.code.toLowerCase().includes(needle)) ||
-        (s.dean && s.dean.name.toLowerCase().includes(needle)),
+        (s.head && s.head.name.toLowerCase().includes(needle)),
     );
-  }, [schools, query]);
+  }, [departments, query]);
 
   const pagination = usePagination(filtered, 12);
 
   function handleDelete() {
     if (!pendingDelete) return;
     startDelete(async () => {
-      const result = await deleteSchool(pendingDelete.id);
+      const result = await deleteDepartment(pendingDelete.id);
       setPendingDelete(null);
       if (result.ok) toast.success(`Deleted "${pendingDelete.name}".`);
       else toast.error(result.error);
@@ -97,28 +111,28 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search by school name, code or dean"
+            placeholder="Search by department name, code or head"
             className="pl-8"
-            aria-label="Search schools"
+            aria-label="Search departments"
           />
         </div>
-        <Button onClick={() => setCreating(true)} data-testid="new-school">
+        <Button onClick={() => setCreating(true)} data-testid="new-department">
           <Plus className="size-4" />
-          Add a school
+          Add a department
         </Button>
       </div>
 
-      {schools.length === 0 ? (
-        <p className="empty-state" data-testid="schools-empty">
-          No schools yet. Add one, then give its people a school on the Users
-          page.
+      {departments.length === 0 ? (
+        <p className="empty-state" data-testid="departments-empty">
+          No departments yet. Add one, then give its people a department on the
+          Users page.
         </p>
       ) : filtered.length === 0 ? (
-        <p className="empty-state">No schools match that search.</p>
+        <p className="empty-state">No departments match that search.</p>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {pagination.items.map((entry) => (
-            <Card key={entry.id} data-testid={`school-card-${entry.name}`}>
+            <Card key={entry.id} data-testid={`department-card-${entry.name}`}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="size-4" />
@@ -157,27 +171,27 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
 
               <CardContent className="flex flex-col gap-3">
                 <div className="fact">
-                  <span className="fact-label">Dean</span>
+                  <span className="fact-label">Head</span>
                   <span
                     className="fact-value"
-                    data-testid={`dean-${entry.name}`}
+                    data-testid={`head-${entry.name}`}
                   >
-                    {entry.dean ? entry.dean.name : "Not assigned"}
+                    {entry.head ? entry.head.name : "Not assigned"}
                   </span>
                 </div>
 
                 <div className="fact">
-                  <span className="fact-label">Associate deans</span>
-                  {entry.associateDeans.length === 0 ? (
+                  <span className="fact-label">Associate heads</span>
+                  {entry.deputies.length === 0 ? (
                     <span className="fact-value text-muted-foreground">
                       None assigned
                     </span>
                   ) : (
                     <span
                       className="flex flex-wrap gap-1"
-                      data-testid={`associate-deans-${entry.name}`}
+                      data-testid={`associate-heads-${entry.name}`}
                     >
-                      {entry.associateDeans.map((person) => (
+                      {entry.deputies.map((person) => (
                         <Badge key={person.id} variant="secondary">
                           {person.name}
                         </Badge>
@@ -191,12 +205,12 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
         </div>
       )}
 
-      <ListPagination pagination={pagination} label="schools" />
+      <ListPagination pagination={pagination} label="departments" />
 
-      <SchoolEditor
+      <DepartmentEditor
         key={editing?.id ?? "new"}
         open={creating || Boolean(editing)}
-        school={editing}
+        department={editing}
         onOpenChange={(open) => {
           if (!open) {
             setCreating(false);
@@ -215,8 +229,8 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
               Delete &ldquo;{pendingDelete?.name}&rdquo;?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              This cannot be undone. A school still holding accounts cannot be
-              deleted.
+              This cannot be undone. A department still holding accounts cannot
+              be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -227,9 +241,9 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
                 handleDelete();
               }}
               disabled={isDeleting}
-              data-testid="confirm-delete-school"
+              data-testid="confirm-delete-department"
             >
-              Delete school
+              Delete department
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -242,20 +256,22 @@ export function SchoolsManager({ schools }: { schools: SchoolRecord[] }) {
 /*  Editor                                                                     */
 /* -------------------------------------------------------------------------- */
 
-function SchoolEditor({
+function DepartmentEditor({
   open,
-  school,
+  department,
   onOpenChange,
 }: {
   open: boolean;
-  school: SchoolRecord | null;
+  department: DepartmentRecord | null;
   onOpenChange: (open: boolean) => void;
 }) {
-  const [name, setName] = useState(school?.name ?? "");
-  const [code, setCode] = useState(school?.code ?? "");
-  const [dean, setDean] = useState<SchoolPerson | null>(school?.dean ?? null);
-  const [associates, setAssociates] = useState<SchoolPerson[]>(
-    school?.associateDeans ?? [],
+  const [name, setName] = useState(department?.name ?? "");
+  const [code, setCode] = useState(department?.code ?? "");
+  const [head, setHead] = useState<DepartmentPerson | null>(
+    department?.head ?? null,
+  );
+  const [associates, setAssociates] = useState<DepartmentPerson[]>(
+    department?.deputies ?? [],
   );
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [isSaving, startSave] = useTransition();
@@ -266,15 +282,17 @@ function SchoolEditor({
       const payload = {
         name,
         code,
-        deanId: dean?.id ?? "",
-        associateDeanIds: associates.map((person) => person.id),
+        headId: head?.id ?? "",
+        deputyIds: associates.map((person) => person.id),
       };
-      const result = school
-        ? await updateSchool(school.id, payload)
-        : await createSchool(payload);
+      const result = department
+        ? await updateDepartment(department.id, payload)
+        : await createDepartment(payload);
 
       if (result.ok) {
-        toast.success(school ? "School updated." : "School created.");
+        toast.success(
+          department ? "Department updated." : "Department created.",
+        );
         onOpenChange(false);
         return;
       }
@@ -286,24 +304,26 @@ function SchoolEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg" data-testid="school-dialog">
+      <DialogContent className="sm:max-w-lg" data-testid="department-dialog">
         <DialogHeader>
-          <DialogTitle>{school ? "Edit school" : "Add a school"}</DialogTitle>
+          <DialogTitle>
+            {department ? "Edit department" : "Add a department"}
+          </DialogTitle>
           <DialogDescription>
-            An application from someone in this school goes to its dean, who
-            sends it on to one of its associate deans.
+            An application from someone in this department goes to its head, who
+            sends it on to one of its deputies.
           </DialogDescription>
         </DialogHeader>
 
         <div className="form-stack">
           <Field data-invalid={Boolean(fieldErrors.name)}>
-            <FieldLabel htmlFor="school-name">Name</FieldLabel>
+            <FieldLabel htmlFor="department-name">Name</FieldLabel>
             <Input
-              id="school-name"
+              id="department-name"
               value={name}
               onChange={(event) => setName(event.target.value)}
               aria-invalid={Boolean(fieldErrors.name)}
-              placeholder="School of Computer Engineering"
+              placeholder="e.g. Engineering"
             />
             {fieldErrors.name ? (
               <FieldDescription>{fieldErrors.name}</FieldDescription>
@@ -311,9 +331,9 @@ function SchoolEditor({
           </Field>
 
           <Field>
-            <FieldLabel htmlFor="school-code">Short form</FieldLabel>
+            <FieldLabel htmlFor="department-code">Short form</FieldLabel>
             <Input
-              id="school-code"
+              id="department-code"
               value={code}
               onChange={(event) => setCode(event.target.value)}
               placeholder="SOCE"
@@ -324,24 +344,24 @@ function SchoolEditor({
           </Field>
 
           <Field>
-            <FieldLabel>Dean</FieldLabel>
+            <FieldLabel>Head</FieldLabel>
             <PersonPicker
-              label={dean ? dean.name : "Choose a dean"}
-              testId="school-dean"
-              onSelect={(person) => setDean(person)}
+              label={head ? head.name : "Choose a head"}
+              testId="department-head"
+              onSelect={(person) => setHead(person)}
             />
-            {dean ? (
+            {head ? (
               <span className="flex flex-wrap gap-1">
-                <PersonChip person={dean} onRemove={() => setDean(null)} />
+                <PersonChip person={head} onRemove={() => setHead(null)} />
               </span>
             ) : null}
           </Field>
 
           <Field>
-            <FieldLabel>Associate deans</FieldLabel>
+            <FieldLabel>Associate heads</FieldLabel>
             <PersonPicker
-              label="Add an associate dean"
-              testId="school-associate-dean"
+              label="Add an deputy"
+              testId="department-associate-head"
               onSelect={(person) =>
                 setAssociates((current) =>
                   current.some((entry) => entry.id === person.id)
@@ -351,12 +371,12 @@ function SchoolEditor({
               }
             />
             <FieldDescription>
-              The dean must send every application to one of these.
+              The head must send every application to one of these.
             </FieldDescription>
             {associates.length > 0 ? (
               <span
                 className="flex flex-wrap gap-1"
-                data-testid="chosen-associate-deans"
+                data-testid="chosen-associate-heads"
               >
                 {associates.map((person) => (
                   <PersonChip
@@ -385,10 +405,10 @@ function SchoolEditor({
           <Button
             onClick={handleSave}
             disabled={isSaving}
-            data-testid="save-school"
+            data-testid="save-department"
           >
             {isSaving ? <Loader2 className="size-4 animate-spin" /> : null}
-            {school ? "Save changes" : "Create school"}
+            {department ? "Save changes" : "Create department"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -400,7 +420,7 @@ function PersonChip({
   person,
   onRemove,
 }: {
-  person: SchoolPerson;
+  person: DepartmentPerson;
   onRemove: () => void;
 }) {
   return (
@@ -422,7 +442,7 @@ function PersonChip({
  * One account, found by typing.
  *
  * Never a list of everybody: the portal is meant for an institute, and a
- * dropdown of a few thousand names helps nobody choose a dean.
+ * dropdown of a few thousand names helps nobody choose a head.
  */
 function PersonPicker({
   label,
@@ -431,11 +451,11 @@ function PersonPicker({
 }: {
   label: string;
   testId: string;
-  onSelect: (person: SchoolPerson) => void;
+  onSelect: (person: DepartmentPerson) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<SchoolPerson[]>([]);
+  const [results, setResults] = useState<DepartmentPerson[]>([]);
   const [loading, setLoading] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

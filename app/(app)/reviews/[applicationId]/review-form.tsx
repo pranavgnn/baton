@@ -39,7 +39,7 @@ export type Nominee = { id: string; name: string; email: string };
  * What the confirmation asks.
  *
  * An outcome is admin-defined, so this reads its label rather than its tone -
- * a tone is a colour, and "Send to associate dean" is a positive step that is
+ * a tone is a colour, and "Send to deputy" is a positive step that is
  * not an approval. The two words the process almost always uses are named for
  * what they mean; anything else is quoted back as it was written.
  */

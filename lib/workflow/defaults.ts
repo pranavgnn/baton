@@ -179,17 +179,20 @@ export type DefaultTemplateName =
 /* -------------------------------------------------------------------------- */
 
 /**
- * The schools a fresh install starts with, as MIT Manipal lists them.
+ * The departments a fresh install starts with, as MIT Manipal lists them.
  *
- * A starting point rather than the whole institute: schools are administered
+ * A starting point rather than the whole institute: departments are administered
  * from the portal, so anything missing is added there.
  */
-export const DEFAULT_SCHOOLS = [
-  { name: "School of Basic Sciences, Humanities & Management", code: "SBHM" },
-  { name: "School of Civil & Chemical Engineering", code: "SCCE" },
-  { name: "School of Computer Engineering", code: "SOCE" },
-  { name: "School of Electrical Engineering", code: "SEE" },
-  { name: "School of Mechanical Engineering", code: "SOME" },
+export const DEFAULT_DEPARTMENTS = [
+  {
+    name: "Department of Basic Sciences, Humanities & Management",
+    code: "SBHM",
+  },
+  { name: "Department of Civil & Chemical Engineering", code: "SCCE" },
+  { name: "Department of Computer Engineering", code: "SOCE" },
+  { name: "Department of Electrical Engineering", code: "SEE" },
+  { name: "Department of Mechanical Engineering", code: "SOME" },
 ] as const;
 
 export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
@@ -208,20 +211,20 @@ export const DEFAULT_ROLES = [
     designation: null,
   },
   {
-    name: "Dean",
+    name: "Head",
     description:
-      "Dean of a school. Sends an application to one of the school's associate deans and decides it once the recommendation comes back.",
+      "Head of a department. Sends an application to one of the department's deputies and decides it once the recommendation comes back.",
     permissions: ["applications.review"],
     isSystem: false,
-    designation: "dean",
+    designation: "head",
   },
   {
-    name: "Associate Dean",
+    name: "Deputy",
     description:
-      "Associate dean of a school. Recommends on the applications the dean sends them.",
+      "Associate head of a department. Recommends on the applications the head sends them.",
     permissions: ["applications.review"],
     isSystem: false,
-    designation: "associate_dean",
+    designation: "deputy",
   },
   {
     name: "HR Officer",
@@ -383,8 +386,8 @@ export function defaultApplicantForm(): FormSchema {
           createField({
             type: "text",
             key: "department",
-            prefill: "school",
-            label: "School",
+            prefill: "department",
+            label: "Department",
             required: true,
             width: "half",
           }),
@@ -1065,12 +1068,12 @@ const YES_NO: [string, string][] = [
   ["No", "no"],
 ];
 
-/** What the associate dean the dean named records before it goes back. */
-function associateDeanForm(): FormSchema {
+/** What the deputy the head named records before it goes back. */
+function deputyForm(): FormSchema {
   return {
     sections: [
       createSection(
-        "Associate Dean",
+        "Deputy",
         [
           createField({
             type: "radio",
@@ -1089,7 +1092,7 @@ function associateDeanForm(): FormSchema {
             required: true,
           }),
         ],
-        "Read the applicant's submission before recording your recommendation. It goes back to the dean, who decides.",
+        "Read the applicant's submission before recording your recommendation. It goes back to the head, who decides.",
       ),
     ],
   };
@@ -1419,12 +1422,12 @@ function directorForm(): FormSchema {
   };
 }
 
-/** What the dean records when the recommendation comes back to them. */
-function deanApprovalForm(): FormSchema {
+/** What the head records when the recommendation comes back to them. */
+function headApprovalForm(): FormSchema {
   return {
     sections: [
       createSection(
-        "Dean",
+        "Head",
         [
           createField({
             type: "textarea",
@@ -1439,7 +1442,7 @@ function deanApprovalForm(): FormSchema {
             required: true,
           }),
         ],
-        "Read the associate dean's recommendation before deciding. Approving sends the application on to HR; rejecting closes it.",
+        "Read the deputy's recommendation before deciding. Approving sends the application on to HR; rejecting closes it.",
       ),
     ],
   };
@@ -1457,7 +1460,7 @@ export type DefaultGraphInput = {
 /**
  * The promotion process as STN 023 R5 and Evaluation Form V2 describe it:
  *
- *   Submission -> Dean (delegates) -> Associate Dean -> Dean (decides)
+ *   Submission -> Head (delegates) -> Deputy -> Head (decides)
  *                                                       |- rejected -> closed
  *                                                       `- approved -> HR
  *                                       HR -> R&C -> FD&W -> HR (final)
@@ -1466,12 +1469,12 @@ export type DefaultGraphInput = {
  *                                                                      |- approved
  *                                                                      `- rejected
  *
- * The school half of that is three steps rather than one. The dean does not
- * write anything up front: they name the associate dean who should look at it,
- * that person records a recommendation, and it comes back to the dean to
- * approve or reject. Both dean steps are scoped to the applicant's own school,
- * so a dean is never shown another school's file, and the associate dean step
- * is held for the one person the dean named.
+ * The department half of that is three steps rather than one. The head does not
+ * write anything up front: they name the deputy who should look at it,
+ * that person records a recommendation, and it comes back to the head to
+ * approve or reject. Both head steps are scoped to the applicant's own department,
+ * so a head is never shown another department's file, and the deputy step
+ * is held for the one person the head named.
  *
  * Everything from HR onwards always advances: a negative verdict is recorded
  * and carried forward rather than closing the file, so the final eligibility
@@ -1486,10 +1489,10 @@ export function defaultWorkflowGraph({
   templateIdByName,
 }: DefaultGraphInput): WorkflowGraph {
   const outcomes = {
-    delegate: createOutcome("Send to associate dean", "positive"),
-    recommend: createOutcome("Return to the dean", "positive"),
-    deanApprove: createOutcome("Approve", "positive"),
-    deanReject: createOutcome("Reject", "negative"),
+    delegate: createOutcome("Send to deputy", "positive"),
+    recommend: createOutcome("Return to the head", "positive"),
+    headApprove: createOutcome("Approve", "positive"),
+    headReject: createOutcome("Reject", "negative"),
     hrInitial: createOutcome("Forward to R&C", "positive"),
     rc: createOutcome("Forward to FD&W", "positive"),
     fdw: createOutcome("Forward to HR", "positive"),
@@ -1525,7 +1528,7 @@ export function defaultWorkflowGraph({
 
   /**
    * An email addressed to whoever holds a role, optionally narrowed: to the
-   * holders attached to the applicant's own school, or to the one person the
+   * holders attached to the applicant's own department, or to the one person the
    * application has just been handed to.
    */
   const toRole = (
@@ -1557,11 +1560,11 @@ export function defaultWorkflowGraph({
     scope: "all_holders",
   };
 
-  /** Offered only to the holders attached to the applicant's own school. */
-  const schoolHolder: StageAssignment = {
+  /** Offered only to the holders attached to the applicant's own department. */
+  const departmentHolder: StageAssignment = {
     mode: "role",
     pool: "role_holders",
-    scope: "applicant_school",
+    scope: "applicant_department",
   };
 
   const COLUMN = 360;
@@ -1586,96 +1589,96 @@ export function defaultWorkflowGraph({
       { x: column(1), y: 520 },
     ),
     toRole(
-      "node_email_dean_assigned",
-      "Notify Dean",
+      "node_email_head_assigned",
+      "Notify Head",
       "Reviewer Assignment",
-      "Dean",
+      "Head",
       { x: column(1), y: 60 },
-      "applicant_school",
+      "applicant_department",
     ),
 
     {
-      id: "node_stage_dean",
+      id: "node_stage_head",
       kind: "stage",
       position: { x: column(2), y: 300 },
       data: {
-        label: "Dean Delegation",
+        label: "Head Delegation",
         description:
-          "The dean of the applicant's school names the associate dean who should look at this. Nothing is written up at this point - the dean has the last word once the recommendation comes back.",
-        roleId: role("Dean"),
+          "The head of the applicant's department names the deputy who should look at this. Nothing is written up at this point - the head has the last word once the recommendation comes back.",
+        roleId: role("Head"),
         form: emptyForm(),
         outcomes: [outcomes.delegate],
-        assignment: schoolHolder,
+        assignment: departmentHolder,
       },
     },
     toApplicant(
-      "node_email_dean_done",
-      "Tell Applicant: with the associate dean",
+      "node_email_head_done",
+      "Tell Applicant: with the deputy",
       "Application Advanced",
       { x: column(3), y: 520 },
     ),
     toRole(
-      "node_email_associate_dean_assigned",
-      "Notify Associate Dean",
+      "node_email_deputy_assigned",
+      "Notify Deputy",
       "Reviewer Assignment",
-      "Associate Dean",
+      "Deputy",
       { x: column(3), y: 60 },
-      // Only the person the dean named: the rest of the school's associate
-      // deans are not being asked for anything.
+      // Only the person the head named: the rest of the department's associate
+      // heads are not being asked for anything.
       "assigned_person",
     ),
 
     {
-      id: "node_stage_associate_dean",
+      id: "node_stage_deputy",
       kind: "stage",
       position: { x: column(4), y: 300 },
       data: {
-        label: "Associate Dean Recommendation",
+        label: "Deputy Recommendation",
         description:
-          "The associate dean the dean named records a recommendation and their remarks, and sends it back to the dean.",
-        roleId: role("Associate Dean"),
-        form: associateDeanForm(),
+          "The deputy the head named records a recommendation and their remarks, and sends it back to the head.",
+        roleId: role("Deputy"),
+        form: deputyForm(),
         outcomes: [outcomes.recommend],
-        // Not offered to the associate deans at large: the dean names one of
-        // their own school's, and the file is held for that person alone.
+        // Not offered to the deputies at large: the head names one of
+        // their own department's, and the file is held for that person alone.
         assignment: {
           mode: "nominated",
-          pool: "school_associate_deans",
+          pool: "department_deputies",
           scope: "all_holders",
         },
       },
     },
     toApplicant(
-      "node_email_associate_dean_done",
-      "Tell Applicant: back with the dean",
+      "node_email_deputy_done",
+      "Tell Applicant: back with the head",
       "Application Advanced",
       { x: column(5), y: 520 },
     ),
     toRole(
-      "node_email_dean_approval_assigned",
-      "Notify Dean: recommendation received",
+      "node_email_head_approval_assigned",
+      "Notify Head: recommendation received",
       "Reviewer Assignment",
-      "Dean",
+      "Head",
       { x: column(5), y: 60 },
-      "applicant_school",
+      "applicant_department",
     ),
 
     {
-      id: "node_stage_dean_approval",
+      id: "node_stage_head_approval",
       kind: "stage",
       position: { x: column(6), y: 300 },
       data: {
-        label: "Dean Approval",
+        label: "Head Approval",
         description:
-          "The dean reads the recommendation and either approves the application, sending it on to HR, or rejects it and closes the file.",
-        roleId: role("Dean"),
-        form: deanApprovalForm(),
-        outcomes: [outcomes.deanApprove, outcomes.deanReject],
-        assignment: schoolHolder,
+          "The head reads the recommendation and either approves the application, sending it on to HR, or rejects it and closes the file.",
+        roleId: role("Head"),
+        form: headApprovalForm(),
+        outcomes: [outcomes.headApprove, outcomes.headReject],
+        assignment: departmentHolder,
       },
     },
     toApplicant(
-      "node_email_dean_approved",
+      "node_email_head_approved",
       "Tell Applicant: with HR",
       "Application Advanced",
       { x: column(7), y: 520 },
@@ -1688,19 +1691,19 @@ export function defaultWorkflowGraph({
       { x: column(7), y: 60 },
     ),
     toApplicant(
-      "node_email_dean_rejected",
-      "Tell Applicant: rejected by the dean",
+      "node_email_head_rejected",
+      "Tell Applicant: rejected by the head",
       "Application Rejected",
       { x: column(7), y: 840 },
     ),
     {
-      id: "node_end_dean_rejected",
+      id: "node_end_head_rejected",
       kind: "end",
       position: { x: column(7), y: 700 },
       data: {
-        label: "Closed - Rejected by the Dean",
+        label: "Closed - Rejected by the Head",
         description:
-          "The dean rejected the application after reading the associate dean's recommendation.",
+          "The head rejected the application after reading the deputy's recommendation.",
         result: "rejected",
       },
     },
@@ -1920,33 +1923,31 @@ export function defaultWorkflowGraph({
   return {
     nodes,
     edges: [
-      ...hop("node_submission", OUT, "node_stage_dean", [
+      ...hop("node_submission", OUT, "node_stage_head", [
         "node_email_received",
-        "node_email_dean_assigned",
+        "node_email_head_assigned",
+      ]),
+      ...hop("node_stage_head", outcomes.delegate.id, "node_stage_deputy", [
+        "node_email_head_done",
+        "node_email_deputy_assigned",
       ]),
       ...hop(
-        "node_stage_dean",
-        outcomes.delegate.id,
-        "node_stage_associate_dean",
-        ["node_email_dean_done", "node_email_associate_dean_assigned"],
-      ),
-      ...hop(
-        "node_stage_associate_dean",
+        "node_stage_deputy",
         outcomes.recommend.id,
-        "node_stage_dean_approval",
-        ["node_email_associate_dean_done", "node_email_dean_approval_assigned"],
+        "node_stage_head_approval",
+        ["node_email_deputy_done", "node_email_head_approval_assigned"],
       ),
       ...hop(
-        "node_stage_dean_approval",
-        outcomes.deanApprove.id,
+        "node_stage_head_approval",
+        outcomes.headApprove.id,
         "node_stage_hr_initial",
-        ["node_email_dean_approved", "node_email_hr_initial_assigned"],
+        ["node_email_head_approved", "node_email_hr_initial_assigned"],
       ),
       ...hop(
-        "node_stage_dean_approval",
-        outcomes.deanReject.id,
-        "node_end_dean_rejected",
-        ["node_email_dean_rejected", "node_email_hr_fyi"],
+        "node_stage_head_approval",
+        outcomes.headReject.id,
+        "node_end_head_rejected",
+        ["node_email_head_rejected", "node_email_hr_fyi"],
       ),
       ...hop("node_stage_hr_initial", outcomes.hrInitial.id, "node_stage_rc", [
         "node_email_hr_initial_done",

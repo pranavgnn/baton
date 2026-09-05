@@ -13,8 +13,8 @@ import {
   type PermissionKey,
 } from "@/lib/auth/permissions";
 import { db } from "@/lib/db";
-import { role, school, user, userRole } from "@/lib/db/schema";
-import { schoolsOf } from "@/lib/schools/query";
+import { role, department, user, userRole } from "@/lib/db/schema";
+import { departmentsOf } from "@/lib/departments/query";
 
 export type SessionRole = {
   id: string;
@@ -27,15 +27,15 @@ export type CurrentUser = {
   name: string;
   email: string;
   employeeId: string | null;
-  schoolId: string | null;
-  schoolName: string | null;
+  departmentId: string | null;
+  departmentName: string | null;
   /**
-   * Every school this person is attached to: their own, and any they sign for
-   * as dean or associate dean. It is what a school-scoped stage is matched
-   * against, so a dean sees the applications of their own school and not of
-   * every school with a dean.
+   * Every department this person is attached to: their own, and any they sign for
+   * as head or deputy. It is what a department-scoped stage is matched
+   * against, so a head sees the applications of their own department and not of
+   * every department with a head.
    */
-  schoolIds: string[];
+  departmentIds: string[];
   designation: string | null;
   /** Regular, contract or probation - null when it has never been recorded. */
   userType: string | null;
@@ -60,8 +60,8 @@ async function loadUser(id: string): Promise<CurrentUser | null> {
       name: user.name,
       email: user.email,
       employeeId: user.employeeId,
-      schoolId: user.schoolId,
-      schoolName: school.name,
+      departmentId: user.departmentId,
+      departmentName: department.name,
       designation: user.designation,
       userType: user.userType,
       activated: user.activated,
@@ -71,7 +71,7 @@ async function loadUser(id: string): Promise<CurrentUser | null> {
       rolePermissions: role.permissions,
     })
     .from(user)
-    .leftJoin(school, eq(school.id, user.schoolId))
+    .leftJoin(department, eq(department.id, user.departmentId))
     .leftJoin(userRole, eq(userRole.userId, user.id))
     .leftJoin(role, eq(role.id, userRole.roleId))
     .where(eq(user.id, id));
@@ -79,7 +79,7 @@ async function loadUser(id: string): Promise<CurrentUser | null> {
   const first = rows[0];
   if (!first) return null;
 
-  const schoolIds = await schoolsOf(id);
+  const departmentIds = await departmentsOf(id);
 
   const roles: SessionRole[] = [];
   for (const row of rows) {
@@ -99,9 +99,9 @@ async function loadUser(id: string): Promise<CurrentUser | null> {
     name: first.name,
     email: first.email,
     employeeId: first.employeeId,
-    schoolId: first.schoolId,
-    schoolName: first.schoolName,
-    schoolIds,
+    departmentId: first.departmentId,
+    departmentName: first.departmentName,
+    departmentIds,
     designation: first.designation,
     userType: first.userType,
     activated: first.activated,
