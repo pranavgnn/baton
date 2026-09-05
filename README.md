@@ -1,6 +1,10 @@
-# Baton
+<p align="center">
+  <img src="docs/logo.svg" alt="" width="88" height="88">
+</p>
 
-**Applications that pass from hand to hand.**
+<h1 align="center">Baton</h1>
+
+<p align="center"><strong>Applications that pass from hand to hand.</strong></p>
 
 Baton is a self-hosted portal for any process where a form is submitted, read
 by several people in turn, and decided. Promotions, grant requests, purchase
