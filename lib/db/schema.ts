@@ -1,4 +1,4 @@
-import { relations, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import {
   boolean,
   date,
@@ -576,91 +576,15 @@ export const auditLog = pgTable(
   ],
 );
 
-/* -------------------------------------------------------------------------- */
-/*  Relations                                                                  */
-/* -------------------------------------------------------------------------- */
 
-export const userRelations = relations(user, ({ many, one }) => ({
-  sessions: many(session),
-  accounts: many(account),
-  roles: many(userRole),
-  applications: many(application),
-  school: one(school, { fields: [user.schoolId], references: [school.id] }),
-}));
 
-export const schoolRelations = relations(school, ({ one, many }) => ({
-  dean: one(user, { fields: [school.deanId], references: [user.id] }),
-  associateDeans: many(schoolAssociateDean),
-  members: many(user),
-}));
 
-export const schoolAssociateDeanRelations = relations(
-  schoolAssociateDean,
-  ({ one }) => ({
-    school: one(school, {
-      fields: [schoolAssociateDean.schoolId],
-      references: [school.id],
-    }),
-    user: one(user, {
-      fields: [schoolAssociateDean.userId],
-      references: [user.id],
-    }),
-  }),
-);
 
-export const sessionRelations = relations(session, ({ one }) => ({
-  user: one(user, { fields: [session.userId], references: [user.id] }),
-}));
 
-export const accountRelations = relations(account, ({ one }) => ({
-  user: one(user, { fields: [account.userId], references: [user.id] }),
-}));
 
-export const roleRelations = relations(role, ({ many }) => ({
-  users: many(userRole),
-}));
 
-export const userRoleRelations = relations(userRole, ({ one }) => ({
-  user: one(user, { fields: [userRole.userId], references: [user.id] }),
-  role: one(role, { fields: [userRole.roleId], references: [role.id] }),
-}));
 
-export const applicationRelations = relations(application, ({ one, many }) => ({
-  applicant: one(user, {
-    fields: [application.applicantId],
-    references: [user.id],
-  }),
-  events: many(applicationEvent),
-  files: many(applicationFile),
-}));
 
-export const applicationEventRelations = relations(
-  applicationEvent,
-  ({ one }) => ({
-    application: one(application, {
-      fields: [applicationEvent.applicationId],
-      references: [application.id],
-    }),
-    actor: one(user, {
-      fields: [applicationEvent.actorId],
-      references: [user.id],
-    }),
-  }),
-);
-
-export const applicationFileRelations = relations(
-  applicationFile,
-  ({ one }) => ({
-    application: one(application, {
-      fields: [applicationFile.applicationId],
-      references: [application.id],
-    }),
-    uploader: one(user, {
-      fields: [applicationFile.uploadedBy],
-      references: [user.id],
-    }),
-  }),
-);
 
 /* -------------------------------------------------------------------------- */
 /*  Inferred types                                                             */

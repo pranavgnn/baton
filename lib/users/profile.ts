@@ -183,10 +183,6 @@ export const USER_FIELDS = [
 
 export type UserFieldKey = (typeof USER_FIELDS)[number]["key"];
 
-export const USER_FIELD_KEYS = USER_FIELDS.map(
-  (field) => field.key,
-) as UserFieldKey[];
-
 /**
  * The same list, widened.
  *
@@ -200,10 +196,6 @@ export const USER_FIELD_LIST: readonly UserField[] = USER_FIELDS;
 export const PREFILL_SOURCES: readonly UserField[] = USER_FIELD_LIST.filter(
   (field) => field.prefillable,
 );
-
-export function userFieldLabel(key: string): string {
-  return USER_FIELDS.find((field) => field.key === key)?.label ?? key;
-}
 
 /**
  * A date as written by a person, as an ISO day.

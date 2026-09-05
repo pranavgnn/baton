@@ -524,17 +524,6 @@ function pruneRows(field: AnyField, value: unknown): RowValue[] {
   });
 }
 
-export function allFields(form: FormSchema): FormField[] {
-  return form.sections.flatMap((section) => section.fields);
-}
-
-export function findField(
-  form: FormSchema,
-  key: string,
-): FormField | undefined {
-  return allFields(form).find((field) => field.key === key);
-}
-
 /** Collects every uploaded file referenced by a data namespace. */
 export function collectFiles(
   form: FormSchema,
@@ -543,7 +532,7 @@ export function collectFiles(
   if (!data) return [];
   const files: FileValue[] = [];
 
-  for (const field of allFields(form)) {
+  for (const field of form.sections.flatMap((section) => section.fields)) {
     if (field.type === "repeater") {
       // Uploads inside a repeating group are attached to the application the
       // same as any other: missing them here would leave them unreferenced.

@@ -44,15 +44,6 @@ export function hasChoices(type: FieldType) {
   return CHOICE_FIELD_TYPES.includes(type);
 }
 
-/**
- * A repeating group: a set of columns the applicant fills in once per entry,
- * as many times as they need. The paper forms are full of them - every
- * qualification, every previous appointment, every conference attended.
- */
-export function isRepeater(type: FieldType) {
-  return type === "repeater";
-}
-
 export const fieldOptionSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1, "Option label is required"),

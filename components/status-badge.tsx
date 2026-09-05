@@ -60,7 +60,3 @@ export function StatusBadge({
     </span>
   );
 }
-
-export function statusLabel(status: ApplicationStatus): string {
-  return META[status].label;
-}

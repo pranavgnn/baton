@@ -1,6 +1,5 @@
 import {
   CreateBucketCommand,
-  DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   HeadObjectCommand,
@@ -91,15 +90,6 @@ export async function presignDownload(params: {
   return rewriteToPublicEndpoint(url);
 }
 
-export async function objectExists(objectKey: string): Promise<boolean> {
-  try {
-    await s3().send(new HeadObjectCommand({ Bucket: BUCKET, Key: objectKey }));
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 export async function objectSize(objectKey: string): Promise<number | null> {
   try {
     const head = await s3().send(
@@ -108,16 +98,6 @@ export async function objectSize(objectKey: string): Promise<number | null> {
     return head.ContentLength ?? null;
   } catch {
     return null;
-  }
-}
-
-export async function deleteObject(objectKey: string): Promise<void> {
-  try {
-    await s3().send(
-      new DeleteObjectCommand({ Bucket: BUCKET, Key: objectKey }),
-    );
-  } catch (error) {
-    console.error("[s3] delete failed", objectKey, error);
   }
 }
 

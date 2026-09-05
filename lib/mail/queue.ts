@@ -117,10 +117,3 @@ export async function publishEmailJobs(
     return { ok: false, error: message };
   }
 }
-
-export async function disconnectEmailProducer(): Promise<void> {
-  if (!globalForKafka.__emailProducer) return;
-  await globalForKafka.__emailProducer.disconnect().catch(() => undefined);
-  globalForKafka.__emailProducer = undefined;
-  globalForKafka.__emailProducerReady = undefined;
-}
