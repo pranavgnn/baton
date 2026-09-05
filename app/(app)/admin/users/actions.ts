@@ -21,13 +21,7 @@ import { refusalMessage, refuseImpersonation } from "@/lib/auth/impersonation";
 import { provisionUser, sendActivationLink } from "@/lib/auth/provision";
 import { requirePermissionAction } from "@/lib/auth/session";
 import { db } from "@/lib/db";
-import {
-  application,
-  role,
-  department,
-  user,
-  userRole,
-} from "@/lib/db/schema";
+import { application, role, department, user, userRole } from "@/lib/db/schema";
 import { USER_TYPE_KEYS, type UserType } from "@/lib/users/profile";
 
 const isoDay = z
