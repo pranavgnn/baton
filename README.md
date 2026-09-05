@@ -6,6 +6,14 @@
 
 <p align="center"><strong>Applications that pass from hand to hand.</strong></p>
 
+<p align="center">
+  <a href="WALKTHROUGH.md"><img src="docs/demo.gif" alt="Filling in and submitting an application" width="820"></a>
+</p>
+
+<p align="center">
+  <a href="WALKTHROUGH.md"><strong>See the whole thing in pictures →</strong></a>
+</p>
+
 Baton is a self-hosted portal for any process where a form is submitted, read
 by several people in turn, and decided. Promotions, grant requests, purchase
 approvals, leave, access requests, ethics review — the shape is always the
