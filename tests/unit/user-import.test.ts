@@ -9,7 +9,7 @@ import {
   splitCsvLine,
   CSV_TEMPLATE,
 } from "@/lib/users/import";
-import { parseUserDate, promotionBar } from "@/lib/users/profile";
+import { parseUserDate, applicationBar } from "@/lib/users/profile";
 
 describe("splitCsvLine", () => {
   it("splits a plain line", () => {
@@ -44,11 +44,11 @@ describe("parseUserCsv", () => {
     expect(issues).toEqual([]);
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
-      email: "a.person@manipal.edu",
+      email: "a.person@example.org",
       name: "A Person",
-      employeeId: "MIT-2201",
-      department: "Department of Computer Engineering",
-      roles: ["Head"],
+      employeeId: "EMP-2201",
+      department: "Engineering",
+      roles: ["Department Head"],
     });
     // The second row names no role, which means the default.
     expect(rows[1].roles).toEqual([]);
@@ -77,7 +77,7 @@ describe("parseUserCsv", () => {
 
   it("reports the line number of a bad address", () => {
     const { rows, issues } = parseUserCsv(
-      "email\ngood@manipal.edu\nnot-an-email",
+      "email\ngood@example.org\nnot-an-email",
     );
     expect(rows).toHaveLength(1);
     expect(issues).toEqual([
@@ -98,7 +98,7 @@ describe("parseUserCsv", () => {
   });
 
   it("falls back to a name derived from the address", () => {
-    const { rows } = parseUserCsv("email\nanita.rao@manipal.edu");
+    const { rows } = parseUserCsv("email\nanita.rao@example.org");
     expect(rows[0].name).toBe("Anita Rao");
   });
 
@@ -110,28 +110,26 @@ describe("parseUserCsv", () => {
 
   it("keeps a department name containing a comma intact", () => {
     const { rows } = parseUserCsv(
-      'email,department\na@b.edu,"Department of Basic Sciences, Humanities & Management"',
+      'email,department\na@b.edu,"People, Culture & Workplace"',
     );
-    expect(rows[0].department).toBe(
-      "Department of Basic Sciences, Humanities & Management",
-    );
+    expect(rows[0].department).toBe("People, Culture & Workplace");
   });
 });
 
 describe("parseEmailList", () => {
   it("takes one address per line", () => {
-    const { rows, issues } = parseEmailList("a@manipal.edu\nb@manipal.edu\n");
+    const { rows, issues } = parseEmailList("a@example.org\nb@example.org\n");
     expect(issues).toEqual([]);
     expect(rows.map((row) => row.email)).toEqual([
-      "a@manipal.edu",
-      "b@manipal.edu",
+      "a@example.org",
+      "b@example.org",
     ]);
   });
 
   it("understands the Name <address> form mail clients produce", () => {
-    const { rows } = parseEmailList("Prof. Ravi Kamath <r.kamath@manipal.edu>");
+    const { rows } = parseEmailList("Prof. Ravi Kamath <r.kamath@example.org>");
     expect(rows[0]).toMatchObject({
-      email: "r.kamath@manipal.edu",
+      email: "r.kamath@example.org",
       name: "Prof. Ravi Kamath",
     });
   });
@@ -158,7 +156,7 @@ describe("mapping columns by hand", () => {
     parseCsvTable(
       [
         "mail id,staff no,who,when they joined",
-        "a.person@manipal.edu,MIT-2201,A Person,01/06/2017",
+        "a.person@example.org,MIT-2201,A Person,01/06/2017",
       ].join("\n"),
     );
 
@@ -176,7 +174,7 @@ describe("mapping columns by hand", () => {
 
     expect(issues).toEqual([]);
     expect(rows[0]).toMatchObject({
-      email: "a.person@manipal.edu",
+      email: "a.person@example.org",
       employeeId: "MIT-2201",
       name: "A Person",
       dateOfJoining: "2017-06-01",
@@ -233,18 +231,18 @@ describe("dates as people write them", () => {
   });
 });
 
-describe("who may apply for a promotion", () => {
+describe("who may apply", () => {
   it("bars a fixed-term or probationary appointment, and nobody else", () => {
-    expect(promotionBar("contract")).toMatch(/not eligible/);
-    expect(promotionBar("probation")).toMatch(/not eligible/);
-    expect(promotionBar("regular")).toBe(null);
+    expect(applicationBar("contract")).toMatch(/not eligible/);
+    expect(applicationBar("probation")).toMatch(/not eligible/);
+    expect(applicationBar("regular")).toBe(null);
   });
 
   it("does not bar an account whose employment was never recorded", () => {
     // The portal not knowing something is not the same as knowing it
     // disqualifies them: an import that missed a column must not quietly
     // stop people applying.
-    expect(promotionBar(null)).toBe(null);
-    expect(promotionBar("")).toBe(null);
+    expect(applicationBar(null)).toBe(null);
+    expect(applicationBar("")).toBe(null);
   });
 });

@@ -24,7 +24,7 @@ export async function listDepartments(): Promise<DepartmentRecord[]> {
   // count below reads it as itself.
   const head = alias(user, "head");
 
-  const [departments, associates, counts] = await Promise.all([
+  const [departments, deputies, counts] = await Promise.all([
     db
       .select({
         id: department.id,
@@ -59,7 +59,7 @@ export async function listDepartments(): Promise<DepartmentRecord[]> {
   ]);
 
   const byDepartment = new Map<string, DepartmentPerson[]>();
-  for (const row of associates) {
+  for (const row of deputies) {
     const list = byDepartment.get(row.departmentId) ?? [];
     list.push({ id: row.id, name: row.name, email: row.email });
     byDepartment.set(row.departmentId, list);
@@ -90,7 +90,7 @@ export async function listDepartments(): Promise<DepartmentRecord[]> {
  * Accounts matching what has been typed.
  *
  * Searched rather than listed, for the same reason the audit log's person
- * filter is: an institute has thousands of accounts.
+ * filter is: an organisation has thousands of accounts.
  */
 export async function searchUsers(
   query: string,
@@ -132,7 +132,7 @@ export async function deputiesOfDepartment(
  * Everyone holding a role, as pickable people.
  *
  * Used where the candidates are not tied to a department. Bounded by the size of
- * one role, not by the size of the institute.
+ * one role, not by the size of the organisation.
  */
 export async function holdersOfRole(
   roleId: string,
@@ -211,7 +211,7 @@ export async function holdersOfRoleInDepartment(
  * having to name them head of it.
  */
 export async function departmentsOf(userId: string): Promise<string[]> {
-  const [own, associate, head] = await Promise.all([
+  const [own, deputy, head] = await Promise.all([
     db
       .select({ departmentId: user.departmentId })
       .from(user)
@@ -229,7 +229,7 @@ export async function departmentsOf(userId: string): Promise<string[]> {
 
   const ids = new Set<string>();
   if (own[0]?.departmentId) ids.add(own[0].departmentId);
-  for (const row of [...associate, ...head]) ids.add(row.departmentId);
+  for (const row of [...deputy, ...head]) ids.add(row.departmentId);
   return Array.from(ids);
 }
 

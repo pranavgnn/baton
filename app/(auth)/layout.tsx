@@ -1,6 +1,6 @@
-import Image from "next/image";
 import Link from "next/link";
 
+import { Logo } from "@/components/logo";
 import { ModeToggle } from "@/components/mode-toggle";
 
 export default function AuthLayout({ children }: LayoutProps<"/">) {
@@ -11,18 +11,10 @@ export default function AuthLayout({ children }: LayoutProps<"/">) {
       </div>
 
       <Link href="/" className="flex flex-col items-center gap-2 text-center">
-        <Image
-          src="/mu_logo.png"
-          alt="Manipal University Logo"
-          width={48}
-          height={48}
-          className="size-12 object-contain"
-        />
-        <span className="text-lg font-semibold">
-          Manipal Institute of Technology
-        </span>
+        <Logo className="size-10" />
+        <span className="text-lg font-semibold">Baton</span>
         <span className="text-sm text-muted-foreground">
-          Promotion Application Portal
+          Applications that pass from hand to hand
         </span>
       </Link>
 

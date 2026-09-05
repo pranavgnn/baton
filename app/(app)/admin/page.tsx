@@ -86,8 +86,7 @@ export default async function AdminOverviewPage() {
         <div>
           <h1 className="page-title">Administration</h1>
           <p className="page-subtitle">
-            Set up the promotion process, the people who run it and the messages
-            it sends.
+            Set up the process, the people who run it and the messages it sends.
           </p>
         </div>
       </div>

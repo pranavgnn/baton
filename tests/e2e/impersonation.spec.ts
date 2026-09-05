@@ -5,7 +5,7 @@ import { expectToast, storageStatePath } from "./helpers";
 test.describe.configure({ mode: "serial", retries: 0 });
 test.use({ storageState: storageStatePath("superAdmin") });
 
-const EMPLOYEE = "employee@manipal.edu";
+const EMPLOYEE = "applicant@example.org";
 
 test.describe("acting as another user", () => {
   test("swaps the session, then hands it back", async ({ page }) => {
@@ -16,12 +16,12 @@ test.describe("acting as another user", () => {
       .getByRole("button", { name: /Actions for/ })
       .click();
     await page.getByRole("menuitem", { name: "View as this user" }).click();
-    await expectToast(page, "You are now viewing as Test Employee.");
+    await expectToast(page, "You are now viewing as Test Applicant.");
 
     // Landed on their dashboard, as them.
     await expect(page).toHaveURL(/\/dashboard$/);
     const banner = page.getByTestId("impersonation-banner");
-    await expect(banner).toContainText("Test Employee");
+    await expect(banner).toContainText("Test Applicant");
     await expect(banner).toContainText("Super Admin");
 
     // The session really is theirs: the admin area is gone, and the applicant's
@@ -50,6 +50,6 @@ test.describe("acting as another user", () => {
 
     const table = page.getByTestId("audit-table");
     await expect(table).toContainText("Super Admin started acting as Test");
-    await expect(table).toContainText("stopped acting as Test Employee");
+    await expect(table).toContainText("stopped acting as Test Applicant");
   });
 });

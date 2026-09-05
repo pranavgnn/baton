@@ -23,7 +23,6 @@ export type ProvisionUserInput = {
   /** ISO days. */
   dateOfBirth?: string | null;
   dateOfJoining?: string | null;
-  dateOfLastPromotion?: string | null;
   phone?: string | null;
   personalEmail?: string | null;
   address?: string | null;
@@ -59,7 +58,6 @@ export async function provisionUser(
       userType: input.userType ?? null,
       dateOfBirth: input.dateOfBirth ?? null,
       dateOfJoining: input.dateOfJoining ?? null,
-      dateOfLastPromotion: input.dateOfLastPromotion ?? null,
       phone: input.phone ?? null,
       personalEmail: input.personalEmail ?? null,
       address: input.address ?? null,

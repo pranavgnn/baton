@@ -24,7 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { can, canAny, requireUser } from "@/lib/auth/session";
-import { promotionBar } from "@/lib/users/profile";
+import { applicationBar } from "@/lib/users/profile";
 import {
   countApplicationsByStatus,
   getOpenApplicationFor,
@@ -81,7 +81,7 @@ export default async function DashboardPage() {
           <h1 className="page-title">Welcome back, {current.name}</h1>
           <p className="page-subtitle">
             {published
-              ? "Promotion applications are configured and running."
+              ? "Applications are configured and running."
               : "No workflow has been published yet."}
           </p>
         </div>
@@ -103,7 +103,7 @@ export default async function DashboardPage() {
 
       {isApplicant ? (
         <ApplicantPanel
-          barred={promotionBar(current.userType)}
+          barred={applicationBar(current.userType)}
           application={openApplication}
           stageLabel={currentStageLabel}
           past={past}
@@ -155,7 +155,7 @@ function ApplicantPanel({
       <>
         <Card>
           <CardHeader>
-            <CardTitle>Your promotion application</CardTitle>
+            <CardTitle>Your application</CardTitle>
             <CardDescription>
               {barred
                 ? barred

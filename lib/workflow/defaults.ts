@@ -82,10 +82,34 @@ export function emptyFormSchema(): FormSchema {
   return { sections: [] };
 }
 
+function choices(...entries: [label: string, value: string][]) {
+  return entries.map(([label, value]) => ({ id: newId("opt"), label, value }));
+}
+
+function rule(
+  field: string,
+  operator: ConditionOperator,
+  value = "",
+): ConditionRule {
+  return { id: newId("rule"), field, operator, value };
+}
+
+/** Applies when every rule holds. */
+function when(...rules: ConditionRule[]): ConditionGroup {
+  return { mode: "all", rules };
+}
+
 /* -------------------------------------------------------------------------- */
-/*  Default template content                                                   */
+/*  Default email templates                                                    */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Seven messages covering the moments an application changes hands.
+ *
+ * Deliberately plain: they are meant to be rewritten in the template editor by
+ * whoever runs the portal, so they say what happened and nothing about who
+ * "we" are.
+ */
 export const DEFAULT_EMAIL_TEMPLATES = [
   {
     name: "Application Received",
@@ -93,10 +117,9 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     description: "Acknowledgement sent to the applicant on submission.",
     bodyHtml: [
       "<h2>Thank you, {{applicant_name}}</h2>",
-      "<p>We have received your promotion application <strong>{{application_reference}}</strong> submitted on {{submitted_at}}.</p>",
-      "<p>It is now with <strong>{{current_stage}}</strong>. You will be notified each time it moves forward.</p>",
-      "<p>You can track its progress at any time from the portal.</p>",
-      "<p>Regards,<br>Office of the Registrar</p>",
+      "<p>We have received your application <strong>{{application_reference}}</strong>, submitted on {{submitted_at}}.</p>",
+      "<p>It is now with <strong>{{current_stage}}</strong>. You will be told each time it moves.</p>",
+      "<p>You can follow its progress from the portal at any time.</p>",
     ].join(""),
   },
   {
@@ -104,95 +127,83 @@ export const DEFAULT_EMAIL_TEMPLATES = [
     subject: "Application {{application_reference}} moved to {{current_stage}}",
     description: "Progress notification sent when a stage is completed.",
     bodyHtml: [
-      "<h2>Application update</h2>",
+      "<h2>Your application has moved</h2>",
       "<p>Dear {{applicant_name}},</p>",
-      "<p>Your application <strong>{{application_reference}}</strong> has completed <strong>{{previous_stage}}</strong> with the outcome <strong>{{last_outcome}}</strong>.</p>",
+      "<p>Application <strong>{{application_reference}}</strong> has completed <strong>{{previous_stage}}</strong> with the outcome <strong>{{last_outcome}}</strong>.</p>",
       "<p>It is now with <strong>{{current_stage}}</strong>.</p>",
-      "<p>Regards,<br>Office of the Registrar</p>",
     ].join(""),
   },
   {
     name: "Application Returned",
-    subject: "Action needed on application {{application_reference}}",
+    subject: "Changes needed on application {{application_reference}}",
     description: "Sent when a reviewer sends the application back for changes.",
     bodyHtml: [
       "<h2>Your application needs changes</h2>",
       "<p>Dear {{applicant_name}},</p>",
-      "<p>{{actor_name}} has returned application <strong>{{application_reference}}</strong> for revision at the <strong>{{previous_stage}}</strong> stage.</p>",
-      "<p>Please sign in to the portal, update your submission and send it again.</p>",
-      "<p>Regards,<br>Office of the Registrar</p>",
+      "<p>{{actor_name}} has returned application <strong>{{application_reference}}</strong> at the <strong>{{previous_stage}}</strong> step.</p>",
+      "<p>Sign in to the portal, update your answers and send it again.</p>",
     ].join(""),
   },
   {
     name: "Application Approved",
-    subject: "Your promotion application has been approved",
-    description: "Sent when the application reaches an approved end node.",
+    subject: "Your application has been approved",
+    description: "Sent when the application reaches an approved end step.",
     bodyHtml: [
-      "<h2>Congratulations, {{applicant_name}}</h2>",
-      "<p>Your promotion application <strong>{{application_reference}}</strong> has been <strong>approved</strong>.</p>",
-      "<p>The Office of the Registrar will contact you regarding the next formalities.</p>",
-      "<p>Regards,<br>Office of the Registrar</p>",
+      "<h2>Good news, {{applicant_name}}</h2>",
+      "<p>Application <strong>{{application_reference}}</strong> has been <strong>approved</strong>.</p>",
+      "<p>The full record, including every reviewer's remarks, is in the portal.</p>",
     ].join(""),
   },
   {
-    name: "Application Rejected",
-    subject: "Outcome of your promotion application",
-    description: "Sent when the application reaches a rejected end node.",
+    name: "Application Declined",
+    subject: "Outcome of application {{application_reference}}",
+    description: "Sent when the application reaches a declined end step.",
     bodyHtml: [
       "<h2>Application outcome</h2>",
       "<p>Dear {{applicant_name}},</p>",
-      "<p>After review, your promotion application <strong>{{application_reference}}</strong> has not been approved at this time.</p>",
-      "<p>You may contact the Office of the Registrar for detailed feedback.</p>",
-      "<p>Regards,<br>Office of the Registrar</p>",
+      "<p>After review, application <strong>{{application_reference}}</strong> has not been approved.</p>",
+      "<p>The reviewers' remarks are in the portal.</p>",
     ].join(""),
   },
   {
-    name: "Archive Notice",
-    subject:
-      "Approved promotion application {{application_reference}} for filing",
+    name: "Filing Notice",
+    subject: "Approved application {{application_reference}} for filing",
     description:
-      "Sent to Institute HR when the Director approves, so the record can be filed.",
+      "Sent to whoever keeps the records once an application is approved.",
     bodyHtml: [
       "<h2>An approved application is ready to file</h2>",
-      "<p>Application <strong>{{application_reference}}</strong> from {{applicant_name}} was approved on {{submitted_at}}.</p>",
-      "<p>Open it in the portal to read the full record, including every reviewer's remarks.</p>",
-      "<p>Regards,<br>Office of the Registrar</p>",
+      "<p>Application <strong>{{application_reference}}</strong> from {{applicant_name}} has been approved.</p>",
+      "<p>Open it in the portal to read the whole record.</p>",
     ].join(""),
   },
   {
     name: "Reviewer Assignment",
     subject: "Application {{application_reference}} awaits your review",
-    description: "Notifies the role holding the next stage.",
+    description: "Notifies whoever the next step is waiting on.",
     bodyHtml: [
-      "<h2>A promotion application needs your review</h2>",
+      "<h2>An application needs your review</h2>",
       "<p>Application <strong>{{application_reference}}</strong> from {{applicant_name}} has reached <strong>{{current_stage}}</strong>.</p>",
-      "<p>Please sign in to the portal to complete your review.</p>",
+      "<p>Sign in to the portal to read it and record your decision.</p>",
     ].join(""),
   },
 ] as const;
 
-export type DefaultTemplateName =
-  (typeof DEFAULT_EMAIL_TEMPLATES)[number]["name"];
-
 /* -------------------------------------------------------------------------- */
-/*  Default roles                                                              */
+/*  Default departments and roles                                              */
 /* -------------------------------------------------------------------------- */
 
 /**
- * The departments a fresh install starts with, as MIT Manipal lists them.
+ * Departments a fresh install starts with.
  *
- * A starting point rather than the whole institute: departments are administered
- * from the portal, so anything missing is added there.
+ * Examples rather than anybody's real structure: departments are administered
+ * from the portal, so the first thing an operator does is replace these.
  */
 export const DEFAULT_DEPARTMENTS = [
-  {
-    name: "Department of Basic Sciences, Humanities & Management",
-    code: "SBHM",
-  },
-  { name: "Department of Civil & Chemical Engineering", code: "SCCE" },
-  { name: "Department of Computer Engineering", code: "SOCE" },
-  { name: "Department of Electrical Engineering", code: "SEE" },
-  { name: "Department of Mechanical Engineering", code: "SOME" },
+  { name: "Engineering", code: "ENG" },
+  { name: "Finance", code: "FIN" },
+  { name: "Operations", code: "OPS" },
+  { name: "People", code: "PPL" },
+  { name: "Research", code: "RES" },
 ] as const;
 
 export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
@@ -204,70 +215,53 @@ export const SUPER_ADMIN_ROLE_NAME = "Super Admin";
  */
 export const DEFAULT_ROLES = [
   {
-    name: "Employee",
-    description: "Submits and tracks their own promotion application.",
+    name: "Applicant",
+    description: "Submits and follows their own applications.",
     permissions: ["applications.apply"],
     isSystem: false,
     designation: null,
   },
   {
-    name: "Head",
+    name: "Department Head",
     description:
-      "Head of a department. Sends an application to one of the department's deputies and decides it once the recommendation comes back.",
+      "Heads a department. Decides who assesses an application from it, and decides the application once the assessment comes back.",
     permissions: ["applications.review"],
     isSystem: false,
     designation: "head",
   },
   {
-    name: "Deputy",
+    name: "Deputy Head",
     description:
-      "Associate head of a department. Recommends on the applications the head sends them.",
+      "Deputises for a department head. Assesses the applications the head sends them.",
     permissions: ["applications.review"],
     isSystem: false,
     designation: "deputy",
   },
   {
-    name: "HR Officer",
+    name: "Compliance Officer",
     description:
-      "Reviews experience and service, and makes the final eligibility declaration.",
+      "Checks an approved application against the rules before it reaches the approver.",
     permissions: ["applications.review"],
     isSystem: false,
     designation: null,
   },
   {
-    name: "R&C Officer",
-    description:
-      "Associate Director (R&C). Evaluates research output and publications.",
-    permissions: ["applications.review"],
-    isSystem: false,
-    designation: null,
-  },
-  {
-    name: "FDW Officer",
-    description:
-      "Associate Director (FD&W). Carries out the formal evaluation.",
-    permissions: ["applications.review"],
-    isSystem: false,
-    designation: null,
-  },
-  {
-    name: "Director",
-    description:
-      "Gives the final institutional approval or rejection. Nothing follows it either way.",
+    name: "Approver",
+    description: "Gives the final decision. Nothing follows it either way.",
     permissions: ["applications.review", "applications.viewAll"],
     isSystem: false,
     designation: null,
   },
   {
-    name: "Institute HR",
+    name: "Records",
     description:
-      "Receives the approved application for filing. Notified by email; no action is required in the portal.",
+      "Keeps the approved applications. Notified by email; nothing to do in the portal.",
     permissions: ["applications.viewAll"],
     isSystem: false,
     designation: null,
   },
   {
-    name: "System Admin",
+    name: "Administrator",
     description: "Administers users, roles, the workflow and its templates.",
     permissions: [
       "admin.access",
@@ -292,133 +286,119 @@ export const DEFAULT_ROLES = [
 ] as const;
 
 /* -------------------------------------------------------------------------- */
-/*  Applicant form - STN 023 R5, sections A to H                               */
+/*  The example application form                                               */
 /* -------------------------------------------------------------------------- */
 
 /**
- * Options are written out rather than generated so the stored `value` stays
- * stable if a label is ever reworded: the value is what lands in an
- * application's answers and what an old application is read back with.
+ * The form a fresh install ships with.
+ *
+ * It is an example, not a specification: whoever runs the portal replaces it
+ * in the form builder. It is written to demonstrate one of everything the
+ * engine can do - answers taken from the account, an answer worked out from
+ * its neighbours, a question that appears only when another is ticked, a
+ * repeating table with typed columns, and an upload - because an example that
+ * exercises nothing teaches nothing.
  */
-function choices(...entries: [label: string, value: string][]) {
-  return entries.map(([label, value]) => ({ id: newId("opt"), label, value }));
-}
-
-function rule(
-  field: string,
-  operator: ConditionOperator,
-  value = "",
-): ConditionRule {
-  return { id: newId("rule"), field, operator, value };
-}
-
-/** Applies when every rule holds. */
-function when(...rules: ConditionRule[]): ConditionGroup {
-  return { mode: "all", rules };
-}
-
-/** Applies when any one rule holds. */
-function whenAny(...rules: ConditionRule[]): ConditionGroup {
-  return { mode: "any", rules };
-}
-
 export function defaultApplicantForm(): FormSchema {
   return {
     sections: [
       createSection(
-        "The Post Applied For",
+        "What you are asking for",
         [
           createField({
             type: "select",
-            key: "post_applied_for",
-            label: "Application for promotion to",
+            key: "request_type",
+            label: "Type of request",
             required: true,
+            width: "half",
             options: choices(
-              [
-                "Assistant Professor Senior Scale",
-                "assistant_professor_senior_scale",
-              ],
-              ["Associate Professor", "associate_professor"],
-              ["Additional Professor", "additional_professor"],
-              ["Professor", "professor"],
-              ["Senior Professor", "senior_professor"],
+              ["Promotion", "promotion"],
+              ["Transfer", "transfer"],
+              ["Training", "training"],
+              ["Equipment", "equipment"],
+              ["Something else", "other"],
             ),
           }),
+          createField({
+            type: "date",
+            key: "effective_from",
+            label: "Wanted from",
+            required: true,
+            width: "half",
+          }),
+          createField({
+            type: "text",
+            key: "title",
+            label: "Title",
+            required: true,
+            placeholder: "One line describing the request",
+            validation: { maxLength: 120 },
+          }),
+          // Only asked when the type does not cover it, which is the whole
+          // point of a conditional question.
+          createField({
+            type: "textarea",
+            key: "other_type_detail",
+            label: "Tell us what kind of request this is",
+            visibleWhen: when(rule("request_type", "equals", "other")),
+            requiredWhen: when(rule("request_type", "equals", "other")),
+          }),
+          createField({
+            type: "textarea",
+            key: "justification",
+            label: "Why it should be granted",
+            description: "The case a reviewer will read first.",
+            required: true,
+            validation: { minLength: 40 },
+          }),
         ],
-        "The cadre you are applying to be promoted to.",
+        "The request itself. Everything else supports it.",
       ),
 
       createSection(
-        "A. Personal & Employment Details",
+        "About you",
         [
           createField({
             type: "text",
             key: "full_name",
-            prefill: "name",
             label: "Full name",
+            prefill: "name",
             required: true,
             width: "half",
           }),
           createField({
             type: "text",
             key: "employee_code",
+            label: "Employee ID",
             prefill: "employeeId",
-            label: "Employee code",
-            required: true,
-            width: "half",
-          }),
-          createField({
-            type: "date",
-            key: "date_of_birth",
-            prefill: "dateOfBirth",
-            label: "Date of birth",
-            required: true,
             width: "half",
           }),
           createField({
             type: "text",
-            key: "present_designation",
-            prefill: "designation",
-            label: "Present designation",
-            required: true,
-            width: "half",
-          }),
-          createField({
-            type: "text",
-            key: "department",
-            prefill: "department",
+            key: "department_name",
             label: "Department",
-            required: true,
+            prefill: "department",
             width: "half",
           }),
           createField({
             type: "text",
-            key: "institution",
-            prefill: "institution",
-            label: "Institution",
-            required: true,
+            key: "job_title",
+            label: "Job title",
+            prefill: "designation",
             width: "half",
           }),
           createField({
             type: "date",
-            key: "date_of_joining",
+            key: "joined_on",
+            label: "Date you joined",
             prefill: "dateOfJoining",
-            label: "Date of joining",
-            required: true,
             width: "half",
           }),
           createField({
-            type: "date",
-            key: "date_of_last_promotion",
-            prefill: "dateOfLastPromotion",
-            label: "Date of last promotion",
-            required: true,
-            width: "half",
-          }),
-          createField({
-            type: "text",
-            key: "scopus_id",
-            label: "Scopus ID",
+            type: "phone",
+            key: "contact_number",
+            label: "Contact number",
+            prefill: "phone",
             required: true,
             width: "half",
           }),
@@ -427,27 +407,65 @@ export function defaultApplicantForm(): FormSchema {
       ),
 
       createSection(
-        "B. Qualifications",
+        "What it costs",
+        [
+          createField({
+            type: "number",
+            key: "cost_direct",
+            label: "Direct cost",
+            required: true,
+            width: "half",
+            validation: { min: 0 },
+          }),
+          createField({
+            type: "number",
+            key: "cost_indirect",
+            label: "Indirect cost",
+            required: true,
+            width: "half",
+            validation: { min: 0 },
+          }),
+          // Added up rather than asked for, so the total can never disagree
+          // with the two figures above it.
+          createField({
+            type: "number",
+            key: "cost_total",
+            label: "Total cost",
+            description: "Worked out from the two figures above.",
+            formula: "cost_direct + cost_indirect",
+            width: "half",
+          }),
+          createField({
+            type: "checkbox",
+            key: "needs_funding",
+            label: "This needs funding from outside my department",
+          }),
+          createField({
+            type: "text",
+            key: "funding_source",
+            label: "Where the funding comes from",
+            requiredWhen: when(rule("needs_funding", "isChecked")),
+          }),
+        ],
+        "Leave the costs at zero if the request has none.",
+      ),
+
+      createSection(
+        "Anything before this",
         [
           createRepeater(
             {
-              key: "qualifications",
-              label: "Qualifications",
-              required: true,
-              description: "Add one entry per qualification you hold.",
+              key: "earlier_requests",
+              label: "Earlier requests of the same kind",
+              description:
+                "Add a row for each one. Leave it empty if this is your first.",
+              validation: { maxRows: 10 },
             },
             [
               createField({
                 type: "text",
-                key: "qualification",
-                label: "Qualification",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "text",
-                key: "institution",
-                label: "College or University",
+                key: "reference",
+                label: "Reference",
                 required: true,
                 width: "half",
               }),
@@ -457,7 +475,19 @@ export function defaultApplicantForm(): FormSchema {
                 label: "Year",
                 required: true,
                 width: "half",
-                validation: { min: 1950, max: 2100 },
+                validation: { min: 1950, max: 2200 },
+              }),
+              createField({
+                type: "select",
+                key: "outcome",
+                label: "Outcome",
+                required: true,
+                width: "half",
+                options: choices(
+                  ["Approved", "approved"],
+                  ["Declined", "declined"],
+                  ["Withdrawn", "withdrawn"],
+                ),
               }),
               createField({
                 type: "text",
@@ -468,612 +498,63 @@ export function defaultApplicantForm(): FormSchema {
             ],
           ),
         ],
-        "Every qualification you hold, starting with the most recent.",
+        "A reviewer reads this beside the request itself.",
       ),
 
       createSection(
-        "C. Previous Appointments & Teaching Experience",
+        "Documents",
         [
-          createRepeater(
-            {
-              key: "previous_appointments",
-              label: "Previous appointments",
-              required: true,
-              description: "Add one entry per appointment, most recent first.",
-            },
-            [
-              createField({
-                type: "text",
-                key: "designation",
-                label: "Designation",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "text",
-                key: "institution",
-                label: "Institution",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "date",
-                key: "from_date",
-                label: "From",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "checkbox",
-                key: "is_current",
-                label: "This is my current appointment",
-                width: "half",
-              }),
-              createField({
-                type: "date",
-                key: "to_date",
-                label: "To",
-                required: true,
-                width: "half",
-                // The paper form allows "Present" in this column instead of a
-                // date, which the tick box above says more plainly.
-                visibleWhen: when(rule("is_current", "isNotChecked")),
-              }),
-              createField({
-                type: "text",
-                key: "total_experience",
-                label: "Total experience",
-                required: true,
-                width: "half",
-                placeholder: "e.g. 6 years 2 months",
-              }),
-            ],
-          ),
           createField({
-            type: "textarea",
-            key: "courses_taught",
-            label: "Courses taught",
+            type: "file",
+            key: "supporting_document",
+            label: "Supporting document",
+            description: "One PDF, up to 10 MB.",
             required: true,
+            validation: { acceptedFileTypes: ["application/pdf"], maxFiles: 1 },
+          }),
+          createField({
+            type: "file",
+            key: "extra_documents",
+            label: "Anything else worth attaching",
+            description: "Up to five files.",
+            validation: { maxFiles: 5 },
           }),
         ],
-        "Where you have taught, and what.",
+        "Uploads are attached to the application and printed with it.",
       ),
 
       createSection(
-        "D. Research Publications",
+        "Declaration",
         [
           createField({
             type: "paragraph",
-            key: "publications_note",
+            key: "declaration_text",
             label:
-              "These figures are verifiable on http://eprints.manipal.edu and will be checked at the R&C stage.",
+              "Everything above will be read by the people who decide this request, and kept with the record of it.",
           }),
           createField({
-            type: "number",
-            key: "total_publications",
-            label: "Total publications",
+            type: "checkbox",
+            key: "declaration",
+            label: "I confirm that what I have written here is true.",
             required: true,
-            width: "half",
-            validation: { min: 0 },
-            // Added up rather than asked for: the paper form asks for all
-            // three and the totals disagree often enough to be a nuisance.
-            formula: "total_indexed + total_non_indexed",
-          }),
-          createField({
-            type: "number",
-            key: "total_indexed",
-            label: "Total indexed",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "total_non_indexed",
-            label: "Total non-indexed",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "indexed_last_three_years",
-            label: "Indexed (last 3 years)",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "non_indexed_last_three_years",
-            label: "Non-indexed (last 3 years)",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "heading",
-            key: "best_publications_heading",
-            label: "Three best publications",
-          }),
-          createField({
-            type: "text",
-            key: "best_publication_1",
-            label: "Best publication 1",
-            required: true,
-            placeholder: "Title of the paper",
-          }),
-          createField({
-            type: "text",
-            key: "best_publication_2",
-            label: "Best publication 2",
-            required: true,
-            placeholder: "Title of the paper",
-          }),
-          createField({
-            type: "text",
-            key: "best_publication_3",
-            label: "Best publication 3",
-            required: true,
-            placeholder: "Title of the paper",
           }),
         ],
-        "Your publication record, and the three papers you would most like read.",
+        "The last step before it is sent.",
       ),
-
-      createSection(
-        "E. Research Accomplishments Checklist",
-        [
-          createField({
-            type: "number",
-            key: "min_required_scopus_fa_ca",
-            label: "1. Minimum required publications in SCOPUS/WoS as FA/CA",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "total_scopus_fa_ca",
-            label: "2. Total SCOPUS/WoS indexed publications as FA/CA",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "min_required_mahe_fa_ca_present_cadre",
-            label:
-              "3. Minimum required publications in SCOPUS/WoS with MAHE affiliation as FA/CA in present cadre",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "total_mahe_fa_ca_present_cadre",
-            label:
-              "4. Total SCOPUS/WoS indexed publications with MAHE affiliation as FA/CA in present cadre",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "total_multi_ca_mit_manipal",
-            label:
-              "5. Total SCOPUS/WoS indexed publications with more than one CA from MIT-Manipal",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "min_required_q1_q2_present_cadre",
-            label:
-              "6. Minimum required SCOPUS/WoS Q1/Q2 publications with MAHE affiliation as FA/CA in present cadre",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "total_q1_q2_present_cadre",
-            label:
-              "7. Total SCOPUS/WoS Q1/Q2 publications with MAHE affiliation as FA/CA in present cadre",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "top_500_collaborations",
-            label:
-              "8. Publications from collaborations with top 500 QS/THE world-ranking universities",
-            description: "At most 2 are counted.",
-            required: true,
-            width: "half",
-            validation: { min: 0, max: 2 },
-          }),
-          createField({
-            type: "number",
-            key: "sponsored_rd_amount",
-            label:
-              "9. Total amount received through Sponsored R&D external projects",
-            description: "In rupees. Leave blank if you have none.",
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "select",
-            key: "sponsored_rd_role",
-            label: "9a. Your role on those projects",
-            width: "half",
-            options: choices(
-              ["Principal Investigator", "pi"],
-              ["Co-Principal Investigator", "co_pi"],
-            ),
-            // The paper form asks for the role only once an amount is stated.
-            visibleWhen: when(rule("sponsored_rd_amount", "isFilled")),
-            requiredWhen: when(rule("sponsored_rd_amount", "isFilled")),
-          }),
-          createField({
-            type: "number",
-            key: "utility_patents_granted",
-            label: "10. Number of utility patents granted",
-            description: "Leave blank if you have none.",
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "phd_guided",
-            label: "11. Number of PhD scholars guided",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "phd_co_guided",
-            label: "12. Number of PhD scholars co-guided",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "phd_guiding",
-            label: "13. Number of PhD scholars currently guiding",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "phd_co_guiding",
-            label: "14. Number of PhD scholars currently co-guiding",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "file",
-            key: "scopus_sdg_page",
-            label:
-              "15. Scopus page showing SDG-linked and internationally co-authored publications",
-            required: true,
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: ["application/pdf", ".pdf"],
-              maxFiles: 1,
-            },
-          }),
-          createField({
-            type: "number",
-            key: "internationally_co_authored",
-            label: "16. Total internationally co-authored publications",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-          createField({
-            type: "number",
-            key: "sdg_linked_publications",
-            label: "17. Total SDG-linked publications",
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-        ],
-        "The research accomplishments checklist. R&C will verify each figure.",
-      ),
-
-      createSection(
-        "F. Conferences & Workshops",
-        [
-          createRepeater(
-            {
-              key: "conferences",
-              label: "Conferences and workshops",
-              description: "Optional, but worth listing.",
-            },
-            [
-              createField({
-                type: "text",
-                key: "name",
-                label: "Conference or workshop",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "text",
-                key: "organiser",
-                label: "Organiser",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "date",
-                key: "date",
-                label: "Date",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "text",
-                key: "duration",
-                label: "Duration",
-                width: "half",
-                placeholder: "e.g. 3 days",
-              }),
-            ],
-          ),
-        ],
-        "Conferences and workshops you have taken part in.",
-      ),
-
-      createSection(
-        "G. Teacher Training & Faculty Development Programmes",
-        [
-          createRepeater(
-            {
-              key: "faculty_development",
-              label: "Programmes attended",
-              description: "Programmes from the last three years.",
-            },
-            [
-              createField({
-                type: "text",
-                key: "programme",
-                label: "Programme",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "text",
-                key: "organiser",
-                label: "Organiser",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "date",
-                key: "from_date",
-                label: "From",
-                required: true,
-                width: "half",
-              }),
-              createField({
-                type: "date",
-                key: "to_date",
-                label: "To",
-                required: true,
-                width: "half",
-              }),
-            ],
-          ),
-        ],
-        "Teacher training and faculty development from the last three years.",
-      ),
-
-      createSection(
-        "H. Additional Contributions",
-        [
-          createField({
-            type: "textarea",
-            key: "contribution_teaching",
-            label: "Contributions to teaching",
-          }),
-          createField({
-            type: "textarea",
-            key: "contribution_research",
-            label: "Contributions to research",
-          }),
-          createField({
-            type: "textarea",
-            key: "contribution_institution",
-            label: "Contributions to the institution",
-          }),
-          createField({
-            type: "textarea",
-            key: "contribution_university",
-            label: "Contributions to the university, or any other",
-          }),
-        ],
-        "Anything the sections above do not cover.",
-      ),
-
-      createSection(
-        "Supporting Documents",
-        [
-          createField({
-            type: "file",
-            key: "scopus_profile",
-            label: "Scopus profile printout",
-            description:
-              "With SDG-linked and internationally co-authored publications marked.",
-            required: true,
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: ["application/pdf", ".pdf"],
-              maxFiles: 1,
-            },
-          }),
-          createField({
-            type: "file",
-            key: "best_publication_first_pages",
-            label: "First page of each of your three best publications",
-            required: true,
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: ["application/pdf", ".pdf"],
-              maxFiles: 3,
-            },
-          }),
-          createField({
-            type: "file",
-            key: "phd_guided_proof",
-            label: "Proof of PhD scholars guided or co-guided",
-            description: "Registrar evaluation announcement.",
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: ["application/pdf", ".pdf"],
-              maxFiles: 5,
-            },
-            // Asked for exactly when items 11 or 12 say there are any.
-            visibleWhen: whenAny(
-              rule("phd_guided", "greaterThan", "0"),
-              rule("phd_co_guided", "greaterThan", "0"),
-            ),
-            requiredWhen: whenAny(
-              rule("phd_guided", "greaterThan", "0"),
-              rule("phd_co_guided", "greaterThan", "0"),
-            ),
-          }),
-          createField({
-            type: "file",
-            key: "phd_guiding_proof",
-            label: "Proof of PhD scholars currently guiding or co-guiding",
-            description: "IPAC letter.",
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: ["application/pdf", ".pdf"],
-              maxFiles: 5,
-            },
-            visibleWhen: whenAny(
-              rule("phd_guiding", "greaterThan", "0"),
-              rule("phd_co_guiding", "greaterThan", "0"),
-            ),
-            requiredWhen: whenAny(
-              rule("phd_guiding", "greaterThan", "0"),
-              rule("phd_co_guiding", "greaterThan", "0"),
-            ),
-          }),
-          createField({
-            type: "file",
-            key: "sponsored_rd_proof",
-            label: "Sponsored R&D project proof",
-            description: "Receipt from MAHE Finance.",
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: ["application/pdf", ".pdf"],
-              maxFiles: 5,
-            },
-            visibleWhen: when(rule("sponsored_rd_amount", "isFilled")),
-            requiredWhen: when(rule("sponsored_rd_amount", "isFilled")),
-          }),
-          createField({
-            type: "file",
-            key: "patent_certificates",
-            label: "Patent certificates",
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: ["application/pdf", ".pdf"],
-              maxFiles: 5,
-            },
-            visibleWhen: when(
-              rule("utility_patents_granted", "greaterThan", "0"),
-            ),
-            requiredWhen: when(
-              rule("utility_patents_granted", "greaterThan", "0"),
-            ),
-          }),
-          createField({
-            type: "file",
-            key: "participation_certificates",
-            label: "Participation certificates",
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: [
-                "application/pdf",
-                ".pdf",
-                "image/jpeg",
-                "image/png",
-              ],
-              maxFiles: 10,
-            },
-          }),
-          createField({
-            type: "file",
-            key: "achievement_certificates",
-            label: "Achievement certificates",
-            validation: {
-              maxFileSizeMb: 10,
-              acceptedFileTypes: [
-                "application/pdf",
-                ".pdf",
-                "image/jpeg",
-                "image/png",
-              ],
-              maxFiles: 10,
-            },
-          }),
-        ],
-        "PDF, JPG or PNG, up to 10 MB each. Some are asked for only when your answers call for them.",
-      ),
-
-      createSection("Declaration", [
-        createField({
-          type: "checkbox",
-          key: "declaration",
-          label:
-            "I certify that the information provided is accurate and complete.",
-          required: true,
-        }),
-        createField({
-          type: "paragraph",
-          key: "declaration_note",
-          label:
-            "The moment you submit is recorded as the date of this declaration.",
-        }),
-      ]),
     ],
   };
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Reviewer forms - Evaluation Form V2                                        */
+/*  The example reviewer forms                                                 */
 /* -------------------------------------------------------------------------- */
 
-const PERFORMANCE_GRADES: [string, string][] = [
-  ["A+++", "a_plus_plus_plus"],
-  ["A++", "a_plus_plus"],
-  ["A+", "a_plus"],
-  ["A", "a"],
-];
-
-const YES_NO: [string, string][] = [
-  ["Yes", "yes"],
-  ["No", "no"],
-];
-
 /** What the deputy the head named records before it goes back. */
-function deputyForm(): FormSchema {
+function assessmentForm(): FormSchema {
   return {
     sections: [
       createSection(
-        "Deputy",
+        "Assessment",
         [
           createField({
             type: "radio",
@@ -1092,303 +573,55 @@ function deputyForm(): FormSchema {
             required: true,
           }),
         ],
-        "Read the applicant's submission before recording your recommendation. It goes back to the head, who decides.",
+        "Read the application before recording your assessment. It goes back to the head, who decides.",
       ),
     ],
   };
 }
 
-function hrInitialForm(): FormSchema {
+/** The head's own words, once the assessment is in front of them. */
+function decisionForm(): FormSchema {
   return {
     sections: [
       createSection(
-        "Experience & Service",
+        "Decision",
         [
           createField({
-            type: "text",
-            key: "experience_at_mit",
-            label: "Experience at MIT",
+            type: "textarea",
+            key: "remarks",
+            label: "Remarks",
             required: true,
-            width: "half",
-            placeholder: "Years and months",
-          }),
-          createField({
-            type: "text",
-            key: "experience_before_mit",
-            label: "Experience from other organisations prior to MIT",
-            description: "As per the eligibility criteria.",
-            required: true,
-            width: "half",
-          }),
-          createField({
-            type: "text",
-            key: "post_doc_duration",
-            label: "Post-doctoral duration",
-            description: "As per the eligibility criteria.",
-            required: true,
-            width: "half",
-          }),
-          createField({
-            type: "text",
-            key: "total_experience",
-            label: "Total experience",
-            required: true,
-            width: "half",
-          }),
-          createField({
-            type: "number",
-            key: "required_experience_years",
-            label: "Required experience for the applied post, in years",
-            required: true,
-            width: "half",
-            validation: { min: 0, max: 60 },
           }),
         ],
-        "Service history as HR records it.",
+        "Approving sends the application on to Compliance; declining closes it.",
       ),
+    ],
+  };
+}
+
+function complianceForm(): FormSchema {
+  return {
+    sections: [
       createSection(
-        "Performance Grades",
-        [
-          createRepeater(
-            {
-              key: "performance_grades",
-              label: "Performance grades",
-              required: true,
-              description: "The last three years, one entry each.",
-              validation: { minRows: 3, maxRows: 3 },
-            },
-            [
-              createField({
-                type: "number",
-                key: "year",
-                label: "Year",
-                required: true,
-                width: "half",
-                validation: { min: 1950, max: 2100 },
-              }),
-              createField({
-                type: "select",
-                key: "grade",
-                label: "Grade",
-                required: true,
-                width: "half",
-                options: choices(...PERFORMANCE_GRADES),
-              }),
-            ],
-          ),
-        ],
-        "Three years of performance grades, as the paper form records them.",
-      ),
-      createSection(
-        "Verdict",
+        "Compliance",
         [
           createField({
             type: "radio",
-            key: "experience_eligibility",
-            label: "Eligible on the experience criteria",
-            required: true,
-            options: choices(...YES_NO),
-          }),
-          createField({
-            type: "date",
-            key: "date_of_eligibility",
-            label: "Date of eligibility",
-            required: true,
-            width: "half",
-            visibleWhen: when(rule("experience_eligibility", "equals", "yes")),
-          }),
-          createField({
-            type: "textarea",
-            key: "remarks",
-            label: "Remarks",
-            required: true,
-          }),
-        ],
-        "This verdict is carried forward. It does not close the application.",
-      ),
-    ],
-  };
-}
-
-function rcForm(): FormSchema {
-  const counts: [string, string][] = [
-    [
-      "min_required_scopus_fa_ca",
-      "Minimum required publications in SCOPUS/WoS as FA/CA",
-    ],
-    ["total_scopus_fa_ca", "Total SCOPUS/WoS indexed publications as FA/CA"],
-    [
-      "min_required_mahe_fa_ca_present_cadre",
-      "Minimum required publications in SCOPUS/WoS with MAHE affiliation as FA/CA in present cadre",
-    ],
-    [
-      "total_mahe_fa_ca_present_cadre",
-      "Total SCOPUS/WoS indexed publications with MAHE affiliation as FA/CA in present cadre",
-    ],
-    [
-      "min_required_q1_q2_present_cadre",
-      "Minimum required SCOPUS/WoS Q1/Q2 publications with MAHE affiliation as FA/CA in present cadre",
-    ],
-    [
-      "total_q1_q2_present_cadre",
-      "Total SCOPUS/WoS Q1/Q2 publications with MAHE affiliation as FA/CA in present cadre",
-    ],
-    [
-      "top_500_collaborations",
-      "Publications from collaborations with top 500 QS/THE ranking universities, as additional FA/CA",
-    ],
-    [
-      "sponsored_rd_equivalent",
-      "Publications equivalent: total Sponsored R&D external project amount",
-    ],
-    ["patents_equivalent", "Publications equivalent: utility patents granted"],
-    ["phd_guided", "PhD scholars guided"],
-    ["phd_co_guided", "PhD scholars co-guided"],
-    ["phd_guiding", "PhD scholars guiding"],
-    ["phd_co_guiding", "PhD scholars co-guiding"],
-  ];
-
-  return {
-    sections: [
-      createSection(
-        "Research Accomplishments",
-        counts.map(([key, label]) =>
-          createField({
-            type: "number",
-            key,
-            label,
-            required: true,
-            width: "half",
-            validation: { min: 0 },
-          }),
-        ),
-        "Verified against the applicant's own figures and their Scopus profile.",
-      ),
-      createSection("Verdict", [
-        createField({
-          type: "radio",
-          key: "research_eligibility",
-          label: "Eligible on the research criteria",
-          required: true,
-          options: choices(...YES_NO),
-        }),
-        createField({
-          type: "date",
-          key: "date_of_eligibility",
-          label: "Date of eligibility",
-          required: true,
-          width: "half",
-          visibleWhen: when(rule("research_eligibility", "equals", "yes")),
-        }),
-        createField({
-          type: "textarea",
-          key: "remarks",
-          label: "Remarks by AD (R&C)",
-          description: "Required when the verdict is No.",
-          requiredWhen: when(rule("research_eligibility", "equals", "no")),
-        }),
-      ]),
-    ],
-  };
-}
-
-function fdwForm(): FormSchema {
-  return {
-    sections: [
-      createSection(
-        "Formal Evaluation",
-        [
-          createField({
-            type: "radio",
-            key: "eligibility_verdict",
-            label: "Eligibility verdict",
+            key: "within_policy",
+            label: "Is this within policy?",
             required: true,
             options: choices(
-              ["Eligible", "eligible"],
-              ["Not eligible", "not_eligible"],
-            ),
-          }),
-          createField({
-            type: "text",
-            key: "post_eligible_for",
-            label: "Post eligible for",
-            required: true,
-            width: "half",
-            visibleWhen: when(
-              rule("eligibility_verdict", "equals", "eligible"),
-            ),
-          }),
-          createField({
-            type: "date",
-            key: "effective_from",
-            label: "Effective from",
-            required: true,
-            width: "half",
-            visibleWhen: when(
-              rule("eligibility_verdict", "equals", "eligible"),
+              ["Yes", "yes"],
+              ["Yes, with the conditions below", "conditional"],
+              ["No", "no"],
             ),
           }),
           createField({
             type: "textarea",
-            key: "remarks",
-            label: "Remarks",
-            description: "Required when the candidate is not eligible.",
-            requiredWhen: when(
-              rule("eligibility_verdict", "equals", "not_eligible"),
-            ),
-          }),
-        ],
-        "The formal evaluation by AD (FD&W).",
-      ),
-    ],
-  };
-}
-
-function hrFinalForm(): FormSchema {
-  return {
-    sections: [
-      createSection(
-        "Final Eligibility Declaration",
-        [
-          createField({
-            type: "paragraph",
-            key: "prior_verdicts_note",
-            label:
-              "Read the R&C and FD&W verdicts above before declaring. Either may have recorded an ineligibility that did not stop the application.",
-          }),
-          createField({
-            type: "select",
-            key: "final_decision",
-            label: "Final decision",
-            required: true,
-            width: "half",
-            options: choices(
-              ["Eligible", "eligible"],
-              ["Not eligible", "not_eligible"],
-              ["Other", "other"],
-            ),
-          }),
-          createField({
-            type: "date",
-            key: "effective_from",
-            label: "Effective from",
-            required: true,
-            width: "half",
-            visibleWhen: when(rule("final_decision", "equals", "eligible")),
-          }),
-          createField({
-            type: "textarea",
-            key: "ineligibility_reason",
-            label: "Reason for ineligibility",
-            required: true,
-            visibleWhen: when(rule("final_decision", "equals", "not_eligible")),
-          }),
-          createField({
-            type: "textarea",
-            key: "other_details",
-            label: "Please specify",
-            required: true,
-            visibleWhen: when(rule("final_decision", "equals", "other")),
+            key: "conditions",
+            label: "Conditions",
+            visibleWhen: when(rule("within_policy", "equals", "conditional")),
+            requiredWhen: when(rule("within_policy", "equals", "conditional")),
           }),
           createField({
             type: "textarea",
@@ -1397,17 +630,17 @@ function hrFinalForm(): FormSchema {
             required: true,
           }),
         ],
-        "Declaring the applicant eligible sends the file to the Director. Declaring them ineligible closes it.",
+        "A verdict here is carried forward rather than applied: the approver decides.",
       ),
     ],
   };
 }
 
-function directorForm(): FormSchema {
+function approvalForm(): FormSchema {
   return {
     sections: [
       createSection(
-        "Director's Decision",
+        "Final decision",
         [
           createField({
             type: "textarea",
@@ -1416,40 +649,14 @@ function directorForm(): FormSchema {
             required: true,
           }),
         ],
-        "Approving closes the application and sends it to Institute HR for filing.",
-      ),
-    ],
-  };
-}
-
-/** What the head records when the recommendation comes back to them. */
-function headApprovalForm(): FormSchema {
-  return {
-    sections: [
-      createSection(
-        "Head",
-        [
-          createField({
-            type: "textarea",
-            key: "vacancy_remarks",
-            label: "(a) Vacancy, with remarks",
-            required: true,
-          }),
-          createField({
-            type: "textarea",
-            key: "remarks",
-            label: "(b) Remarks",
-            required: true,
-          }),
-        ],
-        "Read the deputy's recommendation before deciding. Approving sends the application on to HR; rejecting closes it.",
+        "Whichever outcome you choose closes the application.",
       ),
     ],
   };
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Default workflow graph                                                     */
+/*  The example workflow                                                       */
 /* -------------------------------------------------------------------------- */
 
 export type DefaultGraphInput = {
@@ -1458,46 +665,37 @@ export type DefaultGraphInput = {
 };
 
 /**
- * The promotion process as STN 023 R5 and Evaluation Form V2 describe it:
+ * The process a fresh install runs:
  *
- *   Submission -> Head (delegates) -> Deputy -> Head (decides)
- *                                                       |- rejected -> closed
- *                                                       `- approved -> HR
- *                                       HR -> R&C -> FD&W -> HR (final)
- *                                                       |- not eligible -> closed
- *                                                       `- eligible -> Director
- *                                                                      |- approved
- *                                                                      `- rejected
+ *   Submission -> Department Review -> Deputy Assessment -> Department Decision
+ *                       |- returned for changes -> Submission
+ *                       `- declined -> closed
+ *                                             Department Decision
+ *                                               |- declined -> closed
+ *                                               `- approved -> Compliance Check
+ *                                                                -> Final Approval
+ *                                                                     |- approved
+ *                                                                     `- rejected
  *
- * The department half of that is three steps rather than one. The head does not
- * write anything up front: they name the deputy who should look at it,
- * that person records a recommendation, and it comes back to the head to
- * approve or reject. Both head steps are scoped to the applicant's own department,
- * so a head is never shown another department's file, and the deputy step
- * is held for the one person the head named.
- *
- * Everything from HR onwards always advances: a negative verdict is recorded
- * and carried forward rather than closing the file, so the final eligibility
- * decision rests with HR and the Director alone, and the Director's word is the
- * last one. Every transition fans out to the notifications the process calls
- * for - to the applicant, and to whichever team the file has landed on - which
- * run alongside the step that carries the application forward rather than in
- * front of it.
+ * Like the form, it is an example - the whole point of the portal is that an
+ * administrator redraws it - but it is a working one, and it exercises every
+ * routing rule the engine has: a step scoped to the applicant's own department,
+ * a step held for one person the previous reviewer names, a branch that sends
+ * the application back to its author, branches that close it early, and
+ * notifications that ride alongside each hand-off rather than in front of it.
  */
 export function defaultWorkflowGraph({
   roleIdByName,
   templateIdByName,
 }: DefaultGraphInput): WorkflowGraph {
   const outcomes = {
-    delegate: createOutcome("Send to deputy", "positive"),
-    recommend: createOutcome("Return to the head", "positive"),
+    delegate: createOutcome("Send for assessment", "positive"),
+    returnToApplicant: createOutcome("Return for changes", "neutral", false),
+    headDecline: createOutcome("Decline", "negative"),
+    assessed: createOutcome("Return to the head", "positive"),
     headApprove: createOutcome("Approve", "positive"),
-    headReject: createOutcome("Reject", "negative"),
-    hrInitial: createOutcome("Forward to R&C", "positive"),
-    rc: createOutcome("Forward to FD&W", "positive"),
-    fdw: createOutcome("Forward to HR", "positive"),
-    eligible: createOutcome("Eligible", "positive"),
-    ineligible: createOutcome("Not eligible", "negative"),
+    headReject: createOutcome("Decline", "negative"),
+    checked: createOutcome("Forward for approval", "positive"),
     approve: createOutcome("Approve", "positive"),
     reject: createOutcome("Reject", "negative"),
   };
@@ -1528,8 +726,8 @@ export function defaultWorkflowGraph({
 
   /**
    * An email addressed to whoever holds a role, optionally narrowed: to the
-   * holders attached to the applicant's own department, or to the one person the
-   * application has just been handed to.
+   * holders attached to the applicant's own department, or to the one person
+   * the application has just been handed to.
    */
   const toRole = (
     id: string,
@@ -1576,71 +774,97 @@ export function defaultWorkflowGraph({
       kind: "start",
       position: { x: column(0), y: 300 },
       data: {
-        label: "Applicant Submission",
+        label: "Application",
         description:
-          "The promotion application form, mirroring STN 023 R5 sections A to H.",
+          "The form an applicant fills in. Everything after this reads what it collected.",
         form: defaultApplicantForm(),
       },
     },
     toApplicant(
       "node_email_received",
-      "Acknowledge Submission",
+      "Acknowledge the applicant",
       "Application Received",
       { x: column(1), y: 520 },
     ),
     toRole(
       "node_email_head_assigned",
-      "Notify Head",
+      "Notify the department head",
       "Reviewer Assignment",
-      "Head",
+      "Department Head",
       { x: column(1), y: 60 },
       "applicant_department",
     ),
 
     {
-      id: "node_stage_head",
+      id: "node_stage_department_review",
       kind: "stage",
       position: { x: column(2), y: 300 },
       data: {
-        label: "Head Delegation",
+        label: "Department Review",
         description:
-          "The head of the applicant's department names the deputy who should look at this. Nothing is written up at this point - the head has the last word once the recommendation comes back.",
-        roleId: role("Head"),
+          "The head of the applicant's own department decides who should assess this - or sends it back for changes, or declines it outright. Nothing is written up here: the head has the last word once the assessment comes back.",
+        roleId: role("Department Head"),
         form: emptyForm(),
-        outcomes: [outcomes.delegate],
+        outcomes: [
+          outcomes.delegate,
+          outcomes.returnToApplicant,
+          outcomes.headDecline,
+        ],
         assignment: departmentHolder,
       },
     },
     toApplicant(
-      "node_email_head_done",
-      "Tell Applicant: with the deputy",
+      "node_email_returned",
+      "Tell the applicant: changes needed",
+      "Application Returned",
+      { x: column(3), y: 760 },
+    ),
+    toApplicant(
+      "node_email_head_declined",
+      "Tell the applicant: declined",
+      "Application Declined",
+      { x: column(3), y: 940 },
+    ),
+    {
+      id: "node_end_declined",
+      kind: "end",
+      position: { x: column(4), y: 940 },
+      data: {
+        label: "Closed - Declined",
+        description: "The department declined the request.",
+        result: "rejected",
+      },
+    },
+    toApplicant(
+      "node_email_assessment_started",
+      "Tell the applicant: being assessed",
       "Application Advanced",
       { x: column(3), y: 520 },
     ),
     toRole(
       "node_email_deputy_assigned",
-      "Notify Deputy",
+      "Notify the deputy",
       "Reviewer Assignment",
-      "Deputy",
+      "Deputy Head",
       { x: column(3), y: 60 },
-      // Only the person the head named: the rest of the department's associate
-      // heads are not being asked for anything.
+      // Only the person the head named: the department's other deputies are
+      // not being asked for anything.
       "assigned_person",
     ),
 
     {
-      id: "node_stage_deputy",
+      id: "node_stage_assessment",
       kind: "stage",
       position: { x: column(4), y: 300 },
       data: {
-        label: "Deputy Recommendation",
+        label: "Deputy Assessment",
         description:
-          "The deputy the head named records a recommendation and their remarks, and sends it back to the head.",
-        roleId: role("Deputy"),
-        form: deputyForm(),
-        outcomes: [outcomes.recommend],
-        // Not offered to the deputies at large: the head names one of
-        // their own department's, and the file is held for that person alone.
+          "The deputy the head named reads the application, records an assessment and sends it back.",
+        roleId: role("Deputy Head"),
+        form: assessmentForm(),
+        outcomes: [outcomes.assessed],
+        // Not offered to the deputies at large: the head names one of their
+        // own department's, and the file is held for that person alone.
         assignment: {
           mode: "nominated",
           pool: "department_deputies",
@@ -1649,249 +873,125 @@ export function defaultWorkflowGraph({
       },
     },
     toApplicant(
-      "node_email_deputy_done",
-      "Tell Applicant: back with the head",
+      "node_email_assessed",
+      "Tell the applicant: back with the head",
       "Application Advanced",
       { x: column(5), y: 520 },
     ),
     toRole(
-      "node_email_head_approval_assigned",
-      "Notify Head: recommendation received",
+      "node_email_head_decision",
+      "Notify the head: assessment in",
       "Reviewer Assignment",
-      "Head",
+      "Department Head",
       { x: column(5), y: 60 },
       "applicant_department",
     ),
 
     {
-      id: "node_stage_head_approval",
+      id: "node_stage_department_decision",
       kind: "stage",
       position: { x: column(6), y: 300 },
       data: {
-        label: "Head Approval",
+        label: "Department Decision",
         description:
-          "The head reads the recommendation and either approves the application, sending it on to HR, or rejects it and closes the file.",
-        roleId: role("Head"),
-        form: headApprovalForm(),
+          "The head reads the assessment and either approves the request, sending it on to Compliance, or declines it.",
+        roleId: role("Department Head"),
+        form: decisionForm(),
         outcomes: [outcomes.headApprove, outcomes.headReject],
         assignment: departmentHolder,
       },
     },
     toApplicant(
-      "node_email_head_approved",
-      "Tell Applicant: with HR",
+      "node_email_department_approved",
+      "Tell the applicant: with Compliance",
       "Application Advanced",
       { x: column(7), y: 520 },
     ),
     toRole(
-      "node_email_hr_initial_assigned",
-      "Notify HR",
+      "node_email_compliance_assigned",
+      "Notify Compliance",
       "Reviewer Assignment",
-      "HR Officer",
+      "Compliance Officer",
       { x: column(7), y: 60 },
     ),
-    toApplicant(
-      "node_email_head_rejected",
-      "Tell Applicant: rejected by the head",
-      "Application Rejected",
-      { x: column(7), y: 840 },
-    ),
-    {
-      id: "node_end_head_rejected",
-      kind: "end",
-      position: { x: column(7), y: 700 },
-      data: {
-        label: "Closed - Rejected by the Head",
-        description:
-          "The head rejected the application after reading the deputy's recommendation.",
-        result: "rejected",
-      },
-    },
 
     {
-      id: "node_stage_hr_initial",
+      id: "node_stage_compliance",
       kind: "stage",
       position: { x: column(8), y: 300 },
       data: {
-        label: "HR Initial Review",
+        label: "Compliance Check",
         description:
-          "Experience and service. The verdict is carried forward, not applied.",
-        roleId: role("HR Officer"),
-        form: hrInitialForm(),
-        outcomes: [outcomes.hrInitial],
+          "Checked against the rules. The verdict travels with the application rather than closing it.",
+        roleId: role("Compliance Officer"),
+        form: complianceForm(),
+        outcomes: [outcomes.checked],
         assignment: anyHolder,
       },
     },
     toApplicant(
-      "node_email_hr_initial_done",
-      "Tell Applicant: with R&C",
+      "node_email_compliance_done",
+      "Tell the applicant: awaiting approval",
       "Application Advanced",
       { x: column(9), y: 520 },
     ),
     toRole(
-      "node_email_rc_assigned",
-      "Notify R&C",
+      "node_email_approver_assigned",
+      "Notify the approver",
       "Reviewer Assignment",
-      "R&C Officer",
+      "Approver",
       { x: column(9), y: 60 },
     ),
 
     {
-      id: "node_stage_rc",
+      id: "node_stage_approval",
       kind: "stage",
       position: { x: column(10), y: 300 },
       data: {
-        label: "R&C Research Evaluation",
-        description:
-          "Research output and publications, verified against the applicant's figures.",
-        roleId: role("R&C Officer"),
-        form: rcForm(),
-        outcomes: [outcomes.rc],
-        assignment: anyHolder,
-      },
-    },
-    toApplicant(
-      "node_email_rc_done",
-      "Tell Applicant: with FD&W",
-      "Application Advanced",
-      { x: column(11), y: 520 },
-    ),
-    toRole(
-      "node_email_fdw_assigned",
-      "Notify FD&W",
-      "Reviewer Assignment",
-      "FDW Officer",
-      { x: column(11), y: 60 },
-    ),
-
-    {
-      id: "node_stage_fdw",
-      kind: "stage",
-      position: { x: column(12), y: 300 },
-      data: {
-        label: "FD&W Formal Evaluation",
-        description: "The formal evaluation and eligibility statement.",
-        roleId: role("FDW Officer"),
-        form: fdwForm(),
-        outcomes: [outcomes.fdw],
-        assignment: anyHolder,
-      },
-    },
-    toApplicant(
-      "node_email_fdw_done",
-      "Tell Applicant: back with HR",
-      "Application Advanced",
-      { x: column(13), y: 520 },
-    ),
-    toRole(
-      "node_email_hr_final_assigned",
-      "Notify HR",
-      "Reviewer Assignment",
-      "HR Officer",
-      { x: column(13), y: 60 },
-    ),
-
-    {
-      id: "node_stage_hr_final",
-      kind: "stage",
-      position: { x: column(14), y: 300 },
-      data: {
-        label: "HR Final Eligibility Declaration",
-        description:
-          "The decision that either closes the application or sends it to the Director.",
-        roleId: role("HR Officer"),
-        form: hrFinalForm(),
-        outcomes: [outcomes.eligible, outcomes.ineligible],
-        assignment: anyHolder,
-      },
-    },
-    toApplicant(
-      "node_email_declared_ineligible",
-      "Tell Applicant: not eligible",
-      "Application Rejected",
-      { x: column(15), y: 700 },
-    ),
-    {
-      id: "node_end_ineligible",
-      kind: "end",
-      position: { x: column(15), y: 560 },
-      data: {
-        label: "Closed - Not Eligible",
-        description: "HR declared the applicant ineligible.",
-        result: "rejected",
-      },
-    },
-    toApplicant(
-      "node_email_declared_eligible",
-      "Tell Applicant: with the Director",
-      "Application Advanced",
-      { x: column(15), y: -60 },
-    ),
-    toRole(
-      "node_email_director_assigned",
-      "Notify Director",
-      "Reviewer Assignment",
-      "Director",
-      { x: column(15), y: 60 },
-    ),
-
-    {
-      id: "node_stage_director",
-      kind: "stage",
-      position: { x: column(16), y: 220 },
-      data: {
-        label: "Director Review",
-        description:
-          "The final institutional decision. Nothing follows it either way.",
-        roleId: role("Director"),
-        form: directorForm(),
+        label: "Final Approval",
+        description: "The last word. Nothing follows it either way.",
+        roleId: role("Approver"),
+        form: approvalForm(),
         outcomes: [outcomes.approve, outcomes.reject],
         assignment: anyHolder,
       },
     },
     toApplicant(
       "node_email_approved",
-      "Tell Applicant: approved",
+      "Tell the applicant: approved",
       "Application Approved",
-      { x: column(17), y: -120 },
+      { x: column(11), y: 60 },
     ),
     toRole(
-      "node_email_archive",
-      "Send to Institute HR for filing",
-      "Archive Notice",
-      "Institute HR",
-      { x: column(17), y: 0 },
+      "node_email_filing",
+      "Send it to Records for filing",
+      "Filing Notice",
+      "Records",
+      { x: column(11), y: 180 },
     ),
     {
       id: "node_end_approved",
       kind: "end",
-      position: { x: column(17), y: 140 },
+      position: { x: column(12), y: 120 },
       data: {
         label: "Approved",
-        description: "The promotion was approved by the Director.",
+        description: "The request was approved.",
         result: "approved",
       },
     },
     toApplicant(
       "node_email_rejected",
-      "Tell Applicant: rejected",
-      "Application Rejected",
-      { x: column(17), y: 420 },
-    ),
-    toRole(
-      "node_email_hr_fyi",
-      "Tell HR (for information)",
-      "Application Rejected",
-      "HR Officer",
-      { x: column(17), y: 540 },
+      "Tell the applicant: rejected",
+      "Application Declined",
+      { x: column(11), y: 460 },
     ),
     {
       id: "node_end_rejected",
       kind: "end",
-      position: { x: column(17), y: 290 },
+      position: { x: column(12), y: 420 },
       data: {
         label: "Closed - Rejected",
-        description: "The Director rejected the application.",
+        description: "The approver rejected the request.",
         result: "rejected",
       },
     },
@@ -1923,63 +1023,60 @@ export function defaultWorkflowGraph({
   return {
     nodes,
     edges: [
-      ...hop("node_submission", OUT, "node_stage_head", [
+      ...hop("node_submission", OUT, "node_stage_department_review", [
         "node_email_received",
         "node_email_head_assigned",
       ]),
-      ...hop("node_stage_head", outcomes.delegate.id, "node_stage_deputy", [
-        "node_email_head_done",
-        "node_email_deputy_assigned",
-      ]),
       ...hop(
-        "node_stage_deputy",
-        outcomes.recommend.id,
-        "node_stage_head_approval",
-        ["node_email_deputy_done", "node_email_head_approval_assigned"],
+        "node_stage_department_review",
+        outcomes.delegate.id,
+        "node_stage_assessment",
+        ["node_email_assessment_started", "node_email_deputy_assigned"],
+      ),
+      // Back to the applicant's own form: the one branch that does not go
+      // forward, and the reason a stage can point at the submission step.
+      ...hop(
+        "node_stage_department_review",
+        outcomes.returnToApplicant.id,
+        "node_submission",
+        ["node_email_returned"],
       ),
       ...hop(
-        "node_stage_head_approval",
+        "node_stage_department_review",
+        outcomes.headDecline.id,
+        "node_end_declined",
+        ["node_email_head_declined"],
+      ),
+      ...hop(
+        "node_stage_assessment",
+        outcomes.assessed.id,
+        "node_stage_department_decision",
+        ["node_email_assessed", "node_email_head_decision"],
+      ),
+      ...hop(
+        "node_stage_department_decision",
         outcomes.headApprove.id,
-        "node_stage_hr_initial",
-        ["node_email_head_approved", "node_email_hr_initial_assigned"],
+        "node_stage_compliance",
+        ["node_email_department_approved", "node_email_compliance_assigned"],
       ),
       ...hop(
-        "node_stage_head_approval",
+        "node_stage_department_decision",
         outcomes.headReject.id,
-        "node_end_head_rejected",
-        ["node_email_head_rejected", "node_email_hr_fyi"],
-      ),
-      ...hop("node_stage_hr_initial", outcomes.hrInitial.id, "node_stage_rc", [
-        "node_email_hr_initial_done",
-        "node_email_rc_assigned",
-      ]),
-      ...hop("node_stage_rc", outcomes.rc.id, "node_stage_fdw", [
-        "node_email_rc_done",
-        "node_email_fdw_assigned",
-      ]),
-      ...hop("node_stage_fdw", outcomes.fdw.id, "node_stage_hr_final", [
-        "node_email_fdw_done",
-        "node_email_hr_final_assigned",
-      ]),
-      ...hop(
-        "node_stage_hr_final",
-        outcomes.eligible.id,
-        "node_stage_director",
-        ["node_email_declared_eligible", "node_email_director_assigned"],
+        "node_end_declined",
+        ["node_email_head_declined"],
       ),
       ...hop(
-        "node_stage_hr_final",
-        outcomes.ineligible.id,
-        "node_end_ineligible",
-        ["node_email_declared_ineligible"],
+        "node_stage_compliance",
+        outcomes.checked.id,
+        "node_stage_approval",
+        ["node_email_compliance_done", "node_email_approver_assigned"],
       ),
-      ...hop("node_stage_director", outcomes.approve.id, "node_end_approved", [
+      ...hop("node_stage_approval", outcomes.approve.id, "node_end_approved", [
         "node_email_approved",
-        "node_email_archive",
+        "node_email_filing",
       ]),
-      ...hop("node_stage_director", outcomes.reject.id, "node_end_rejected", [
+      ...hop("node_stage_approval", outcomes.reject.id, "node_end_rejected", [
         "node_email_rejected",
-        "node_email_hr_fyi",
       ]),
     ],
   };

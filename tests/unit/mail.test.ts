@@ -38,9 +38,9 @@ describe("hydrate", () => {
   it("does not escape in plain-text contexts such as the subject", () => {
     expect(
       hydrateText("Re: {{application_reference}}", {
-        application_reference: "PROM-2026-0001",
+        application_reference: "APP-2026-0001",
       }),
-    ).toBe("Re: PROM-2026-0001");
+    ).toBe("Re: APP-2026-0001");
     expect(hydrateText("{{x}}", { x: "A & B" })).toBe("A & B");
   });
 });
@@ -90,8 +90,8 @@ describe("sanitizeTemplateHtml", () => {
 
   it("keeps ordinary links intact", () => {
     expect(
-      sanitizeTemplateHtml('<a href="https://manipal.edu">Portal</a>'),
-    ).toBe('<a href="https://manipal.edu">Portal</a>');
+      sanitizeTemplateHtml('<a href="https://example.org">Portal</a>'),
+    ).toBe('<a href="https://example.org">Portal</a>');
   });
 });
 
@@ -119,7 +119,7 @@ describe("htmlToText", () => {
 
 describe("email buttons", () => {
   const button =
-    '<a data-email-button="true" href="https://portal.manipal.edu/applications/1" style="background-color:#173a6b;border-radius:6px;color:#ffffff;display:inline-block;padding:10px 20px;text-decoration:none" target="_blank" rel="noreferrer">Open the portal</a>';
+    '<a data-email-button="true" href="https://portal.example.org/applications/1" style="background-color:#173a6b;border-radius:6px;color:#ffffff;display:inline-block;padding:10px 20px;text-decoration:none" target="_blank" rel="noreferrer">Open the portal</a>';
 
   it("survives sanitisation intact", () => {
     // The inline styles are the whole point: email clients ignore stylesheets.
@@ -128,21 +128,21 @@ describe("email buttons", () => {
 
   it("still has its placeholders hydrated", () => {
     const withPlaceholder = button.replace(
-      "https://portal.manipal.edu/applications/1",
+      "https://portal.example.org/applications/1",
       "{{application_url}}",
     );
     const rendered = hydrate(sanitizeTemplateHtml(withPlaceholder), {
-      application_url: "https://portal.manipal.edu/applications/42",
+      application_url: "https://portal.example.org/applications/42",
     });
     expect(rendered).toContain(
-      'href="https://portal.manipal.edu/applications/42"',
+      'href="https://portal.example.org/applications/42"',
     );
     expect(rendered).not.toContain("{{");
   });
 
   it("cannot smuggle a javascript: target through the button", () => {
     const hostile = button.replace(
-      "https://portal.manipal.edu/applications/1",
+      "https://portal.example.org/applications/1",
       "javascript:steal()",
     );
     expect(sanitizeTemplateHtml(hostile)).toContain('href="#"');

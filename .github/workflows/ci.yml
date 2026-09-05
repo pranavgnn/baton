@@ -12,22 +12,22 @@ concurrency:
 
 env:
   # Deterministic values for the whole pipeline; nothing here is a real secret.
-  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/promotion_portal
+  DATABASE_URL: postgresql://postgres:postgres@localhost:5432/baton
   BETTER_AUTH_SECRET: ci-secret-value-not-used-in-production
   BETTER_AUTH_URL: http://localhost:3100
   NEXT_PUBLIC_APP_URL: http://localhost:3100
   SMTP_HOST: localhost
   SMTP_PORT: "1025"
-  MAIL_FROM: MIT Promotion Portal <no-reply@manipal.edu>
+  MAIL_FROM: Baton <no-reply@example.org>
   S3_ENDPOINT: http://localhost:9000
   S3_PUBLIC_ENDPOINT: http://localhost:9000
   S3_REGION: us-east-1
-  S3_BUCKET: promotion-portal
+  S3_BUCKET: baton
   S3_ACCESS_KEY_ID: minioadmin
   S3_SECRET_ACCESS_KEY: minioadmin
   KAFKA_BROKERS: localhost:9092
-  KAFKA_CLIENT_ID: promotion-portal-ci
-  SUPER_ADMIN_EMAIL: superadmin@manipal.edu
+  KAFKA_CLIENT_ID: baton-ci
+  SUPER_ADMIN_EMAIL: admin@example.org
   SUPER_ADMIN_NAME: Super Admin
   SUPER_ADMIN_PASSWORD: SuperAdmin@123
 
@@ -99,7 +99,7 @@ jobs:
       # The same compose file developers use, so CI and local runs agree on
       # Postgres, MinIO and the SMTP sink.
       - name: Start Postgres, MinIO, Mailpit and Kafka
-        run: docker compose -p promotion-portal up -d --wait
+        run: docker compose -p baton up -d --wait
 
       - name: Cache Playwright browsers
         id: playwright-cache
@@ -127,4 +127,4 @@ jobs:
 
       - name: Dump service logs on failure
         if: failure()
-        run: docker compose -p promotion-portal logs --tail=200
+        run: docker compose -p baton logs --tail=200

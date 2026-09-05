@@ -60,7 +60,7 @@ export async function getPublishedWorkflow(): Promise<PublishedWorkflow | null> 
 /* -------------------------------------------------------------------------- */
 
 /**
- * Human-readable identifier of the form PROM-2026-0042. Generated from a count
+ * Human-readable identifier of the form APP-2026-0042. Generated from a count
  * and retried by the caller on the unique-constraint violation, which is rare
  * enough that a dedicated sequence would be over-engineering.
  */
@@ -69,10 +69,10 @@ export async function nextReference(): Promise<string> {
   const [row] = await db
     .select({ total: count() })
     .from(application)
-    .where(sql`${application.reference} LIKE ${`PROM-${year}-%`}`);
+    .where(sql`${application.reference} LIKE ${`APP-${year}-%`}`);
 
   const sequence = (row?.total ?? 0) + 1;
-  return `PROM-${year}-${String(sequence).padStart(4, "0")}`;
+  return `APP-${year}-${String(sequence).padStart(4, "0")}`;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -117,7 +117,7 @@ export async function getOpenApplicationFor(
  *
  * Snapshotting the graph is what protects an application already moving
  * through the process - but a draft has not entered it yet, so leaving it on
- * an old snapshot means the applicant fills in questions the institute has
+ * an old snapshot means the applicant fills in questions the organisation has
  * since changed. Answers to fields that still exist are kept; answers to
  * fields that were removed are dropped, because they no longer have anywhere
  * to live.

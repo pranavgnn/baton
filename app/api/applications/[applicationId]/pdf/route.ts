@@ -17,7 +17,7 @@ import { renderApplicationPdf } from "@/lib/pdf/render";
  *
  * Everything completed so far is included - the submission and every review
  * that has been signed off - so the same route serves a reviewer who wants the
- * file in front of them and Institute HR filing a finished one.
+ * file in front of them and whoever files a finished one.
  */
 export async function GET(
   _request: Request,

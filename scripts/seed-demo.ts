@@ -22,7 +22,7 @@ import { env } from "@/lib/env";
 export const DEMO_PASSWORD = "Portal@123";
 
 /** The department the demo accounts belong to. */
-const DEMO_DEPARTMENT = "Department of Computer Engineering";
+const DEMO_DEPARTMENT = "Engineering";
 
 /**
  * One account per role, named for what it is.
@@ -32,84 +32,67 @@ const DEMO_DEPARTMENT = "Department of Computer Engineering";
  */
 export const DEMO_USERS = [
   {
-    email: "employee@manipal.edu",
-    name: "Test Employee",
-    roleName: "Employee",
-    employeeId: "TEST-0001",
-    department: "Department of Computer Engineering",
-    designation: "Assistant Professor",
-    // Enough of a service record for the application form to fill itself in,
-    // which is the point of holding these on the account at all.
+    email: "applicant@example.org",
+    name: "Test Applicant",
+    roleName: "Applicant",
+    employeeId: "EMP-0001",
+    department: DEMO_DEPARTMENT,
+    designation: "Engineer",
+    // Enough of a record for the example form to fill itself in, which is the
+    // point of holding these on the account at all.
     userType: "regular",
-    institution: "Manipal Institute of Technology",
-    dateOfBirth: "1984-02-11",
-    dateOfJoining: "2017-06-01",
-    dateOfLastPromotion: "2021-07-01",
-    phone: "+91 98450 00000",
+    institution: "Example Organisation",
+    dateOfBirth: "1990-02-11",
+    dateOfJoining: "2019-06-01",
+    phone: "+1 555 0100",
   },
   {
-    email: "head@manipal.edu",
+    email: "head@example.org",
     name: "Test Head",
-    roleName: "Head",
-    employeeId: "TEST-0002",
-    department: "Department of Computer Engineering",
-    designation: "Head",
+    roleName: "Department Head",
+    employeeId: "EMP-0002",
+    department: DEMO_DEPARTMENT,
+    designation: "Head of Engineering",
   },
   {
-    email: "associatehead@manipal.edu",
+    email: "deputy@example.org",
     name: "Test Deputy",
-    roleName: "Deputy",
-    employeeId: "TEST-0008",
-    department: "Department of Computer Engineering",
-    designation: "Deputy",
+    roleName: "Deputy Head",
+    employeeId: "EMP-0003",
+    department: DEMO_DEPARTMENT,
+    designation: "Deputy Head of Engineering",
   },
   {
-    email: "associatehead2@manipal.edu",
+    email: "deputy2@example.org",
     name: "Test Deputy Two",
-    roleName: "Deputy",
-    employeeId: "TEST-0009",
-    department: "Department of Computer Engineering",
-    designation: "Deputy",
+    roleName: "Deputy Head",
+    employeeId: "EMP-0004",
+    department: DEMO_DEPARTMENT,
+    designation: "Deputy Head of Engineering",
   },
   {
-    email: "hr@manipal.edu",
-    name: "Test HR Officer",
-    roleName: "HR Officer",
-    employeeId: "TEST-0003",
+    email: "compliance@example.org",
+    name: "Test Compliance Officer",
+    roleName: "Compliance Officer",
+    employeeId: "EMP-0005",
     department: null,
-    designation: "HR Officer",
+    designation: "Compliance Officer",
   },
   {
-    email: "rc@manipal.edu",
-    name: "Test R&C Officer",
-    roleName: "R&C Officer",
-    employeeId: "TEST-0004",
+    email: "approver@example.org",
+    name: "Test Approver",
+    roleName: "Approver",
+    employeeId: "EMP-0006",
     department: null,
-    designation: "Associate Director (R&C)",
+    designation: "Director of Operations",
   },
   {
-    email: "fdw@manipal.edu",
-    name: "Test FDW Officer",
-    roleName: "FDW Officer",
-    employeeId: "TEST-0005",
+    email: "records@example.org",
+    name: "Test Records Officer",
+    roleName: "Records",
+    employeeId: "EMP-0007",
     department: null,
-    designation: "Associate Director (FD&W)",
-  },
-  {
-    email: "director@manipal.edu",
-    name: "Test Director",
-    roleName: "Director",
-    employeeId: "TEST-0006",
-    department: null,
-    designation: "Director",
-  },
-  {
-    email: "institutehr@manipal.edu",
-    name: "Test Institute HR",
-    roleName: "Institute HR",
-    employeeId: "TEST-0007",
-    department: null,
-    designation: "Institute HR",
+    designation: "Records Officer",
   },
 ] as const;
 
@@ -138,8 +121,6 @@ async function main() {
       institution: "institution" in demo ? demo.institution : null,
       dateOfBirth: "dateOfBirth" in demo ? demo.dateOfBirth : null,
       dateOfJoining: "dateOfJoining" in demo ? demo.dateOfJoining : null,
-      dateOfLastPromotion:
-        "dateOfLastPromotion" in demo ? demo.dateOfLastPromotion : null,
       phone: "phone" in demo ? demo.phone : null,
       password: DEMO_PASSWORD,
       activated: true,
@@ -202,7 +183,7 @@ async function linkDepartmentSignatories() {
     (await db.select().from(user)).map((row) => [row.email, row.id]),
   );
 
-  const headId = byEmail.get("head@manipal.edu");
+  const headId = byEmail.get("head@example.org");
   if (headId) {
     await db
       .update(department)
@@ -210,7 +191,7 @@ async function linkDepartmentSignatories() {
       .where(eq(department.id, target.id));
   }
 
-  const associates = ["associatehead@manipal.edu", "associatehead2@manipal.edu"]
+  const deputies = ["deputy@example.org", "deputy2@example.org"]
     .map((email) => byEmail.get(email))
     .filter((id): id is string => Boolean(id));
 
@@ -218,17 +199,13 @@ async function linkDepartmentSignatories() {
     .delete(departmentDeputy)
     .where(eq(departmentDeputy.departmentId, target.id));
 
-  if (associates.length > 0) {
+  if (deputies.length > 0) {
     await db
       .insert(departmentDeputy)
-      .values(
-        associates.map((userId) => ({ departmentId: target.id, userId })),
-      );
+      .values(deputies.map((userId) => ({ departmentId: target.id, userId })));
   }
 
-  console.log(
-    `  + ${DEMO_DEPARTMENT}: head and ${associates.length} deputy(s)`,
-  );
+  console.log(`  + ${DEMO_DEPARTMENT}: a head and ${deputies.length} deputies`);
 }
 
 main()

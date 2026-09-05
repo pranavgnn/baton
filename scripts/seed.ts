@@ -149,7 +149,7 @@ async function seedWorkflow(
     workflowId: SINGLETON_WORKFLOW_ID,
     version: 1,
     graph,
-    memo: "Initial process: submission, the head delegating to an deputy and deciding on their recommendation, then HR, R&C, FD&W, the final HR declaration and the Director.",
+    memo: "The example process a fresh install ships with: a department review that names an assessor, the assessment, the department decision, a compliance check and a final approval.",
     publishedByName: "Seed",
     createdAt: publishedAt,
   });
@@ -203,8 +203,8 @@ async function seedBucket() {
 }
 
 /**
- * The institute's departments. Named rather than numbered, so re-running the seed
- * leaves an admin's own edits and additions alone.
+ * The example departments. Matched by name rather than by id, so re-running the
+ * seed leaves an admin's own edits and additions alone.
  */
 async function seedDepartments(): Promise<Record<string, string>> {
   console.log("\nDepartments");
@@ -233,7 +233,7 @@ async function seedDepartments(): Promise<Record<string, string>> {
 }
 
 async function main() {
-  console.log("Seeding MIT Promotion Application Portal");
+  console.log("Seeding Baton");
 
   await seedDepartments();
   const roleIdByName = await seedRoles();

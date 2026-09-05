@@ -10,8 +10,9 @@ import {
   Settings,
   User,
 } from "lucide-react";
-import Image from "next/image";
 import Link from "next/link";
+
+import { Logo } from "@/components/logo";
 import type { Route } from "next";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ComponentType } from "react";
@@ -91,15 +92,9 @@ export function AppNav({ links, user, impersonating = false }: AppNavProps) {
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="app-shell-wide flex h-14 items-center gap-4 py-0">
         <Link href="/dashboard" className="flex items-center gap-2">
-          <Image
-            src="/mu_logo.png"
-            alt="Manipal University Logo"
-            width={32}
-            height={32}
-            className="size-8 object-contain"
-          />
+          <Logo className="size-6" />
           <span className="hidden text-sm leading-tight font-semibold sm:block">
-            Promotion Portal
+            Baton
           </span>
         </Link>
 

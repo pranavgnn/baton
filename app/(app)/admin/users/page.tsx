@@ -31,7 +31,6 @@ export default async function UsersPage({
         userType: user.userType,
         dateOfBirth: user.dateOfBirth,
         dateOfJoining: user.dateOfJoining,
-        dateOfLastPromotion: user.dateOfLastPromotion,
         phone: user.phone,
         personalEmail: user.personalEmail,
         address: user.address,
@@ -64,7 +63,6 @@ export default async function UsersPage({
       userType: row.userType ?? "",
       dateOfBirth: row.dateOfBirth ?? "",
       dateOfJoining: row.dateOfJoining ?? "",
-      dateOfLastPromotion: row.dateOfLastPromotion ?? "",
       phone: row.phone ?? "",
       personalEmail: row.personalEmail ?? "",
       address: row.address ?? "",
@@ -85,8 +83,8 @@ export default async function UsersPage({
         <div>
           <h1 className="page-title">Users</h1>
           <p className="page-subtitle">
-            The portal is whitelist-only. Add an institute address here and the
-            holder activates it from the emailed link.
+            The portal is whitelist-only. Add a work address here and the holder
+            activates it from the emailed link.
           </p>
         </div>
       </div>

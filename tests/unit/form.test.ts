@@ -61,12 +61,12 @@ describe("text fields", () => {
       label: "Employee ID",
       required: true,
       validation: {
-        pattern: "^MIT-[0-9]{4}$",
-        patternMessage: "Use the MIT-1234 format",
+        pattern: "^EMP-[0-9]{4}$",
+        patternMessage: "Use the EMP-1234 format",
       },
     });
-    expect(messageFor(field, "nope")).toBe("Use the MIT-1234 format");
-    expect(parse(field, "MIT-4471").success).toBe(true);
+    expect(messageFor(field, "nope")).toBe("Use the EMP-1234 format");
+    expect(parse(field, "EMP-4471").success).toBe(true);
   });
 
   it("ignores an unparseable pattern instead of throwing", () => {

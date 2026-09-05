@@ -196,8 +196,8 @@ export async function sendTestEmail(input: {
       bodyHtml: input.bodyHtml,
       variables: {
         applicant_name: "Dr. Sample Applicant",
-        applicant_email: "sample.applicant@manipal.edu",
-        application_reference: "PROM-2026-0001",
+        applicant_email: "sample.applicant@example.org",
+        application_reference: "APP-2026-0001",
         application_status: "In progress",
         current_stage: "Deputy Review",
         previous_stage: "Head Recommendation",

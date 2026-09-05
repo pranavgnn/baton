@@ -11,7 +11,7 @@ export const USER_TYPES = [
   {
     key: "regular",
     label: "Regular",
-    description: "On the institute's permanent rolls.",
+    description: "On the permanent rolls.",
   },
   {
     key: "contract",
@@ -35,21 +35,24 @@ export function userTypeLabel(value: string | null | undefined): string {
 /**
  * Whether someone's employment lets them apply at all.
  *
- * A promotion is a move within the permanent rolls, so a fixed-term appointment
- * and a probationary period are not eligible for one - the institute's rule,
- * not the portal's invention. An account whose employment has never been
- * recorded is not barred: the portal not knowing something is not the same as
- * knowing it disqualifies them, and an import that missed a column must not
- * quietly stop people applying.
+ * The example rule: a fixed-term or probationary appointment cannot apply. It
+ * is one place rather than three because the page, the dashboard and both ends
+ * of the action all ask it - and it is the obvious thing to change when this
+ * organisation's rule is a different one.
+ *
+ * An account whose employment has never been recorded is not barred: the
+ * portal not knowing something is not the same as knowing it disqualifies
+ * them, and an import that missed a column must not quietly stop people
+ * applying.
  */
-export function promotionBar(
+export function applicationBar(
   userType: string | null | undefined,
 ): string | null {
   if (userType === "contract") {
-    return "Employees appointed on contract are not eligible to apply for promotion.";
+    return "Employees appointed on contract are not eligible to apply.";
   }
   if (userType === "probation") {
-    return "Employees serving a probationary period are not eligible to apply for promotion.";
+    return "Employees serving a probationary period are not eligible to apply.";
   }
   return null;
 }
@@ -57,7 +60,7 @@ export function promotionBar(
 /**
  * How a value is read and written.
  *
- * `department` and `roles` are matched by name against what the institute has
+ * `department` and `roles` are matched by name against what the organisation has
  * rather than stored as typed, which is why they are their own kinds.
  */
 export type UserFieldKind =
@@ -79,7 +82,7 @@ export type UserField = {
 export const USER_FIELDS = [
   {
     key: "email",
-    label: "Institute email",
+    label: "Email address",
     kind: "email",
     csv: "email",
     required: true,
@@ -145,13 +148,6 @@ export const USER_FIELDS = [
     prefillable: true,
   },
   {
-    key: "dateOfLastPromotion",
-    label: "Date of last promotion",
-    kind: "date",
-    csv: "date_of_last_promotion",
-    prefillable: true,
-  },
-  {
     key: "phone",
     label: "Contact number",
     kind: "text",
@@ -200,7 +196,7 @@ export const PREFILL_SOURCES: readonly UserField[] = USER_FIELD_LIST.filter(
 /**
  * A date as written by a person, as an ISO day.
  *
- * Institute spreadsheets are full of `DD/MM/YYYY` - the form the paper version
+ * Spreadsheets are full of `DD/MM/YYYY` - the form most paper originals
  * asks for - so that is read first; an unambiguous ISO date is accepted as it
  * stands. Anything else is rejected rather than guessed at, because a date
  * silently read the American way round is worse than a row that fails.

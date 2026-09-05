@@ -279,7 +279,7 @@ function asNumber(value: unknown): number {
 
 /**
  * Rounds off the floating-point dust `0.1 + 0.2` leaves behind. Ten places is
- * far beyond anything a promotion form counts.
+ * far beyond anything a form of this kind counts.
  */
 export function tidyNumber(value: number): number {
   return Math.round(value * 1e10) / 1e10;

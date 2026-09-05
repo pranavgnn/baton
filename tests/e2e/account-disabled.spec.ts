@@ -9,7 +9,7 @@ import { ACCOUNTS, expectToast, storageStatePath } from "./helpers";
  */
 test.describe.configure({ mode: "serial" });
 
-const TARGET = ACCOUNTS.rc;
+const TARGET = ACCOUNTS.records;
 
 async function setTargetDisabled(
   page: import("@playwright/test").Page,

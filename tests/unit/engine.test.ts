@@ -57,7 +57,7 @@ describe("resolveTransition", () => {
         recipientMode: "custom",
         recipientRoleId: null,
         recipientScope: "all_holders",
-        recipientEmail: "registrar@manipal.edu",
+        recipientEmail: "registrar@example.org",
       },
     });
     graph.edges.push({

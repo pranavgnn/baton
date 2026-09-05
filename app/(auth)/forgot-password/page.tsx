@@ -53,8 +53,8 @@ export default function ForgotPasswordPage() {
       <CardHeader>
         <CardTitle>Set or reset your password</CardTitle>
         <CardDescription>
-          New accounts are activated the same way. Enter your institute email
-          and we will send you a secure link.
+          New accounts are activated the same way. Enter your work email and we
+          will send you a secure link.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -79,12 +79,12 @@ export default function ForgotPasswordPage() {
             noValidate
           >
             <Field data-invalid={Boolean(errors.email)}>
-              <FieldLabel htmlFor="email">Institute email</FieldLabel>
+              <FieldLabel htmlFor="email">Email address</FieldLabel>
               <Input
                 id="email"
                 type="email"
                 autoComplete="username"
-                placeholder="you@manipal.edu"
+                placeholder="you@example.org"
                 aria-invalid={Boolean(errors.email)}
                 {...register("email")}
               />

@@ -14,12 +14,12 @@ async function openBuilder(page: Page) {
 }
 
 /**
- * The seeded process: one submission, eight review stages, four endings and
+ * The example process: one submission, five review steps, three endings and
  * the notifications that ride alongside each hand-off. Declared here so a
  * change to the seeded workflow fails in one obvious place.
  */
-const NODE_COUNT = 35;
-const EDGE_COUNT = 35;
+const NODE_COUNT = 24;
+const EDGE_COUNT = 26;
 
 const nodes = (page: Page) => page.locator(".react-flow__node");
 const edges = (page: Page) => page.locator(".react-flow__edge");
@@ -50,14 +50,11 @@ test.describe("workflow builder canvas", () => {
 
     await expect(page.getByTestId("node-start")).toBeVisible();
     for (const stage of [
-      "Head Delegation",
-      "Deputy Recommendation",
-      "Head Approval",
-      "HR Initial Review",
-      "R&C Research Evaluation",
-      "FD&W Formal Evaluation",
-      "HR Final Eligibility Declaration",
-      "Director Review",
+      "Department Review",
+      "Deputy Assessment",
+      "Department Decision",
+      "Compliance Check",
+      "Final Approval",
     ]) {
       await expect(page.getByTestId(`node-stage-${stage}`)).toBeVisible();
     }
@@ -65,8 +62,7 @@ test.describe("workflow builder canvas", () => {
     for (const ending of [
       "Approved",
       "Closed - Rejected",
-      "Closed - Not Eligible",
-      "Closed - Rejected by the Head",
+      "Closed - Declined",
     ]) {
       await expect(page.getByTestId(`node-end-${ending}`)).toBeVisible();
     }
@@ -76,12 +72,10 @@ test.describe("workflow builder canvas", () => {
     page,
   }) => {
     for (const label of [
-      "Send to deputy",
+      "Send for assessment",
+      "Return for changes",
       "Return to the head",
-      "Forward to R&C",
-      "Forward to FD&W",
-      "Eligible",
-      "Not eligible",
+      "Forward for approval",
       "Approve",
       "Reject",
     ]) {
@@ -99,29 +93,29 @@ test.describe("workflow builder canvas", () => {
   });
 
   test("opens an inspector when a node is selected", async ({ page }) => {
-    await page.getByTestId("node-stage-Director Review").click();
+    await page.getByTestId("node-stage-Final Approval").click();
 
     const inspector = page.getByTestId("node-inspector");
     await expect(inspector).toBeVisible();
-    await expect(page.getByTestId("node-label")).toHaveValue("Director Review");
-    await expect(page.getByTestId("node-role")).toContainText("Director");
+    await expect(page.getByTestId("node-label")).toHaveValue("Final Approval");
+    await expect(page.getByTestId("node-role")).toContainText("Approver");
     await expect(page.getByTestId("outcome-0")).toBeVisible();
     await expect(page.getByTestId("outcome-1")).toBeVisible();
   });
 
   test("renaming a node updates the canvas immediately", async ({ page }) => {
-    await page.getByTestId("node-stage-Director Review").click();
-    await page.getByTestId("node-label").fill("Director & Registrar Review");
+    await page.getByTestId("node-stage-Final Approval").click();
+    await page.getByTestId("node-label").fill("Final Approval & Sign-off");
     await closeOverlays(page);
     await expect(
-      page.getByTestId("node-stage-Director & Registrar Review"),
+      page.getByTestId("node-stage-Final Approval & Sign-off"),
     ).toBeVisible();
   });
 
   test("adding an outcome adds a connector and flags it as unwired", async ({
     page,
   }) => {
-    await page.getByTestId("node-stage-Director Review").click();
+    await page.getByTestId("node-stage-Final Approval").click();
     await page.getByTestId("add-outcome").click();
     await page
       .getByRole("textbox", { name: "Outcome 3 label" })
@@ -129,7 +123,7 @@ test.describe("workflow builder canvas", () => {
     await closeOverlays(page);
 
     await expect(page.getByTestId("issue-list")).toContainText(
-      'Outcome "Defer to next cycle" on "Director Review" goes nowhere.',
+      'Outcome "Defer to next cycle" on "Final Approval" goes nowhere.',
     );
     await expect(page.getByTestId("publish-workflow")).toBeDisabled();
   });
@@ -150,7 +144,9 @@ test.describe("workflow builder canvas", () => {
     // Assigning one clears that particular complaint.
     await page.getByTestId("node-stage-New Review Stage").click();
     await page.getByTestId("node-role").click();
-    await page.getByRole("option", { name: "HR Officer", exact: true }).click();
+    await page
+      .getByRole("option", { name: "Compliance Officer", exact: true })
+      .click();
     await closeOverlays(page);
 
     await expect(page.getByTestId("issue-list")).not.toContainText(
@@ -170,7 +166,7 @@ test.describe("workflow builder canvas", () => {
   });
 
   test("saving a draft persists across a reload", async ({ page }) => {
-    await page.getByTestId("node-stage-Director Review").click();
+    await page.getByTestId("node-stage-Final Approval").click();
     await page.getByTestId("node-label").fill("Director Sign-off");
     await closeOverlays(page);
 
@@ -194,7 +190,7 @@ test.describe("workflow builder canvas", () => {
       }
     });
 
-    const node = page.getByTestId("node-stage-Director Review");
+    const node = page.getByTestId("node-stage-Final Approval");
     await expect(node).toBeVisible();
 
     const box = (await node.boundingBox())!;
@@ -221,7 +217,7 @@ test.describe("workflow builder canvas", () => {
   });
 
   test("reverting throws away draft edits", async ({ page }) => {
-    await page.getByTestId("node-stage-Director Review").click();
+    await page.getByTestId("node-stage-Final Approval").click();
     await page.getByTestId("node-label").fill("Temporary Name");
     await closeOverlays(page);
     await page.getByTestId("save-workflow").click();
@@ -229,7 +225,7 @@ test.describe("workflow builder canvas", () => {
 
     await page.getByTestId("revert-workflow").click();
     await expectToast(page, "Draft reset to the published version.");
-    await expect(page.getByTestId("node-stage-Director Review")).toBeVisible();
+    await expect(page.getByTestId("node-stage-Final Approval")).toBeVisible();
     await expect(page.getByTestId("node-stage-Temporary Name")).toHaveCount(0);
   });
 
@@ -261,7 +257,7 @@ test.describe("workflow builder canvas", () => {
 
     // The seed publishes version 1 with a memo of its own.
     await expect(page.getByTestId("version-1")).toContainText(
-      "Initial process: submission, the head delegating to an deputy and deciding on their recommendation, then HR, R&C, FD&W, the final HR declaration and the Director.",
+      "The example process a fresh install ships with: a department review that names an assessor, the assessment, the department decision, a compliance check and a final approval.",
     );
 
     // The live revision offers neither restoring nor deleting: it is what the
@@ -314,20 +310,16 @@ test.describe("form builder", () => {
   }) => {
     await openForm(page, "node-start");
 
-    // The lettered sections of STN 023 R5, in order.
+    // The example form's own steps, in order.
     await expect(page.getByTestId("section-tab-0")).toContainText(
-      "The Post Applied For",
+      "What you are asking for",
     );
-    await expect(page.getByTestId("section-tab-1")).toContainText(
-      "A. Personal & Employment Details",
+    await expect(page.getByTestId("section-tab-1")).toContainText("About you");
+    await expect(page.getByTestId("section-tab-2")).toContainText(
+      "What it costs",
     );
+    await expect(page.getByTestId("section-tab-4")).toContainText("Documents");
     await expect(page.getByTestId("section-tab-5")).toContainText(
-      "E. Research Accomplishments Checklist",
-    );
-    await expect(page.getByTestId("section-tab-9")).toContainText(
-      "Supporting Documents",
-    );
-    await expect(page.getByTestId("section-tab-10")).toContainText(
       "Declaration",
     );
   });
@@ -367,10 +359,8 @@ test.describe("form builder", () => {
     await page.getByTestId("section-tab-1").click();
     await expect(page.getByTestId("field-row-full_name")).toBeVisible();
 
-    await page.getByTestId("section-tab-4").click();
-    await expect(
-      page.getByTestId("field-row-total_publications"),
-    ).toBeVisible();
+    await page.getByTestId("section-tab-2").click();
+    await expect(page.getByTestId("field-row-cost_total")).toBeVisible();
     await expect(page.getByTestId("field-row-full_name")).toHaveCount(0);
   });
 
@@ -402,9 +392,9 @@ test.describe("form builder", () => {
 
     await page
       .getByRole("textbox", { name: "Label", exact: true })
-      .fill("Research Grant Value");
+      .fill("Team Budget Line");
     await expect(page.getByRole("textbox", { name: "Answer key" })).toHaveValue(
-      "research_grant_value",
+      "team_budget_line",
     );
   });
 
@@ -426,11 +416,11 @@ test.describe("form builder", () => {
     await openForm(page, "node-start");
 
     await page.getByTestId("add-section").click();
-    await expect(page.getByTestId("section-tab-11")).toBeVisible();
-    await expect(page.getByTestId("section-title")).toHaveValue("Section 12");
+    await expect(page.getByTestId("section-tab-6")).toBeVisible();
+    await expect(page.getByTestId("section-title")).toHaveValue("Section 7");
 
-    await page.getByRole("button", { name: "Delete Section 12" }).click();
-    await expect(page.getByTestId("section-tab-11")).toHaveCount(0);
+    await page.getByRole("button", { name: "Delete Section 7" }).click();
+    await expect(page.getByTestId("section-tab-6")).toHaveCount(0);
   });
 
   test("duplicating a field gives the copy its own key", async ({ page }) => {
@@ -444,7 +434,7 @@ test.describe("form builder", () => {
   test("deleting every field in a stage form leaves the node valid", async ({
     page,
   }) => {
-    await openForm(page, "node-stage-Director Review");
+    await openForm(page, "node-stage-Final Approval");
 
     await page.getByRole("button", { name: "Delete Remarks" }).click();
     await expect(page.getByTestId("field-row-remarks")).toHaveCount(0);

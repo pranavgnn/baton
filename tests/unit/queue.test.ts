@@ -8,7 +8,7 @@ const valid = {
   nodeId: "node_email_ack",
   nodeLabel: "Acknowledge Submission",
   templateId: "template-1",
-  recipients: ["faculty@manipal.edu"],
+  recipients: ["faculty@example.org"],
   variables: { applicant_name: "Dr. Anita Rao" },
 };
 
@@ -51,7 +51,7 @@ describe("emailJobSchema", () => {
   it("accepts a job with several recipients", () => {
     const parsed = emailJobSchema.safeParse({
       ...valid,
-      recipients: ["head@manipal.edu", "registrar@manipal.edu"],
+      recipients: ["head@example.org", "registrar@example.org"],
     });
     expect(parsed.success).toBe(true);
   });
@@ -59,7 +59,7 @@ describe("emailJobSchema", () => {
   it("keeps the template variables verbatim", () => {
     const variables = {
       applicant_name: "Dr. Anita Rao",
-      application_reference: "PROM-2026-0001",
+      application_reference: "APP-2026-0001",
       last_outcome: "Recommend",
     };
     const parsed = emailJobSchema.safeParse({ ...valid, variables });

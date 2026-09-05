@@ -90,7 +90,11 @@ describe("filling a form in for the applicant", () => {
     ],
   };
 
-  const profile = { name: "Test Employee", employeeId: "", department: "SOCE" };
+  const profile = {
+    name: "Test Applicant",
+    employeeId: "",
+    department: "SOCE",
+  };
 
   it("locks a field the account can answer, and leaves the rest alone", () => {
     const fields = form.sections[0].fields;
@@ -103,11 +107,11 @@ describe("filling a form in for the applicant", () => {
   it("writes account values over what was typed, but only where it has one", () => {
     const filled = applyPrefill(
       form,
-      { name: "Someone Else", employee_code: "MIT-1" },
+      { name: "Someone Else", employee_code: "EMP-1" },
       profile,
     );
-    expect(filled.name).toBe("Test Employee");
-    expect(filled.employee_code).toBe("MIT-1");
+    expect(filled.name).toBe("Test Applicant");
+    expect(filled.employee_code).toBe("EMP-1");
   });
 
   it("works out totals, including one per entry of a repeating group", () => {

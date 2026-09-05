@@ -28,7 +28,7 @@ export type Paginated<T> = {
 /**
  * Paginates an already-filtered list in the browser.
  *
- * The portal's lists are institute-sized - hundreds of people, not millions -
+ * The portal's lists are organisation-sized - hundreds of people, not millions -
  * so keeping the whole set client-side keeps search and filtering instant. If
  * a list ever outgrows that, this is the seam to move behind the server.
  */

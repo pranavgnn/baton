@@ -1,5 +1,5 @@
 {
-  "id": "500f1421-9a25-4292-a2f2-5928a1f7699e",
+  "id": "2966c555-4b2a-4d02-872a-f594ec976e6b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -1431,12 +1431,6 @@
         },
         "date_of_joining": {
           "name": "date_of_joining",
-          "type": "date",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "date_of_last_promotion": {
-          "name": "date_of_last_promotion",
           "type": "date",
           "primaryKey": false,
           "notNull": false

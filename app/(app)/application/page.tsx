@@ -23,7 +23,7 @@ import {
   refreshDraftToPublished,
 } from "@/lib/applications/service";
 import { requirePermission } from "@/lib/auth/session";
-import { promotionBar } from "@/lib/users/profile";
+import { applicationBar } from "@/lib/users/profile";
 import { accountProfile } from "@/lib/users/account-profile";
 import { nodeById, startNode } from "@/lib/workflow/graph";
 import {
@@ -61,8 +61,7 @@ export default async function ApplicationPage() {
           <Lock className="size-4" />
           <AlertTitle>Applications are not available yet</AlertTitle>
           <AlertDescription>
-            The promotion workflow has not been published. Please check back
-            later.
+            No workflow has been published yet. Please check back later.
           </AlertDescription>
         </Alert>
       </div>
@@ -72,13 +71,13 @@ export default async function ApplicationPage() {
   /* Not eligible at all ---------------------------------------------------- */
   // Said plainly, and before anything else: a button that always fails is
   // worse than no button.
-  const barred = promotionBar(current.userType);
+  const barred = applicationBar(current.userType);
   if (barred && !open) {
     return (
       <div className="app-shell section-stack">
         <div className="page-header">
           <div>
-            <h1 className="page-title">Promotion application</h1>
+            <h1 className="page-title">Your application</h1>
             <p className="page-subtitle">
               Signed in as {current.name}
               {current.designation ? `, ${current.designation}` : ""}.
@@ -88,7 +87,7 @@ export default async function ApplicationPage() {
 
         <Alert data-testid="not-eligible">
           <Lock className="size-4" />
-          <AlertTitle>You cannot apply for a promotion</AlertTitle>
+          <AlertTitle>You cannot apply</AlertTitle>
           <AlertDescription>
             {barred} If your employment has changed, ask an administrator to
             update your record.
@@ -106,7 +105,7 @@ export default async function ApplicationPage() {
       <div className="app-shell section-stack">
         <div className="page-header">
           <div>
-            <h1 className="page-title">Promotion application</h1>
+            <h1 className="page-title">Your application</h1>
             <p className="page-subtitle">
               {published.acceptingApplications
                 ? "Applications are open."
@@ -119,7 +118,7 @@ export default async function ApplicationPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="size-4" />
-              Start your promotion application
+              Start your application
             </CardTitle>
             <CardDescription>
               You can save your progress at any point and finish later. Nothing

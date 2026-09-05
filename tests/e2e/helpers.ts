@@ -5,24 +5,16 @@ import { expect, type Page } from "@playwright/test";
 /** One account per role in the seeded process, plus the Super Admin. */
 export const ACCOUNTS = {
   superAdmin: {
-    email: process.env.SUPER_ADMIN_EMAIL ?? "superadmin@manipal.edu",
+    email: process.env.SUPER_ADMIN_EMAIL ?? "admin@example.org",
     password: process.env.SUPER_ADMIN_PASSWORD ?? "SuperAdmin@123",
   },
-  employee: { email: "employee@manipal.edu", password: "Portal@123" },
-  head: { email: "head@manipal.edu", password: "Portal@123" },
-  deputy: {
-    email: "associatehead@manipal.edu",
-    password: "Portal@123",
-  },
-  deputy2: {
-    email: "associatehead2@manipal.edu",
-    password: "Portal@123",
-  },
-  hr: { email: "hr@manipal.edu", password: "Portal@123" },
-  rc: { email: "rc@manipal.edu", password: "Portal@123" },
-  fdw: { email: "fdw@manipal.edu", password: "Portal@123" },
-  director: { email: "director@manipal.edu", password: "Portal@123" },
-  instituteHr: { email: "institutehr@manipal.edu", password: "Portal@123" },
+  applicant: { email: "applicant@example.org", password: "Portal@123" },
+  head: { email: "head@example.org", password: "Portal@123" },
+  deputy: { email: "deputy@example.org", password: "Portal@123" },
+  deputy2: { email: "deputy2@example.org", password: "Portal@123" },
+  compliance: { email: "compliance@example.org", password: "Portal@123" },
+  approver: { email: "approver@example.org", password: "Portal@123" },
+  records: { email: "records@example.org", password: "Portal@123" },
 } as const;
 
 export type AccountName = keyof typeof ACCOUNTS;

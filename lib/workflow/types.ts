@@ -236,7 +236,8 @@ export type NomineePool = z.infer<typeof nomineePoolSchema>;
 /**
  * Which holders of a role a step or a notification actually reaches.
  *
- * A role is institute-wide, but many of the posts that hold one are not: there
+ * A role covers the whole organisation, but many of the posts that hold one do
+ * not: there
  * is a head of every department, and an application concerns exactly one of them.
  * Narrowing by department is therefore a property of the step, not something the
  * process can be trusted to arrange by having a separate role per department.

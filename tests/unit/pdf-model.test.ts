@@ -37,7 +37,7 @@ describe("printable sections", () => {
         ],
       },
       {
-        name: "Test Employee",
+        name: "Test Applicant",
         code: "TEST-1",
         quals: [{ degree: "PhD", year: 2019 }],
         note: "None",
@@ -55,7 +55,7 @@ describe("printable sections", () => {
     const [particulars, quals] = sections[0].blocks;
     expect(particulars).toMatchObject({
       rows: [
-        { label: "Full name", value: "Test Employee" },
+        { label: "Full name", value: "Test Applicant" },
         { label: "Employee code", value: "TEST-1" },
       ],
     });
@@ -198,12 +198,12 @@ describe("the document as a whole", () => {
     buildPdfModel({
       graph,
       data,
-      reference: "PROM-2026-0001",
+      reference: "APP-2026-0001",
       status: "In progress",
       applicant: {
-        name: "Test Employee",
-        email: "employee@manipal.edu",
-        designation: "Assistant Professor",
+        name: "Test Applicant",
+        email: "employee@example.org",
+        designation: "Senior Engineer",
       },
       signatures: { [stageId]: { name: "Test Head", at: "2 Sep 2026" } },
       generatedAt: "2 Sep 2026",
@@ -242,6 +242,6 @@ describe("the document as a whole", () => {
   });
 
   it("names the applicant under the reference", () => {
-    expect(model({}).applicantLine).toBe("Test Employee · Assistant Professor");
+    expect(model({}).applicantLine).toBe("Test Applicant · Senior Engineer");
   });
 });
